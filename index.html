@@ -2865,7 +2865,7 @@
     <script src="js/cloud-media-migration.js"></script>
     <script src="js/cloud-sync-ui.js"></script>
     <script>
-     // ========== 经期记录核心代码（日历版） ==========
+        // ========== 经期记录核心代码（日历版） ==========
 const Menstrual = {
     data: [],
     init() {
@@ -2919,10 +2919,8 @@ const Menstrual = {
             this.data = this.data.filter(item => item.type !== 'predicted');
             this._startNewPeriod(date, flow, symptoms);
         } else {
-            const predRec = this.data.find(item => item.date === date && item.type === 'predicted');
-            if (predRec) {
-                this.data = this.data.filter(item => !(item.date === date && item.type === 'predicted'));
-            }
+            // 在窗口内，直接转为实际
+            this.data = this.data.filter(item => !(item.date === date));
             this.data.push({ date, flow, symptoms: symptoms || [], type: 'actual' });
             this.save();
             this.renderAll();
@@ -2938,20 +2936,20 @@ const Menstrual = {
             const end = new Date(today);
             while (current <= end) {
                 const d = current.toISOString().split('T')[0];
-                if (!this.getRecord(d)) {
-                    const isStart = (d === startDate);
-                    this.data.push({
-                        date: d,
-                        flow: isStart ? flow : '中',
-                        symptoms: isStart ? symptoms : [],
-                        type: 'actual'
-                    });
-                }
+                this.data = this.data.filter(item => item.date !== d); // 清除旧记录
+                const isStart = (d === startDate);
+                this.data.push({
+                    date: d,
+                    flow: isStart ? flow : '中',
+                    symptoms: isStart ? symptoms : [],
+                    type: 'actual'
+                });
                 current.setDate(current.getDate() + 1);
             }
 
             const passedDays = Math.floor((new Date(today) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
             const remaining = 7 - passedDays;
+            // 清除旧预测
             this.data = this.data.filter(item => item.type !== 'predicted');
 
             if (remaining > 0) {
@@ -2966,6 +2964,7 @@ const Menstrual = {
                 }
             }
         } else {
+            this.data = this.data.filter(item => item.date !== date);
             this.data.push({ date, flow, symptoms: symptoms || [], type: 'actual' });
             let next = new Date(date);
             next.setDate(next.getDate() + 1);
@@ -2983,29 +2982,8 @@ const Menstrual = {
 
     deleteRecord(date) {
         this.data = this.data.filter(item => item.date !== date);
-        const hasPred = this.data.some(item => item.type === 'predicted');
-        if (!hasPred) {
-            const actuals = this.getActualDates();
-            if (actuals.length > 0) {
-                const lastStart = this.getLastPeriodStart();
-                if (lastStart) {
-                    const today = new Date().toISOString().split('T')[0];
-                    const passedDays = Math.floor((new Date(today) - new Date(lastStart)) / (1000*60*60*24)) + 1;
-                    const remaining = 7 - passedDays;
-                    if (remaining > 0) {
-                        let next = new Date(today);
-                        next.setDate(next.getDate() + 1);
-                        for (let i = 0; i < remaining; i++) {
-                            const d = next.toISOString().split('T')[0];
-                            if (!this.getRecord(d)) {
-                                this.data.push({ date: d, flow: '中', symptoms: [], type: 'predicted' });
-                            }
-                            next.setDate(next.getDate() + 1);
-                        }
-                    }
-                }
-            }
-        }
+        // 删除后，如果该日期在窗口内，可能会造成缺口，我们调用补全
+        this.ensurePeriodContinuity();
         this.save();
         this.renderAll();
     },
@@ -3092,17 +3070,16 @@ const Menstrual = {
         this.renderAll();
     },
 
-    // 🔧 新增：自动补全从开始日到今天的所有日期为实际经期
+    // 补全从开始日到今天的所有日期为实际，并重新生成预测
     ensurePeriodContinuity() {
         const today = new Date().toISOString().split('T')[0];
         const lastStart = this.getLastPeriodStart();
         if (!lastStart) return;
 
-        // 检查今天是否在经期窗口内（从开始日算起7天内）
         const diff = Math.floor((new Date(today) - new Date(lastStart)) / (1000 * 60 * 60 * 24)) + 1;
-        if (diff < 1 || diff > 7) return; // 不在窗口内，无需补全
+        if (diff < 1 || diff > 7) return;
 
-        // 从开始日到今天的每一天，如果不存在或是预测状态，转为实际
+        // 清除从开始日到今天的预测记录，强制设为实际
         let changed = false;
         let current = new Date(lastStart);
         const end = new Date(today);
@@ -3111,14 +3088,14 @@ const Menstrual = {
             const existing = this.getRecord(d);
             if (existing) {
                 if (existing.type === 'predicted') {
-                    // 预测 → 实际
+                    // 预测转实际
                     this.data = this.data.filter(item => item.date !== d);
                     this.data.push({ date: d, flow: existing.flow || '中', symptoms: existing.symptoms || [], type: 'actual' });
                     changed = true;
                 }
-                // 如果已经是 actual，保持
+                // 实际保持不变
             } else {
-                // 不存在 → 添加实际
+                // 缺失，添加实际
                 this.data.push({ date: d, flow: '中', symptoms: [], type: 'actual' });
                 changed = true;
             }
@@ -3126,9 +3103,9 @@ const Menstrual = {
         }
 
         if (changed) {
-            // 重新生成预测：从今天+1天开始，补足到7天总长
+            // 清除所有预测，重新生成剩余天数
             this.data = this.data.filter(item => item.type !== 'predicted');
-            const passedDays = Math.floor((new Date(today) - new Date(lastStart)) / (1000 * 60 * 60 * 24)) + 1;
+            const passedDays = diff;
             const remaining = 7 - passedDays;
             if (remaining > 0) {
                 let next = new Date(today);
@@ -3146,6 +3123,8 @@ const Menstrual = {
     },
 
     renderAll() {
+        // 先补全再渲染
+        this.ensurePeriodContinuity();
         renderMenstrualCalendar(menstrualCurrentYear, menstrualCurrentMonth);
         updateMenstrualTodayStatus();
         updateMenstrualStats();
@@ -3319,7 +3298,7 @@ function showMenstrualStats() {
     alert('📊 经期统计功能开发中...');
 }
 
-// ========== 🔧 关键修改：打开弹窗时自动补全今日 ==========
+// ========== 打开弹窗 ==========
 function openMenstrualModal() {
     if (typeof showModal === 'function') {
         showModal(document.getElementById('menstrualModal'));
@@ -3331,18 +3310,13 @@ function openMenstrualModal() {
     menstrualCurrentYear = today.getFullYear();
     menstrualCurrentMonth = today.getMonth();
     Menstrual.init();
-    
-    // 🔧 自动补全从开始日到今天的实际经期
+    // 确保补全
     Menstrual.ensurePeriodContinuity();
-    
-    // 如果没有任何实际记录但有预测，则清理
-    const actuals = Menstrual.getActualDates();
-    if (actuals.length === 0) {
-        // 清除所有预测
+    // 如果没有任何实际记录，清除预测
+    if (Menstrual.getActualDates().length === 0) {
         Menstrual.data = Menstrual.data.filter(item => item.type !== 'predicted');
         Menstrual.save();
     }
-    
     renderMenstrualCalendar(menstrualCurrentYear, menstrualCurrentMonth);
     updateMenstrualTodayStatus();
     updateMenstrualStats();
@@ -3357,7 +3331,7 @@ function closeMenstrualModal() {
     }
 }
 
-// ========== 经期详情弹窗（按钮选择版） ==========
+// ========== 经期详情弹窗 ==========
 let menstrualDetailDate = '';
 let menstrualDetailFlow = '中';
 let menstrualDetailSymptoms = [];
@@ -3500,6 +3474,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 // ========== /经期记录核心代码（日历版） ==========
+        
     </script>
     <script src="js/app.js"></script>
         <!-- ========== 经期记录弹窗（日历版） ========== -->
@@ -3648,19 +3623,32 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 <!-- ========== /经期记录详情弹窗（按钮选择版） ========== -->
         <script>
-// 键盘弹出时调整输入框位置
+// ========== 键盘弹出自适应（适用于 WebView / APP） ==========
 (function() {
-    var inputArea = document.querySelector('.input-area-wrapper');
-    if (!inputArea) return;
+    // 获取输入框容器（请根据实际 HTML 结构调整选择器）
+    var inputWrapper = document.querySelector('.input-area-wrapper');
+    if (!inputWrapper) {
+        // 如果找不到，尝试备用选择器
+        inputWrapper = document.querySelector('.input-area');
+    }
+    if (!inputWrapper) {
+        console.warn('未找到输入区域，键盘适配可能无效');
+        return;
+    }
 
+    // 保存原始 bottom 值（如果使用了 fixed 定位）
+    var originalBottom = inputWrapper.style.bottom || '0px';
+
+    // 方法1：使用 VisualViewport API（现代浏览器）
     if (window.visualViewport) {
         var lastHeight = window.visualViewport.height;
         window.visualViewport.addEventListener('resize', function() {
             var currentHeight = window.visualViewport.height;
-            var diff = lastHeight - currentHeight; // 键盘高度
-            if (diff > 50) { // 键盘弹出（高度变化 > 50px）
-                inputArea.style.bottom = diff + 'px';
-                // 同时让聊天区域滚动到底部，确保最新消息可见
+            var diff = lastHeight - currentHeight; // 键盘高度（像素）
+            if (diff > 50) {
+                // 键盘弹出
+                inputWrapper.style.bottom = diff + 'px';
+                // 滚动聊天区到底部
                 var chatContainer = document.getElementById('chat-container');
                 if (chatContainer) {
                     setTimeout(function() {
@@ -3668,10 +3656,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     }, 100);
                 }
             } else {
-                inputArea.style.bottom = '0';
+                // 键盘收起
+                inputWrapper.style.bottom = originalBottom;
             }
             lastHeight = currentHeight;
         });
+    } else {
+        // 方法2：备用方案 - 使用 focus 事件滚动
+        var textInput = document.querySelector('#message-input, .message-input, textarea');
+        if (textInput) {
+            textInput.addEventListener('focus', function() {
+                setTimeout(function() {
+                    inputWrapper.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }, 300);
+            });
+        }
     }
 })();
         </script>
