@@ -2865,10 +2865,10 @@
     <script src="js/cloud-media-migration.js"></script>
     <script src="js/cloud-sync-ui.js"></script>
     <script>
-       // ========== 经期记录核心代码（日历版） ==========
+        // ========== 经期记录核心代码（日历版） ==========
 const Menstrual = {
     data: [],
-    endDate: null, // 用户手动设置的结束日期
+    endDate: null, // 用户手动设置的结束日期（仅当点击“结束”时设置）
 
     init() {
         const saved = localStorage.getItem('menstrual_records');
@@ -2903,9 +2903,8 @@ const Menstrual = {
             this.data = this.data.filter(item => item.date !== date);
         }
 
-        // 如果有结束日期，且新日期在结束日期之后，则不允许添加为实际（或作为新周期开始）
+        // 如果有结束日期，且新日期在结束日期之后，则视为新周期开始
         if (this.endDate && date > this.endDate) {
-            // 视为新周期开始，清除结束标记并重新开始
             this.endDate = null;
         }
 
@@ -2938,6 +2937,7 @@ const Menstrual = {
         const startDate = date;
         this.data = this.data.filter(item => item.type !== 'predicted');
 
+        // 补全从开始日到今天的实际记录
         if (startDate < today) {
             let current = new Date(startDate);
             const end = new Date(today);
@@ -2954,6 +2954,7 @@ const Menstrual = {
                 current.setDate(current.getDate() + 1);
             }
 
+            // 生成从明天到开始日+6天的预测
             const passedDays = Math.floor((new Date(today) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
             const remaining = 7 - passedDays;
             if (remaining > 0) {
@@ -2968,6 +2969,7 @@ const Menstrual = {
                 }
             }
         } else {
+            // 标记今天或未来，直接添加实际，并生成后6天预测
             this.data.push({ date, flow, symptoms: symptoms || [], type: 'actual' });
             let next = new Date(date);
             next.setDate(next.getDate() + 1);
@@ -2985,7 +2987,6 @@ const Menstrual = {
 
     deleteRecord(date) {
         this.data = this.data.filter(item => item.date !== date);
-        // 如果删除的是结束日期当天，清除结束标记
         if (this.endDate === date) {
             this.endDate = null;
         }
@@ -3070,10 +3071,9 @@ const Menstrual = {
         return dates;
     },
 
-    // ---------- 修改结束逻辑 ----------
+    // ---------- 结束逻辑：将今天作为最后一天，清除后续预测 ----------
     endPeriod() {
         const today = new Date().toISOString().split('T')[0];
-        // 将今天标记为实际（如果还不是）
         const existing = this.getRecord(today);
         if (!existing || existing.type !== 'actual') {
             this.data = this.data.filter(item => item.date !== today);
@@ -3086,13 +3086,12 @@ const Menstrual = {
             }
             return true;
         });
-        // 设置结束日期为今天
         this.endDate = today;
         this.save();
         this.renderAll();
     },
 
-    // ---------- 补全逻辑（考虑结束日期） ----------
+    // ---------- 补全逻辑（仅当用户手动结束时有 endDate 限制） ----------
     ensurePeriodContinuity() {
         console.log('执行 ensurePeriodContinuity...');
         const today = new Date().toISOString().split('T')[0];
@@ -3108,19 +3107,16 @@ const Menstrual = {
             console.log('使用最早实际记录作为开始日:', lastStart);
         }
 
-        // 确定结束日期：如果有手动结束日期，则使用；否则按开始日+6天
+        // 确定结束日期：如果用户手动结束，则使用 endDate；否则按开始日+6天（完整周期）
         let endDate = this.endDate;
         if (!endDate) {
+            // 没有手动结束，则周期结束为开始日+6天，但今天可能还没到，所以用开始日+6天
             const start = new Date(lastStart);
             start.setDate(start.getDate() + 6);
             endDate = start.toISOString().split('T')[0];
-            // 但今天如果在开始日+6天之前，则不补全到7天，只补全到今天
-            if (today < endDate) {
-                endDate = today;
-            }
         }
 
-        // 确保从开始日到结束日之间的日期都是 actual
+        // 补全从开始日到结束日（含）之间的实际记录
         let changed = false;
         let current = new Date(lastStart);
         const end = new Date(endDate);
@@ -3142,12 +3138,14 @@ const Menstrual = {
             current.setDate(current.getDate() + 1);
         }
 
-        // 清除结束日期之后的所有预测
-        const toRemove = this.data.filter(item => item.type === 'predicted' && item.date > endDate);
-        if (toRemove.length > 0) {
-            console.log('清除结束日期之后的预测:', toRemove.map(r => r.date));
-            this.data = this.data.filter(item => !(item.type === 'predicted' && item.date > endDate));
-            changed = true;
+        // 清除结束日期之后的所有预测（如果有手动结束，保证预测不会超出）
+        if (this.endDate) {
+            const toRemove = this.data.filter(item => item.type === 'predicted' && item.date > this.endDate);
+            if (toRemove.length > 0) {
+                console.log('清除结束日期之后的预测:', toRemove.map(r => r.date));
+                this.data = this.data.filter(item => !(item.type === 'predicted' && item.date > this.endDate));
+                changed = true;
+            }
         }
 
         if (changed) {
@@ -3235,7 +3233,7 @@ function selectMenstrualDate(dateStr) {
     openMenstrualDetail(dateStr);
 }
 
-// ========== 今日状态更新（考虑结束日期） ==========
+// ========== 今日状态更新 ==========
 function updateMenstrualTodayStatus() {
     const label = document.getElementById('menstrual-today-label');
     const badge = document.getElementById('menstrual-status-badge');
@@ -3247,7 +3245,7 @@ function updateMenstrualTodayStatus() {
         const endDate = Menstrual.endDate;
         let end = endDate ? new Date(endDate) : new Date(lastStart);
         if (!endDate) {
-            end.setDate(end.getDate() + 6); // 未结束则按7天窗口
+            end.setDate(end.getDate() + 6);
         }
         const start = new Date(lastStart);
         const todayDate = new Date(today);
@@ -3303,7 +3301,7 @@ function updateMenstrualStats() {
 }
 
 function endMenstrualPeriod() {
-    if (confirm('结束当前经期？这将清除之后的预测，今天将作为最后一天。')) {
+    if (confirm('结束当前经期？今天将作为最后一天，之后的预测将清除。')) {
         Menstrual.endPeriod();
     }
 }
@@ -3514,6 +3512,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 // ========== /经期记录核心代码（日历版） ==========
+                           
+             
     </script>
     <script src="js/app.js"></script>
         <!-- ========== 经期记录弹窗（日历版） ========== -->
@@ -3661,6 +3661,8 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>
 <!-- ========== /经期记录详情弹窗（按钮选择版） ========== -->
+        
+            
         
 </body>
 </html>
