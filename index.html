@@ -2882,58 +2882,166 @@ const Menstrual = {
     getRecord(date) {
         return this.data.find(item => item.date === date) || null;
     },
+    // 核心添加方法：处理实际记录，自动补全过去和预测未来
     addRecord(date, flow, symptoms, type = 'actual') {
+        if (type !== 'actual') {
+            // 非实际记录（预测）直接添加
+            const index = this.data.findIndex(item => item.date === date);
+            const record = { date, flow, symptoms: symptoms || [], type };
+            if (index > -1) this.data[index] = record;
+            else this.data.push(record);
+            this.save();
+            this.renderAll();
+            return;
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        const startDate = date;
+
+        // 如果标记日期早于今天（过去）
+        if (startDate < today) {
+            // 1. 从 startDate 到 today（含）全部标记为实际
+            let current = new Date(startDate);
+            const end = new Date(today);
+            while (current <= end) {
+                const d = current.toISOString().split('T')[0];
+                if (!this.getRecord(d)) {
+                    // 标记日使用用户提供的 flow 和 symptoms，其他日期默认
+                    const isStart = (d === startDate);
+                    this.data.push({
+                        date: d,
+                        flow: isStart ? flow : '中',
+                        symptoms: isStart ? symptoms : [],
+                        type: 'actual'
+                    });
+                }
+                current.setDate(current.getDate() + 1);
+            }
+
+            // 2. 计算已过天数（包括今天）
+            const passedDays = Math.floor((new Date(today) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
+            const remaining = 7 - passedDays; // 剩余预测天数
+
+            // 3. 从明天开始预测 remaining 天（如果 > 0）
+            if (remaining > 0) {
+                let next = new Date(today);
+                next.setDate(next.getDate() + 1);
+                for (let i = 0; i < remaining; i++) {
+                    const d = next.toISOString().split('T')[0];
+                    if (!this.getRecord(d)) {
+                        this.data.push({ date: d, flow: '中', symptoms: [], type: 'predicted' });
+                    }
+                    next.setDate(next.getDate() + 1);
+                }
+            }
+            // 清除可能残留的旧预测（避免混乱）
+            // 但我们已经手动添加了预测，可以不用额外清除
+            this.save();
+            this.renderAll();
+            return;
+        }
+
+        // 标记日 >= 今天（今天或未来）
+        // ① 先处理已有记录（覆盖）
         const index = this.data.findIndex(item => item.date === date);
-        const record = { date, flow, symptoms: symptoms || [], type };
-        if (index > -1) {
-            this.data[index] = record;
-        } else {
-            this.data.push(record);
+        const record = { date, flow, symptoms: symptoms || [], type: 'actual' };
+        if (index > -1) this.data[index] = record;
+        else this.data.push(record);
+
+        // ② 生成预测：从 date 后一天起，共6天（总周期7天）
+        // 清除旧预测（通常预测由 generatePredictions 管理）
+        // 为了简洁，我们直接生成
+        this.clearPredictions();
+        let next = new Date(date);
+        next.setDate(next.getDate() + 1);
+        for (let i = 0; i < 6; i++) {
+            const d = next.toISOString().split('T')[0];
+            if (!this.getRecord(d)) {
+                this.data.push({ date: d, flow: '中', symptoms: [], type: 'predicted' });
+            }
+            next.setDate(next.getDate() + 1);
         }
         this.save();
-        if (type === 'actual') {
-            this.generatePredictions(date);
-        }
         this.renderAll();
     },
+
+    // 清除所有预测
+    clearPredictions() {
+        this.data = this.data.filter(item => item.type !== 'predicted');
+        this.save();
+    },
+
+    // 删除记录（自动清除关联预测）
     deleteRecord(date) {
         this.data = this.data.filter(item => item.date !== date);
-        this.save();
-        this.renderAll();
-    },
-    getActualDates() {
-        return this.data.filter(item => item.type === 'actual').map(item => item.date).sort();
-    },
-    generatePredictions(startDate) {
-        // 清除所有旧的预测
-        this.data = this.data.filter(item => item.type !== 'predicted');
+        // 如果删除的是实际记录，且是最近一次，可能需要重新生成预测，但为了简单，清除所有预测并重新生成
+        // 但我们只删单条，不清除全部预测，只是该天移除，预测可能仍保留，但为了整洁，我们重新生成预测
+        // 实际项目中可优化，这里我们直接清除所有预测并基于当前实际记录重新生成
         const actuals = this.getActualDates();
-        if (actuals.length === 0) return;
-        const lastActual = actuals[actuals.length - 1];
-        const today = new Date();
-        const start = new Date(lastActual);
-        const totalPeriodDays = 7;
-        let daysToPredict = totalPeriodDays - 1; // 6天（不包括标记日）
-        const daysDiff = Math.floor((today - start) / (1000*60*60*24));
-        if (daysDiff >= totalPeriodDays) {
-            daysToPredict = daysDiff;
-        }
-        daysToPredict = Math.min(daysToPredict, 14);
-        for (let i = 1; i <= daysToPredict; i++) {
-            const d = new Date(start);
-            d.setDate(d.getDate() + i);
-            const dateStr = d.toISOString().split('T')[0];
-            if (!this.getRecord(dateStr)) {
-                this.data.push({ date: dateStr, flow: '中', symptoms: [], type: 'predicted' });
+        if (actuals.length > 0) {
+            // 清除旧预测
+            this.data = this.data.filter(item => item.type !== 'predicted');
+            // 基于最近一次实际记录生成预测（但需判断是否今天或未来）
+            const lastActual = actuals[actuals.length - 1];
+            const today = new Date().toISOString().split('T')[0];
+            if (lastActual <= today) {
+                // 如果最后实际日期 <= 今天，则根据情况补全或生成预测
+                // 简单起见，调用 addRecord 重新处理？但可能递归，我们直接生成预测
+                // 使用新的生成逻辑：如果 lastActual < today，则补全过去并预测未来
+                if (lastActual < today) {
+                    // 重新补全过去（从 lastActual 到 today）
+                    let current = new Date(lastActual);
+                    const end = new Date(today);
+                    while (current <= end) {
+                        const d = current.toISOString().split('T')[0];
+                        if (!this.getRecord(d)) {
+                            this.data.push({ date: d, flow: '中', symptoms: [], type: 'actual' });
+                        }
+                        current.setDate(current.getDate() + 1);
+                    }
+                    // 计算剩余预测
+                    const passedDays = Math.floor((new Date(today) - new Date(lastActual)) / (1000*60*60*24)) + 1;
+                    const remaining = 7 - passedDays;
+                    if (remaining > 0) {
+                        let next = new Date(today);
+                        next.setDate(next.getDate() + 1);
+                        for (let i = 0; i < remaining; i++) {
+                            const d = next.toISOString().split('T')[0];
+                            if (!this.getRecord(d)) {
+                                this.data.push({ date: d, flow: '中', symptoms: [], type: 'predicted' });
+                            }
+                            next.setDate(next.getDate() + 1);
+                        }
+                    }
+                } else {
+                    // lastActual == today，生成6天预测
+                    let next = new Date(today);
+                    next.setDate(next.getDate() + 1);
+                    for (let i = 0; i < 6; i++) {
+                        const d = next.toISOString().split('T')[0];
+                        if (!this.getRecord(d)) {
+                            this.data.push({ date: d, flow: '中', symptoms: [], type: 'predicted' });
+                        }
+                        next.setDate(next.getDate() + 1);
+                    }
+                }
             }
         }
         this.save();
+        this.renderAll();
     },
+
+    getActualDates() {
+        return this.data.filter(item => item.type === 'actual').map(item => item.date).sort();
+    },
+
+    // 结束经期：清除所有预测
     endPeriod() {
         this.data = this.data.filter(item => item.type !== 'predicted');
         this.save();
         this.renderAll();
     },
+
     renderAll() {
         renderMenstrualCalendar(menstrualCurrentYear, menstrualCurrentMonth);
         updateMenstrualTodayStatus();
@@ -2941,9 +3049,11 @@ const Menstrual = {
     }
 };
 
+// ========== 全局状态 ==========
 let menstrualCurrentYear = new Date().getFullYear();
 let menstrualCurrentMonth = new Date().getMonth();
 
+// ========== 渲染日历 ==========
 function renderMenstrualCalendar(year, month) {
     const grid = document.getElementById('menstrual-calendar-grid');
     if (!grid) return;
@@ -3104,12 +3214,56 @@ function openMenstrualModal() {
     menstrualCurrentYear = today.getFullYear();
     menstrualCurrentMonth = today.getMonth();
     Menstrual.init();
+    // 自动检查是否需要补全（如果存在实际记录但无预测）
     const actuals = Menstrual.getActualDates();
     if (actuals.length > 0) {
         const hasPred = Menstrual.data.some(item => item.type === 'predicted');
         if (!hasPred) {
+            // 重新生成预测逻辑（与 delete 类似）
+            // 简单调用 addRecord 可能重复，我们直接调用内部逻辑
+            // 这里为了简便，重新执行一次补全逻辑
             const lastActual = actuals[actuals.length - 1];
-            Menstrual.generatePredictions(lastActual);
+            const todayStr = today.toISOString().split('T')[0];
+            if (lastActual < todayStr) {
+                // 补全过去和预测未来
+                // 由于 addRecord 会清除旧预测并重新生成，我们直接调用 addRecord 但会覆盖已有记录，不太好。
+                // 我们手动补全
+                let current = new Date(lastActual);
+                const end = new Date(todayStr);
+                while (current <= end) {
+                    const d = current.toISOString().split('T')[0];
+                    if (!Menstrual.getRecord(d)) {
+                        Menstrual.data.push({ date: d, flow: '中', symptoms: [], type: 'actual' });
+                    }
+                    current.setDate(current.getDate() + 1);
+                }
+                const passedDays = Math.floor((new Date(todayStr) - new Date(lastActual)) / (1000*60*60*24)) + 1;
+                const remaining = 7 - passedDays;
+                if (remaining > 0) {
+                    let next = new Date(todayStr);
+                    next.setDate(next.getDate() + 1);
+                    for (let i = 0; i < remaining; i++) {
+                        const d = next.toISOString().split('T')[0];
+                        if (!Menstrual.getRecord(d)) {
+                            Menstrual.data.push({ date: d, flow: '中', symptoms: [], type: 'predicted' });
+                        }
+                        next.setDate(next.getDate() + 1);
+                    }
+                }
+                Menstrual.save();
+            } else if (lastActual === todayStr) {
+                // 生成6天预测
+                let next = new Date(todayStr);
+                next.setDate(next.getDate() + 1);
+                for (let i = 0; i < 6; i++) {
+                    const d = next.toISOString().split('T')[0];
+                    if (!Menstrual.getRecord(d)) {
+                        Menstrual.data.push({ date: d, flow: '中', symptoms: [], type: 'predicted' });
+                    }
+                    next.setDate(next.getDate() + 1);
+                }
+                Menstrual.save();
+            }
         }
     }
     renderMenstrualCalendar(menstrualCurrentYear, menstrualCurrentMonth);
