@@ -2865,7 +2865,8 @@
     <script src="js/cloud-media-migration.js"></script>
     <script src="js/cloud-sync-ui.js"></script>
     <script>
-        // ========== 经期记录核心代码（日历版） ==========
+        
+    // ========== 经期记录核心代码（日历版） ==========
 const Menstrual = {
     data: [],
     init() {
@@ -2881,7 +2882,6 @@ const Menstrual = {
         if (index > -1) this.data[index] = record;
         else this.data.push(record);
         this.save();
-        // 刷新日历和统计
         renderMenstrualCalendar(menstrualCurrentYear, menstrualCurrentMonth);
         updateMenstrualStats();
     },
@@ -2903,11 +2903,9 @@ const Menstrual = {
     }
 };
 
-// ========== 日历状态 ==========
 let menstrualCurrentYear = new Date().getFullYear();
 let menstrualCurrentMonth = new Date().getMonth();
 
-// ========== 渲染日历 ==========
 function renderMenstrualCalendar(year, month) {
     const grid = document.getElementById('menstrual-calendar-grid');
     if (!grid) return;
@@ -2916,11 +2914,9 @@ function renderMenstrualCalendar(year, month) {
     const today = new Date();
     const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
     
-    // 更新标题
     const label = document.getElementById('menstrual-month-label');
     if (label) label.textContent = year + '年' + (month+1) + '月';
     
-    // 获取当前月份的记录
     const monthRecords = Menstrual.data.filter(item => {
         const d = new Date(item.date);
         return d.getFullYear() === year && d.getMonth() === month;
@@ -2928,17 +2924,14 @@ function renderMenstrualCalendar(year, month) {
     const recordDates = new Set(monthRecords.map(r => r.date));
     
     let html = '';
-    // 填充空白
     for (let i = 0; i < firstDay; i++) {
         html += '<div style="padding:6px 0; text-align:center;"></div>';
     }
-    // 填充日期
     for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
         const isToday = dateStr === todayStr;
         const hasRecord = recordDates.has(dateStr);
         let dotColor = hasRecord ? '#ff6b6b' : '';
-        // 可在此扩展预测逻辑
         
         html += `<div style="padding:4px 0; text-align:center; position:relative; ${isToday ? 'background:rgba(var(--accent-color-rgb),0.15); border-radius:50%;' : ''}">
             <span style="font-size:14px; font-weight:${isToday ? '700' : '400'}; color:${isToday ? 'var(--accent-color)' : 'var(--text-primary)'}; cursor:pointer;" onclick="selectMenstrualDate('${dateStr}')">${d}</span>
@@ -2947,12 +2940,10 @@ function renderMenstrualCalendar(year, month) {
     }
     grid.innerHTML = html;
     
-    // 更新今日状态
     updateMenstrualTodayStatus();
     updateMenstrualStats();
 }
 
-// ========== 月份切换 ==========
 function changeMenstrualMonth(delta) {
     menstrualCurrentMonth += delta;
     if (menstrualCurrentMonth < 0) { menstrualCurrentMonth = 11; menstrualCurrentYear--; }
@@ -2960,14 +2951,17 @@ function changeMenstrualMonth(delta) {
     renderMenstrualCalendar(menstrualCurrentYear, menstrualCurrentMonth);
 }
 
-// ========== 点击日期 ==========
 function selectMenstrualDate(dateStr) {
-    const dateInput = document.getElementById('recordDate');
-    if (dateInput) dateInput.value = dateStr;
-    alert('已选中 ' + dateStr + '，点击"+ 记录"添加详情');
+    const existing = Menstrual.getRecord(dateStr);
+    if (existing) {
+        if (confirm(`删除 ${dateStr} 的经期记录吗？`)) {
+            Menstrual.deleteRecord(dateStr);
+        }
+    } else {
+        Menstrual.addRecord(dateStr, '中', []);
+    }
 }
 
-// ========== 今日状态 ==========
 function updateMenstrualTodayStatus() {
     const label = document.getElementById('menstrual-today-label');
     const badge = document.getElementById('menstrual-status-badge');
@@ -2991,7 +2985,6 @@ function updateMenstrualTodayStatus() {
     }
 }
 
-// ========== 统计更新 ==========
 function updateMenstrualStats() {
     const startEl = document.getElementById('menstrual-start-date');
     const durEl = document.getElementById('menstrual-duration');
@@ -3026,24 +3019,19 @@ function updateMenstrualStats() {
     }
 }
 
-// ========== 快捷记录 ==========
 function quickRecord(type) {
     const today = new Date().toISOString().split('T')[0];
     if (type === '无') {
         if (confirm('删除今日的所有记录？')) {
             Menstrual.deleteRecord(today);
-            alert('已清除今日记录');
         }
         return;
     }
-    const symptoms = [type];
-    Menstrual.addRecord(today, '中', symptoms);
-    alert('✅ 已记录：' + type);
+    Menstrual.addRecord(today, '中', [type]);
 }
 
-// ========== 打开详细记录表单 ==========
 function openMenstrualAddForm() {
-    const date = document.getElementById('recordDate').value || new Date().toISOString().split('T')[0];
+    const date = document.getElementById('recordDate')?.value || new Date().toISOString().split('T')[0];
     const flow = prompt('选择流量：1-少  2-中  3-多', '2');
     if (flow === null) return;
     const flowMap = {'1':'少','2':'中','3':'多'};
@@ -3053,15 +3041,12 @@ function openMenstrualAddForm() {
         symptoms.push(...sym.split(',').map(s => s.trim()));
     }
     Menstrual.addRecord(date, flowMap[flow] || '中', symptoms);
-    alert('✅ 记录保存成功！');
 }
 
-// ========== 更多统计（占位） ==========
 function showMenstrualStats() {
     alert('📊 经期统计功能开发中...');
 }
 
-// ========== 打开弹窗（替换原函数） ==========
 function openMenstrualModal() {
     if (typeof showModal === 'function') {
         showModal(document.getElementById('menstrualModal'));
@@ -3069,14 +3054,12 @@ function openMenstrualModal() {
         var modal = document.getElementById('menstrualModal');
         if (modal) modal.style.display = 'flex';
     }
-    // 重置到当前月份
     const today = new Date();
     menstrualCurrentYear = today.getFullYear();
     menstrualCurrentMonth = today.getMonth();
     renderMenstrualCalendar(menstrualCurrentYear, menstrualCurrentMonth);
 }
 
-// ========== 关闭弹窗 ==========
 function closeMenstrualModal() {
     if (typeof hideModal === 'function') {
         hideModal(document.getElementById('menstrualModal'));
@@ -3086,7 +3069,7 @@ function closeMenstrualModal() {
     }
 }
 
-// ========== 保留原 saveMenstrualRecord（兼容旧版，但用新函数刷新） ==========
+// 保留旧版保存函数（兼容可能存在的调用）
 function saveMenstrualRecord() {
     const date = document.getElementById('recordDate').value;
     if (!date) return alert('请选择日期');
@@ -3097,15 +3080,12 @@ function saveMenstrualRecord() {
     alert('✅ 保存成功！');
 }
 
-// ========== 页面加载初始化 ==========
 document.addEventListener('DOMContentLoaded', function() {
     Menstrual.init();
-    // 如果有菜单项且没有被 onclick 覆盖，加个后备监听
     const entry = document.getElementById('menstrual-function');
     if (entry && !entry.getAttribute('onclick')) {
         entry.addEventListener('click', openMenstrualModal);
     }
-    // 初始渲染日历（但可能弹窗还未打开，会在 open 时渲染）
 });
 // ========== /经期记录核心代码（日历版） ==========
         
