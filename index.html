@@ -3622,5 +3622,112 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>
 <!-- ========== /经期记录详情弹窗（按钮选择版） ========== -->
+        <!-- ========== 消息弹窗推送（手机版自动监听） ========== -->
+<script>
+// 1. 核心通知引擎
+window.Notify = {
+    enabled: false,
+    requestPermission: function() {
+        if (!('Notification' in window)) return Promise.resolve('denied');
+        if (Notification.permission === 'granted') return Promise.resolve('granted');
+        if (Notification.permission === 'denied') return Promise.resolve('denied');
+        return Notification.requestPermission();
+    },
+    send: function(title, body, icon) {
+        if (!this.enabled) return false;
+        // 检查是否支持通知
+        if (!('Notification' in window) || Notification.permission !== 'granted') {
+            console.warn('通知权限未开启');
+            return false;
+        }
+        try {
+            const notif = new Notification(title, {
+                body: body,
+                icon: icon || 'https://file.youtochat.com/images/20260216/1771224856844_qdqqd.jpeg',
+                tag: 'chat-message',
+                requireInteraction: true,
+            });
+            notif.onclick = function() { window.focus(); this.close(); };
+            return true;
+        } catch (e) {
+            console.error('通知失败:', e);
+            return false;
+        }
+    }
+};
+
+// 2. 自动监听对方发来的消息（无需修改其他JS文件）
+(function() {
+    const container = document.getElementById('chat-container');
+    if (!container) return;
+
+    let lastContent = ''; // 简单防重复
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            mutation.addedNodes.forEach(function(node) {
+                // 只处理元素节点，且必须是“对方发送”的消息（class里包含 message-received）
+                if (node.nodeType === 1 && node.matches && node.matches('.message-received')) {
+                    // 提取消息文字
+                    const textNode = node.querySelector('.message-text') || node;
+                    let content = textNode.textContent.trim();
+                    if (content && content !== lastContent) {
+                        lastContent = content;
+                        // 获取对方昵称
+                        let partnerName = '梦角';
+                        if (typeof settings !== 'undefined' && settings.partnerName) {
+                            partnerName = settings.partnerName;
+                        }
+                        // 延迟半秒触发，确保界面稳定
+                        setTimeout(() => {
+                            window.Notify.send(partnerName, content);
+                        }, 300);
+                    }
+                }
+            });
+        });
+    });
+
+    observer.observe(container, { childList: true, subtree: true });
+    console.log('✅ 消息监听已启动（手机版）');
+})();
+
+// 3. 绑定“后台消息推送”开关
+document.addEventListener('DOMContentLoaded', function() {
+    const toggle = document.getElementById('notif-permission-toggle');
+    const statusText = document.getElementById('notif-status-text');
+    if (!toggle) return;
+
+    // 读取存储状态
+    if (localStorage.getItem('notificationsEnabled') === 'true') {
+        toggle.checked = true;
+        window.Notify.enabled = true;
+        if (statusText) statusText.textContent = '已开启 — 新消息将弹出提醒';
+    }
+
+    toggle.addEventListener('change', function() {
+        if (this.checked) {
+            window.Notify.requestPermission().then(perm => {
+                if (perm === 'granted') {
+                    window.Notify.enabled = true;
+                    localStorage.setItem('notificationsEnabled', 'true');
+                    if (statusText) statusText.textContent = '已开启 — 新消息将弹出提醒';
+                    // 发送测试通知
+                    window.Notify.send('✅ 通知已开启', '您将在此处收到新消息提醒');
+                } else {
+                    this.checked = false;
+                    window.Notify.enabled = false;
+                    localStorage.setItem('notificationsEnabled', 'false');
+                    if (statusText) statusText.textContent = '❌ 通知被拒绝，请去系统设置允许';
+                }
+            });
+        } else {
+            window.Notify.enabled = false;
+            localStorage.setItem('notificationsEnabled', 'false');
+            if (statusText) statusText.textContent = '已关闭 — 将不会弹出提醒';
+        }
+    });
+});
+</script>
+<!-- ========== 消息弹窗结束 ========== -->
 </body>
 </html>
