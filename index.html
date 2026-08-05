@@ -2865,7 +2865,7 @@
     <script src="js/cloud-media-migration.js"></script>
     <script src="js/cloud-sync-ui.js"></script>
     <script>
-        // ========== 经期记录核心代码（内联版） ==========
+        // ========== 经期记录核心代码（日历版） ==========
 const Menstrual = {
     data: [],
     init() {
@@ -2881,14 +2881,15 @@ const Menstrual = {
         if (index > -1) this.data[index] = record;
         else this.data.push(record);
         this.save();
-        renderHistory();
-        updatePrediction();
+        // 刷新日历和统计
+        renderMenstrualCalendar(menstrualCurrentYear, menstrualCurrentMonth);
+        updateMenstrualStats();
     },
     deleteRecord(date) {
         this.data = this.data.filter(item => item.date !== date);
         this.save();
-        renderHistory();
-        updatePrediction();
+        renderMenstrualCalendar(menstrualCurrentYear, menstrualCurrentMonth);
+        updateMenstrualStats();
     },
     getRecord(date) {
         return this.data.find(item => item.date === date) || null;
@@ -2902,23 +2903,181 @@ const Menstrual = {
     }
 };
 
+// ========== 日历状态 ==========
+let menstrualCurrentYear = new Date().getFullYear();
+let menstrualCurrentMonth = new Date().getMonth();
+
+// ========== 渲染日历 ==========
+function renderMenstrualCalendar(year, month) {
+    const grid = document.getElementById('menstrual-calendar-grid');
+    if (!grid) return;
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date();
+    const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    
+    // 更新标题
+    const label = document.getElementById('menstrual-month-label');
+    if (label) label.textContent = year + '年' + (month+1) + '月';
+    
+    // 获取当前月份的记录
+    const monthRecords = Menstrual.data.filter(item => {
+        const d = new Date(item.date);
+        return d.getFullYear() === year && d.getMonth() === month;
+    });
+    const recordDates = new Set(monthRecords.map(r => r.date));
+    
+    let html = '';
+    // 填充空白
+    for (let i = 0; i < firstDay; i++) {
+        html += '<div style="padding:6px 0; text-align:center;"></div>';
+    }
+    // 填充日期
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+        const isToday = dateStr === todayStr;
+        const hasRecord = recordDates.has(dateStr);
+        let dotColor = hasRecord ? '#ff6b6b' : '';
+        // 可在此扩展预测逻辑
+        
+        html += `<div style="padding:4px 0; text-align:center; position:relative; ${isToday ? 'background:rgba(var(--accent-color-rgb),0.15); border-radius:50%;' : ''}">
+            <span style="font-size:14px; font-weight:${isToday ? '700' : '400'}; color:${isToday ? 'var(--accent-color)' : 'var(--text-primary)'}; cursor:pointer;" onclick="selectMenstrualDate('${dateStr}')">${d}</span>
+            ${hasRecord ? `<div style="width:6px; height:6px; border-radius:50%; background:${dotColor}; margin:2px auto 0;"></div>` : '<div style="height:8px;"></div>'}
+        </div>`;
+    }
+    grid.innerHTML = html;
+    
+    // 更新今日状态
+    updateMenstrualTodayStatus();
+    updateMenstrualStats();
+}
+
+// ========== 月份切换 ==========
+function changeMenstrualMonth(delta) {
+    menstrualCurrentMonth += delta;
+    if (menstrualCurrentMonth < 0) { menstrualCurrentMonth = 11; menstrualCurrentYear--; }
+    if (menstrualCurrentMonth > 11) { menstrualCurrentMonth = 0; menstrualCurrentYear++; }
+    renderMenstrualCalendar(menstrualCurrentYear, menstrualCurrentMonth);
+}
+
+// ========== 点击日期 ==========
+function selectMenstrualDate(dateStr) {
+    const dateInput = document.getElementById('recordDate');
+    if (dateInput) dateInput.value = dateStr;
+    alert('已选中 ' + dateStr + '，点击"+ 记录"添加详情');
+}
+
+// ========== 今日状态 ==========
+function updateMenstrualTodayStatus() {
+    const label = document.getElementById('menstrual-today-label');
+    const badge = document.getElementById('menstrual-status-badge');
+    if (!label) return;
+    const today = new Date().toISOString().split('T')[0];
+    const records = Menstrual.data.filter(r => r.date <= today);
+    if (records.length === 0) {
+        label.textContent = '今天 暂无记录';
+        if (badge) badge.textContent = '未记录';
+        return;
+    }
+    const sorted = records.sort((a,b) => new Date(b.date) - new Date(a.date));
+    const last = sorted[0];
+    const daysDiff = Math.floor((new Date(today) - new Date(last.date)) / (1000*60*60*24));
+    if (daysDiff <= 7) {
+        label.textContent = '今天 经期第' + (daysDiff + 1) + '天';
+        if (badge) badge.textContent = '经期中';
+    } else {
+        label.textContent = '今天 经期已结束';
+        if (badge) badge.textContent = '经期结束';
+    }
+}
+
+// ========== 统计更新 ==========
+function updateMenstrualStats() {
+    const startEl = document.getElementById('menstrual-start-date');
+    const durEl = document.getElementById('menstrual-duration');
+    const cycleEl = document.getElementById('menstrual-cycle');
+    if (!startEl) return;
+    const records = Menstrual.data;
+    if (records.length === 0) {
+        startEl.textContent = '--';
+        if (durEl) durEl.textContent = '--';
+        if (cycleEl) cycleEl.textContent = '--';
+        return;
+    }
+    const sorted = [...records].sort((a,b) => new Date(a.date) - new Date(b.date));
+    const first = sorted[0];
+    const last = sorted[sorted.length-1];
+    const daysDiff = Math.floor((new Date(last.date) - new Date(first.date)) / (1000*60*60*24)) + 1;
+    startEl.textContent = first.date.slice(5).replace('-','/');
+    if (durEl) durEl.textContent = sorted.length + '/' + daysDiff + '天';
+    if (cycleEl) {
+        if (sorted.length >= 3) {
+            const recent = sorted.slice(-3);
+            const intervals = [];
+            for (let i = 1; i < recent.length; i++) {
+                const diff = Math.floor((new Date(recent[i].date) - new Date(recent[i-1].date)) / (1000*60*60*24));
+                intervals.push(diff);
+            }
+            const avg = Math.round(intervals.reduce((a,b) => a+b, 0) / intervals.length);
+            cycleEl.textContent = avg + '/30天';
+        } else {
+            cycleEl.textContent = '--/30天';
+        }
+    }
+}
+
+// ========== 快捷记录 ==========
+function quickRecord(type) {
+    const today = new Date().toISOString().split('T')[0];
+    if (type === '无') {
+        if (confirm('删除今日的所有记录？')) {
+            Menstrual.deleteRecord(today);
+            alert('已清除今日记录');
+        }
+        return;
+    }
+    const symptoms = [type];
+    Menstrual.addRecord(today, '中', symptoms);
+    alert('✅ 已记录：' + type);
+}
+
+// ========== 打开详细记录表单 ==========
+function openMenstrualAddForm() {
+    const date = document.getElementById('recordDate').value || new Date().toISOString().split('T')[0];
+    const flow = prompt('选择流量：1-少  2-中  3-多', '2');
+    if (flow === null) return;
+    const flowMap = {'1':'少','2':'中','3':'多'};
+    const symptoms = [];
+    const sym = prompt('症状（用逗号分隔，如：痛经,头痛）：', '');
+    if (sym !== null && sym.trim()) {
+        symptoms.push(...sym.split(',').map(s => s.trim()));
+    }
+    Menstrual.addRecord(date, flowMap[flow] || '中', symptoms);
+    alert('✅ 记录保存成功！');
+}
+
+// ========== 更多统计（占位） ==========
+function showMenstrualStats() {
+    alert('📊 经期统计功能开发中...');
+}
+
+// ========== 打开弹窗（替换原函数） ==========
 function openMenstrualModal() {
-    // ✅ 改用项目自带的 showModal
     if (typeof showModal === 'function') {
         showModal(document.getElementById('menstrualModal'));
     } else {
         var modal = document.getElementById('menstrualModal');
         if (modal) modal.style.display = 'flex';
     }
-    // 初始化日期
-    var dateInput = document.getElementById('recordDate');
-    if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
-    renderHistory();
-    updatePrediction();
+    // 重置到当前月份
+    const today = new Date();
+    menstrualCurrentYear = today.getFullYear();
+    menstrualCurrentMonth = today.getMonth();
+    renderMenstrualCalendar(menstrualCurrentYear, menstrualCurrentMonth);
 }
 
+// ========== 关闭弹窗 ==========
 function closeMenstrualModal() {
-    // ✅ 改用项目自带的 hideModal
     if (typeof hideModal === 'function') {
         hideModal(document.getElementById('menstrualModal'));
     } else {
@@ -2927,6 +3086,7 @@ function closeMenstrualModal() {
     }
 }
 
+// ========== 保留原 saveMenstrualRecord（兼容旧版，但用新函数刷新） ==========
 function saveMenstrualRecord() {
     const date = document.getElementById('recordDate').value;
     if (!date) return alert('请选择日期');
@@ -2937,111 +3097,109 @@ function saveMenstrualRecord() {
     alert('✅ 保存成功！');
 }
 
-function renderHistory() {
-    const container = document.getElementById('menstrualHistory');
-    if (!container) return;
-    if (Menstrual.data.length === 0) {
-        container.innerHTML = '<p style="color:#999;font-size:13px;">暂无记录</p>';
-        return;
-    }
-    const sorted = [...Menstrual.data].sort((a,b) => new Date(b.date) - new Date(a.date));
-    container.innerHTML = sorted.map(item => `
-        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-color);">
-            <span>${item.date} | ${item.flow} | ${item.symptoms.join('/') || '无'}</span>
-            <button onclick="deleteRecord('${item.date}')" style="color:#ff6b6b;border:none;background:none;cursor:pointer;font-size:14px;">🗑️</button>
-        </div>
-    `).join('');
-}
-
-function updatePrediction() {
-    const el = document.getElementById('nextPredict');
-    if (el) el.textContent = Menstrual.predictNext();
-}
-
-window.deleteRecord = function(date) {
-    if (confirm(`确认删除 ${date} 的记录吗？`)) {
-        Menstrual.deleteRecord(date);
-    }
-};
-
-// 页面加载时初始化
+// ========== 页面加载初始化 ==========
 document.addEventListener('DOMContentLoaded', function() {
     Menstrual.init();
+    // 如果有菜单项且没有被 onclick 覆盖，加个后备监听
+    const entry = document.getElementById('menstrual-function');
+    if (entry && !entry.getAttribute('onclick')) {
+        entry.addEventListener('click', openMenstrualModal);
+    }
+    // 初始渲染日历（但可能弹窗还未打开，会在 open 时渲染）
 });
-// ========== /经期记录核心代码 ==========
+// ========== /经期记录核心代码（日历版） ==========
         
     </script>
     <script src="js/app.js"></script>
-        <!-- ========== 经期记录弹窗 ========== -->
+        <!-- ========== 经期记录弹窗（日历版） ========== -->
 <div class="modal" id="menstrualModal" style="z-index:3000; display:none;">
-    <div class="modal-content" style="max-width:420px; max-height:90vh; overflow-y:auto; padding:0; background:var(--secondary-bg); border-radius:20px; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div class="modal-content" style="max-width:450px; max-height:95vh; overflow-y:auto; padding:0; background:var(--secondary-bg); border-radius:20px; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
         <!-- 头部 -->
         <div style="background:var(--accent-color); padding:16px 20px; border-radius:20px 20px 0 0; display:flex; align-items:center; justify-content:space-between;">
-            <div style="display:flex; align-items:center; gap:12px; color:#fff;">
-                <i class="fas fa-female" style="font-size:20px;"></i>
-                <span style="font-size:18px; font-weight:600; letter-spacing:1px;">经期记录</span>
+            <div style="display:flex; align-items:center; gap:10px; color:#fff;">
+                <i class="fas fa-female" style="font-size:18px;"></i>
+                <span style="font-size:17px; font-weight:600; letter-spacing:1px;">经期</span>
             </div>
-            <button onclick="closeMenstrualModal()" style="background:rgba(255,255,255,0.2); border:none; border-radius:50%; width:36px; height:36px; color:#fff; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.4)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+            <button onclick="closeMenstrualModal()" style="background:rgba(255,255,255,0.2); border:none; border-radius:50%; width:34px; height:34px; color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">
                 <i class="fas fa-times"></i>
             </button>
         </div>
         <!-- 主体 -->
-        <div style="padding:20px 24px;">
-            <div style="display:flex;flex-direction:column;gap:16px;">
-                <!-- 日期 -->
-                <div>
-                    <label style="font-size:13px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">📅 日期</label>
-                    <input type="date" id="recordDate" style="width:100%;padding:12px 14px;border:1px solid var(--border-color);border-radius:12px;background:var(--primary-bg);color:var(--text-primary);font-size:15px;outline:none;transition:border 0.2s;">
+        <div style="padding:16px 18px 12px;">
+            <!-- 月份导航 -->
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                <button id="menstrual-prev-month" onclick="changeMenstrualMonth(-1)" style="background:none; border:none; font-size:18px; color:var(--text-secondary); cursor:pointer; padding:4px 8px;">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span id="menstrual-month-label" style="font-size:16px; font-weight:600; color:var(--text-primary);">2026年8月</span>
+                <button id="menstrual-next-month" onclick="changeMenstrualMonth(1)" style="background:none; border:none; font-size:18px; color:var(--text-secondary); cursor:pointer; padding:4px 8px;">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            <!-- 日历网格 -->
+            <div style="border-radius:14px; overflow:hidden; border:1px solid var(--border-color);">
+                <div style="display:grid; grid-template-columns:repeat(7,1fr); background:rgba(var(--accent-color-rgb),0.08);">
+                    <div style="padding:8px 0; text-align:center; font-size:11px; font-weight:600; color:var(--text-secondary);">日</div>
+                    <div style="padding:8px 0; text-align:center; font-size:11px; font-weight:600; color:var(--text-secondary);">一</div>
+                    <div style="padding:8px 0; text-align:center; font-size:11px; font-weight:600; color:var(--text-secondary);">二</div>
+                    <div style="padding:8px 0; text-align:center; font-size:11px; font-weight:600; color:var(--text-secondary);">三</div>
+                    <div style="padding:8px 0; text-align:center; font-size:11px; font-weight:600; color:var(--text-secondary);">四</div>
+                    <div style="padding:8px 0; text-align:center; font-size:11px; font-weight:600; color:var(--text-secondary);">五</div>
+                    <div style="padding:8px 0; text-align:center; font-size:11px; font-weight:600; color:var(--text-secondary);">六</div>
                 </div>
-                <!-- 流量 -->
-                <div>
-                    <label style="font-size:13px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">💧 流量</label>
-                    <select id="recordFlow" style="width:100%;padding:12px 14px;border:1px solid var(--border-color);border-radius:12px;background:var(--primary-bg);color:var(--text-primary);font-size:15px;outline:none;appearance:none;">
-                        <option value="少">量少</option>
-                        <option value="中" selected>量中</option>
-                        <option value="多">量多</option>
-                    </select>
-                </div>
-                <!-- 症状 -->
-                <div>
-                    <label style="font-size:13px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">🤒 症状（可多选）</label>
-                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                        <label style="display:flex;align-items:center;gap:6px;background:var(--primary-bg);padding:6px 12px;border-radius:20px;border:1px solid var(--border-color);cursor:pointer;transition:all 0.2s;">
-                            <input type="checkbox" value="痛经" style="accent-color:var(--accent-color);"> 痛经
-                        </label>
-                        <label style="display:flex;align-items:center;gap:6px;background:var(--primary-bg);padding:6px 12px;border-radius:20px;border:1px solid var(--border-color);cursor:pointer;transition:all 0.2s;">
-                            <input type="checkbox" value="头痛" style="accent-color:var(--accent-color);"> 头痛
-                        </label>
-                        <label style="display:flex;align-items:center;gap:6px;background:var(--primary-bg);padding:6px 12px;border-radius:20px;border:1px solid var(--border-color);cursor:pointer;transition:all 0.2s;">
-                            <input type="checkbox" value="乳房胀痛" style="accent-color:var(--accent-color);"> 乳房胀痛
-                        </label>
-                        <label style="display:flex;align-items:center;gap:6px;background:var(--primary-bg);padding:6px 12px;border-radius:20px;border:1px solid var(--border-color);cursor:pointer;transition:all 0.2s;">
-                            <input type="checkbox" value="疲劳" style="accent-color:var(--accent-color);"> 疲劳
-                        </label>
-                        <label style="display:flex;align-items:center;gap:6px;background:var(--primary-bg);padding:6px 12px;border-radius:20px;border:1px solid var(--border-color);cursor:pointer;transition:all 0.2s;">
-                            <input type="checkbox" value="情绪低落" style="accent-color:var(--accent-color);"> 情绪低落
-                        </label>
-                    </div>
-                </div>
-                <!-- 保存按钮 -->
-                <button onclick="saveMenstrualRecord()" style="width:100%;padding:14px;background:var(--accent-color);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">保存记录</button>
-                <hr style="border-color:var(--border-color);margin:4px 0;">
-                <!-- 历史与预测 -->
-                <div>
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                        <h4 style="font-size:15px;margin:0;color:var(--text-primary);">📋 历史记录</h4>
-                        <span style="font-size:13px;color:var(--text-secondary);">🔮 下次预测：<span id="nextPredict" style="font-weight:600;color:var(--accent-color);">--</span></span>
-                    </div>
-                    <div id="menstrualHistory" style="max-height:200px;overflow-y:auto;font-size:13px;background:var(--primary-bg);border-radius:12px;padding:8px 12px;border:1px solid var(--border-color);"></div>
+                <div id="menstrual-calendar-grid" style="display:grid; grid-template-columns:repeat(7,1fr); background:var(--primary-bg);">
+                    <!-- JS 动态渲染 -->
                 </div>
             </div>
-        </div>
-        <!-- 底部关闭按钮（保留，与陪伴日记风格一致） -->
-        <div class="modal-buttons" style="padding:12px 24px 20px; border-top:1px solid var(--border-color);">
-            <button class="modal-btn modal-btn-secondary" onclick="closeMenstrualModal()">关闭</button>
+            <!-- 图例 -->
+            <div style="display:flex; gap:16px; justify-content:center; padding:10px 0 6px; font-size:11px; color:var(--text-secondary);">
+                <span><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#ff6b6b; vertical-align:middle; margin-right:4px;"></span>经期</span>
+                <span><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#ffb3b3; vertical-align:middle; margin-right:4px;"></span>预测经期</span>
+                <span><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#ffd93d; vertical-align:middle; margin-right:4px;"></span>排卵期</span>
+            </div>
+            <!-- 今日状态 -->
+            <div id="menstrual-today-status" style="display:flex; align-items:center; justify-content:space-between; background:var(--primary-bg); border-radius:12px; padding:10px 16px; margin:6px 0 10px; border:1px solid var(--border-color);">
+                <span style="font-size:14px; font-weight:500;" id="menstrual-today-label">今天 经期第4天</span>
+                <span style="font-size:13px; color:var(--accent-color); font-weight:600;" id="menstrual-status-badge">经期结束</span>
+            </div>
+            <!-- 快捷记录 -->
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+                <button onclick="quickRecord('流量')" style="flex:1; min-width:60px; padding:8px 0; background:var(--primary-bg); border:1px solid var(--border-color); border-radius:10px; font-size:12px; color:var(--text-secondary); cursor:pointer;">流量</button>
+                <button onclick="quickRecord('痛经')" style="flex:1; min-width:60px; padding:8px 0; background:var(--primary-bg); border:1px solid var(--border-color); border-radius:10px; font-size:12px; color:var(--text-secondary); cursor:pointer;">痛经</button>
+                <button onclick="quickRecord('性行为')" style="flex:1; min-width:60px; padding:8px 0; background:var(--primary-bg); border:1px solid var(--border-color); border-radius:10px; font-size:12px; color:var(--text-secondary); cursor:pointer;">性行为</button>
+                <button onclick="quickRecord('无')" style="flex:1; min-width:60px; padding:8px 0; background:var(--primary-bg); border:1px solid var(--border-color); border-radius:10px; font-size:12px; color:var(--text-secondary); cursor:pointer;">无</button>
+            </div>
+            <!-- 经期统计 -->
+            <div style="background:var(--primary-bg); border-radius:12px; padding:12px 16px; border:1px solid var(--border-color); margin-bottom:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span style="font-size:14px; font-weight:600; color:var(--text-primary);">经期统计</span>
+                    <button onclick="showMenstrualStats()" style="background:none; border:none; color:var(--accent-color); font-size:12px; cursor:pointer;">更多 <i class="fas fa-chevron-right" style="font-size:10px;"></i></button>
+                </div>
+                <div style="display:flex; gap:20px;">
+                    <div>
+                        <div style="font-size:11px; color:var(--text-secondary);">开始于</div>
+                        <div style="font-size:14px; font-weight:600; color:var(--text-primary);" id="menstrual-start-date">08/02</div>
+                    </div>
+                    <div>
+                        <div style="font-size:11px; color:var(--text-secondary);">持续天数</div>
+                        <div style="font-size:14px; font-weight:600; color:var(--text-primary);" id="menstrual-duration">9/4天</div>
+                    </div>
+                    <div>
+                        <div style="font-size:11px; color:var(--text-secondary);">周期</div>
+                        <div style="font-size:14px; font-weight:600; color:var(--text-primary);" id="menstrual-cycle">7/30天</div>
+                    </div>
+                </div>
+            </div>
+            <!-- 底部关闭 -->
+            <div style="display:flex; gap:10px; padding:6px 0 4px;">
+                <button onclick="closeMenstrualModal()" style="flex:1; padding:10px; background:var(--secondary-bg); border:1px solid var(--border-color); border-radius:12px; font-size:14px; color:var(--text-secondary); cursor:pointer;">关闭</button>
+                <button id="menstrual-add-record-btn" onclick="openMenstrualAddForm()" style="flex:2; padding:10px; background:var(--accent-color); border:none; border-radius:12px; font-size:14px; font-weight:600; color:#fff; cursor:pointer;">+ 记录</button>
+            </div>
         </div>
     </div>
 </div>
-<!-- ========== /经期记录弹窗 ========== -->
+<!-- ========== /经期记录弹窗（日历版） ========== -->
+        
+
 </body>
 </html>
