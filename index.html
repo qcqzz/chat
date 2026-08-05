@@ -3622,57 +3622,5 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>
 <!-- ========== /经期记录详情弹窗（按钮选择版） ========== -->
-        <script>
-// ========== 键盘弹出自适应（适用于 WebView / APP） ==========
-(function() {
-    // 获取输入框容器（请根据实际 HTML 结构调整选择器）
-    var inputWrapper = document.querySelector('.input-area-wrapper');
-    if (!inputWrapper) {
-        // 如果找不到，尝试备用选择器
-        inputWrapper = document.querySelector('.input-area');
-    }
-    if (!inputWrapper) {
-        console.warn('未找到输入区域，键盘适配可能无效');
-        return;
-    }
-
-    // 保存原始 bottom 值（如果使用了 fixed 定位）
-    var originalBottom = inputWrapper.style.bottom || '0px';
-
-    // 方法1：使用 VisualViewport API（现代浏览器）
-    if (window.visualViewport) {
-        var lastHeight = window.visualViewport.height;
-        window.visualViewport.addEventListener('resize', function() {
-            var currentHeight = window.visualViewport.height;
-            var diff = lastHeight - currentHeight; // 键盘高度（像素）
-            if (diff > 50) {
-                // 键盘弹出
-                inputWrapper.style.bottom = diff + 'px';
-                // 滚动聊天区到底部
-                var chatContainer = document.getElementById('chat-container');
-                if (chatContainer) {
-                    setTimeout(function() {
-                        chatContainer.scrollTop = chatContainer.scrollHeight;
-                    }, 100);
-                }
-            } else {
-                // 键盘收起
-                inputWrapper.style.bottom = originalBottom;
-            }
-            lastHeight = currentHeight;
-        });
-    } else {
-        // 方法2：备用方案 - 使用 focus 事件滚动
-        var textInput = document.querySelector('#message-input, .message-input, textarea');
-        if (textInput) {
-            textInput.addEventListener('focus', function() {
-                setTimeout(function() {
-                    inputWrapper.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                }, 300);
-            });
-        }
-    }
-})();
-        </script>
 </body>
 </html>
