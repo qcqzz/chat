@@ -2908,40 +2908,40 @@ const Menstrual = {
     getActualDates() {
         return this.data.filter(item => item.type === 'actual').map(item => item.date).sort();
     },
-    // 生成预测（基于最近一次实际开始日期，向后预测7天）
-    generatePredictions(startDate) {
-        // 先清除所有旧的预测（为了干净）
-        this.data = this.data.filter(item => item.type !== 'predicted');
-        // 获取所有实际日期（排序）
-        const actuals = this.getActualDates();
-        if (actuals.length === 0) return;
-        // 取最近一次实际日期（最大日期）
-        const lastActual = actuals[actuals.length - 1];
-        // 计算从最后实际日期到今天的预测（最多7天）
-        const today = new Date();
-        const start = new Date(lastActual);
-        // 如果最后实际日期比今天早，预测从最后实际日期+1天到今天，但不超过7天
-        let daysToPredict = 7; // 默认7天
-        // 如果用户已经记录了超过7天，则不需要预测
-        // 我们只预测未来未发生的日期（今天及之后）
-        const daysDiff = Math.floor((today - start) / (1000*60*60*24));
-        if (daysDiff >= 7) {
-            // 如果已经过了7天以上，预测到今天为止
-            daysToPredict = daysDiff + 1;
+    // 生成预测（基于最近一次实际开始日期，向后预测6天，共7天含标记日）
+generatePredictions(startDate) {
+    // 先清除所有旧的预测（为了干净）
+    this.data = this.data.filter(item => item.type !== 'predicted');
+    // 获取所有实际日期（排序）
+    const actuals = this.getActualDates();
+    if (actuals.length === 0) return;
+    // 取最近一次实际日期（最大日期）
+    const lastActual = actuals[actuals.length - 1];
+    // 计算从最后实际日期到今天的预测
+    const today = new Date();
+    const start = new Date(lastActual);
+    // 默认经期总天数（含标记日）为 7 天，预测天数 = 总天数 - 1（标记日已有）
+    const totalPeriodDays = 7;
+    let daysToPredict = totalPeriodDays - 1; // 即 6 天
+    // 如果距离今天已经超过总天数，则预测到今天为止（但不超过 14 天）
+    const daysDiff = Math.floor((today - start) / (1000*60*60*24));
+    if (daysDiff >= totalPeriodDays) {
+        daysToPredict = daysDiff; // 预测到昨天为止
+    }
+    // 限制最多预测 14 天（以防异常）
+    daysToPredict = Math.min(daysToPredict, 14);
+    // 从第二天开始预测，共 daysToPredict 天
+    for (let i = 1; i <= daysToPredict; i++) {
+        const d = new Date(start);
+        d.setDate(d.getDate() + i);
+        const dateStr = d.toISOString().split('T')[0];
+        // 如果该天没有实际记录，则添加预测
+        if (!this.getRecord(dateStr)) {
+            this.data.push({ date: dateStr, flow: '中', symptoms: [], type: 'predicted' });
         }
-        // 限制最多预测14天（以防异常）
-        daysToPredict = Math.min(daysToPredict, 14);
-        for (let i = 1; i <= daysToPredict; i++) {
-            const d = new Date(start);
-            d.setDate(d.getDate() + i);
-            const dateStr = d.toISOString().split('T')[0];
-            // 如果该天没有实际记录，则添加预测
-            if (!this.getRecord(dateStr)) {
-                this.data.push({ date: dateStr, flow: '中', symptoms: [], type: 'predicted' });
-            }
-        }
-        this.save();
-    },
+    }
+    this.save();
+},
     // 结束经期：清除所有预测，并删除今天及之后未发生的预测（但保留实际记录）
     endPeriod() {
         // 保留实际记录，删除所有预测
