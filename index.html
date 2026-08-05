@@ -2995,8 +2995,10 @@ const Menstrual = {
     getLastPeriodStart() {
         const actuals = this.getActualDates();
         if (actuals.length === 0) return null;
+    // 从最后一条实际记录开始，向前找连续段的第一天
         let last = actuals[actuals.length - 1];
         let start = new Date(last);
+    // 向前遍历，只要前一天也是 actual，就继续
         while (true) {
             const prev = new Date(start);
             prev.setDate(prev.getDate() - 1);
@@ -3009,7 +3011,7 @@ const Menstrual = {
             }
         }
         return start.toISOString().split('T')[0];
-    },
+    }
 
     getAverageCycle() {
         const actuals = this.getActualDates();
@@ -3073,54 +3075,67 @@ const Menstrual = {
     // 补全从开始日到今天的所有日期为实际，并重新生成预测
     ensurePeriodContinuity() {
         const today = new Date().toISOString().split('T')[0];
-        const lastStart = this.getLastPeriodStart();
+    // 先尝试获取最近一次经期开始日
+        let lastStart = this.getLastPeriodStart();
+
+    // 如果找不到开始日，尝试从今天往前找第一个 actual 作为开始日
+        if (!lastStart) {
+            const actuals = this.getActualDates();
+            if (actuals.length === 0) return;
+        // 取最早的实际日期作为开始日（但不一定连续）
+            lastStart = actuals[0];
+    }
+
+    // 如果开始日仍然为空，退出
         if (!lastStart) return;
 
+    // 计算今天与开始日的天数差
         const diff = Math.floor((new Date(today) - new Date(lastStart)) / (1000 * 60 * 60 * 24)) + 1;
-        if (diff < 1 || diff > 7) return;
 
-        // 清除从开始日到今天的预测记录，强制设为实际
-        let changed = false;
-        let current = new Date(lastStart);
-        const end = new Date(today);
-        while (current <= end) {
-            const d = current.toISOString().split('T')[0];
-            const existing = this.getRecord(d);
-            if (existing) {
-                if (existing.type === 'predicted') {
+    // 如果今天在窗口内（1~7天），执行补全
+        if (diff >= 1 && diff <= 7) {
+            let changed = false;
+        // 遍历从开始日到今天，确保每一天都是 actual
+            let current = new Date(lastStart);
+            const end = new Date(today);
+            while (current <= end) {
+                const d = current.toISOString().split('T')[0];
+                const existing = this.getRecord(d);
+                if (existing) {
+                    if (existing.type === 'predicted') {
                     // 预测转实际
-                    this.data = this.data.filter(item => item.date !== d);
-                    this.data.push({ date: d, flow: existing.flow || '中', symptoms: existing.symptoms || [], type: 'actual' });
+                        this.data = this.data.filter(item => item.date !== d);
+                        this.data.push({ date: d, flow: existing.flow || '中', symptoms: existing.symptoms || [], type: 'actual' });
+                        changed = true;
+                    }
+                // 实际保持不变
+                } else {
+                // 缺失则添加实际
+                    this.data.push({ date: d, flow: '中', symptoms: [], type: 'actual' });
                     changed = true;
                 }
-                // 实际保持不变
-            } else {
-                // 缺失，添加实际
-                this.data.push({ date: d, flow: '中', symptoms: [], type: 'actual' });
-                changed = true;
+                current.setDate(current.getDate() + 1);
             }
-            current.setDate(current.getDate() + 1);
-        }
-
-        if (changed) {
+            if (changed) {
             // 清除所有预测，重新生成剩余天数
-            this.data = this.data.filter(item => item.type !== 'predicted');
-            const passedDays = diff;
-            const remaining = 7 - passedDays;
-            if (remaining > 0) {
-                let next = new Date(today);
-                next.setDate(next.getDate() + 1);
-                for (let i = 0; i < remaining; i++) {
-                    const d = next.toISOString().split('T')[0];
-                    if (!this.getRecord(d)) {
-                        this.data.push({ date: d, flow: '中', symptoms: [], type: 'predicted' });
-                    }
+                this.data = this.data.filter(item => item.type !== 'predicted');
+                const passedDays = diff; // 已经过的天数
+                const remaining = 7 - passedDays;
+                if (remaining > 0) {
+                    let next = new Date(today);
                     next.setDate(next.getDate() + 1);
+                    for (let i = 0; i < remaining; i++) {
+                        const d = next.toISOString().split('T')[0];
+                        if (!this.getRecord(d)) {
+                            this.data.push({ date: d, flow: '中', symptoms: [], type: 'predicted' });
+                        }
+                        next.setDate(next.getDate() + 1);
+                    }
                 }
+                this.save(); // 保存更改
             }
-            this.save();
         }
-    },
+    }
 
     renderAll() {
         // 先补全再渲染
