@@ -2865,7 +2865,7 @@
     <script src="js/cloud-media-migration.js"></script>
     <script src="js/cloud-sync-ui.js"></script>
     <script>
-    // ========== 经期记录核心代码（日历版） ==========
+        // ========== 经期记录核心代码（日历版） ==========
 const Menstrual = {
     data: [],
     init() {
@@ -2885,7 +2885,6 @@ const Menstrual = {
     // 核心添加方法（已优化：已有 actual 只更新，不触发预测）
     addRecord(date, flow, symptoms, type = 'actual') {
         const existing = this.getRecord(date);
-        // 如果已有 actual 记录，只更新字段，不触发预测
         if (existing && existing.type === 'actual') {
             existing.flow = flow;
             existing.symptoms = symptoms || [];
@@ -2893,18 +2892,14 @@ const Menstrual = {
             this.renderAll();
             return;
         }
-
-        // 如果已有预测记录，则移除，按实际处理
         if (existing && existing.type === 'predicted') {
             this.data = this.data.filter(item => item.date !== date);
         }
 
-        // 新增实际记录（开始新经期）
         const today = new Date().toISOString().split('T')[0];
         const startDate = date;
 
         if (startDate < today) {
-            // 标记过去日期：从 startDate 到 today 全部标记为 actual
             let current = new Date(startDate);
             const end = new Date(today);
             while (current <= end) {
@@ -2921,11 +2916,9 @@ const Menstrual = {
                 current.setDate(current.getDate() + 1);
             }
 
-            // 计算已过天数，剩余预测天数
             const passedDays = Math.floor((new Date(today) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
             const remaining = 7 - passedDays;
 
-            // 清除旧预测
             this.data = this.data.filter(item => item.type !== 'predicted');
 
             if (remaining > 0) {
@@ -2944,7 +2937,6 @@ const Menstrual = {
             return;
         }
 
-        // 标记今天或未来
         this.data = this.data.filter(item => item.type !== 'predicted');
         this.data.push({ date, flow, symptoms: symptoms || [], type: 'actual' });
 
@@ -2963,10 +2955,8 @@ const Menstrual = {
 
     deleteRecord(date) {
         this.data = this.data.filter(item => item.date !== date);
-        // 如果删除的是实际记录，重新补全逻辑（略，可保留或简单重生成）
         const actuals = this.getActualDates();
         if (actuals.length > 0) {
-            // 清除预测
             this.data = this.data.filter(item => item.type !== 'predicted');
             const lastActual = actuals[actuals.length - 1];
             const today = new Date().toISOString().split('T')[0];
@@ -3013,6 +3003,86 @@ const Menstrual = {
         return this.data.filter(item => item.type === 'actual').map(item => item.date).sort();
     },
 
+    // 获取最近一次经期的开始日（连续经期的第一天）
+    getLastPeriodStart() {
+        const actuals = this.getActualDates();
+        if (actuals.length === 0) return null;
+        let last = actuals[actuals.length - 1];
+        let start = new Date(last);
+        while (true) {
+            const prev = new Date(start);
+            prev.setDate(prev.getDate() - 1);
+            const prevStr = prev.toISOString().split('T')[0];
+            const rec = this.getRecord(prevStr);
+            if (rec && rec.type === 'actual') {
+                start = prev;
+            } else {
+                break;
+            }
+        }
+        return start.toISOString().split('T')[0];
+    },
+
+    // 计算平均周期（基于最近3次经期开始日的间隔）
+    getAverageCycle() {
+        const actuals = this.getActualDates();
+        if (actuals.length < 2) return 28; // 默认28天
+        // 获取每次经期的开始日（连续段的第一天）
+        const starts = [];
+        let i = 0;
+        while (i < actuals.length) {
+            const date = actuals[i];
+            // 检查是否是连续段的开始（前一天不是 actual）
+            const prev = new Date(date);
+            prev.setDate(prev.getDate() - 1);
+            const prevStr = prev.toISOString().split('T')[0];
+            const prevRec = this.getRecord(prevStr);
+            if (!prevRec || prevRec.type !== 'actual') {
+                starts.push(date);
+            }
+            // 跳过当前连续段
+            while (i < actuals.length - 1) {
+                const next = new Date(actuals[i]);
+                next.setDate(next.getDate() + 1);
+                const nextStr = next.toISOString().split('T')[0];
+                if (actuals[i+1] === nextStr) {
+                    i++;
+                } else {
+                    break;
+                }
+            }
+            i++;
+        }
+        if (starts.length < 2) return 28;
+        const recentStarts = starts.slice(-3);
+        const intervals = [];
+        for (let i = 1; i < recentStarts.length; i++) {
+            const diff = Math.floor((new Date(recentStarts[i]) - new Date(recentStarts[i-1])) / (1000*60*60*24));
+            intervals.push(diff);
+        }
+        if (intervals.length === 0) return 28;
+        const avg = Math.round(intervals.reduce((a,b) => a+b, 0) / intervals.length);
+        return avg > 0 ? avg : 28;
+    },
+
+    // 获取排卵期日期列表（最近一次排卵期，前后各2天，共5天）
+    getOvulationDates() {
+        const startDate = this.getLastPeriodStart();
+        // 如果没有任何经期记录，返回空数组
+        if (!startDate) return [];
+        const cycle = this.getAverageCycle();
+        // 排卵日 = 经期开始日 + 周期 - 14
+        const ovDay = new Date(startDate);
+        ovDay.setDate(ovDay.getDate() + cycle - 14);
+        const dates = [];
+        for (let i = -2; i <= 2; i++) {
+            const d = new Date(ovDay);
+            d.setDate(d.getDate() + i);
+            dates.push(d.toISOString().split('T')[0]);
+        }
+        return dates;
+    },
+
     endPeriod() {
         this.data = this.data.filter(item => item.type !== 'predicted');
         this.save();
@@ -3050,6 +3120,13 @@ function renderMenstrualCalendar(year, month) {
     monthRecords.forEach(r => {
         recordMap[r.date] = r.type;
     });
+
+    // 获取排卵期日期集合（用于显示黄色标记）
+    const ovDates = Menstrual.getOvulationDates();
+    const ovSet = new Set(ovDates);
+    
+    // 调试：打印排卵期日期（在浏览器控制台可见）
+    console.log('排卵期日期:', ovDates);
     
     let html = '';
     for (let i = 0; i < firstDay; i++) {
@@ -3061,14 +3138,20 @@ function renderMenstrualCalendar(year, month) {
         const type = recordMap[dateStr] || null;
         let dotColor = '';
         let bgColor = '';
+        let isOvulation = false;
         if (type === 'actual') {
             dotColor = '#ff6b6b';
             bgColor = 'rgba(255,107,107,0.15)';
         } else if (type === 'predicted') {
             dotColor = '#ffb3b3';
             bgColor = 'rgba(255,179,179,0.15)';
+        } else if (ovSet.has(dateStr)) {
+            // 只有非经期非预测且属于排卵期的才显示黄色
+            isOvulation = true;
+            dotColor = '#ffd93d';
+            bgColor = 'rgba(255,217,61,0.15)';
         }
-        const isMarked = type !== null;
+        const isMarked = type !== null || isOvulation;
         const cellBg = isToday ? 'rgba(var(--accent-color-rgb),0.2)' : (isMarked ? bgColor : '');
         
         html += `<div style="padding:4px 0; text-align:center; position:relative; ${cellBg ? 'background:'+cellBg+'; border-radius:50%;' : ''}">
@@ -3079,6 +3162,7 @@ function renderMenstrualCalendar(year, month) {
     grid.innerHTML = html;
 }
 
+// ========== 其他函数（保持不变） ==========
 function changeMenstrualMonth(delta) {
     menstrualCurrentMonth += delta;
     if (menstrualCurrentMonth < 0) { menstrualCurrentMonth = 11; menstrualCurrentYear--; }
@@ -3131,17 +3215,13 @@ function updateMenstrualStats() {
     startEl.textContent = first.slice(5).replace('-','/');
     const actualCount = actuals.length;
     if (durEl) durEl.textContent = actualCount + '/' + daysDiff + '天';
-    if (cycleEl && actuals.length >= 3) {
-        const recent = actuals.slice(-3);
-        const intervals = [];
-        for (let i = 1; i < recent.length; i++) {
-            const diff = Math.floor((new Date(recent[i]) - new Date(recent[i-1])) / (1000*60*60*24));
-            intervals.push(diff);
+    if (cycleEl) {
+        const avg = Menstrual.getAverageCycle();
+        if (avg) {
+            cycleEl.textContent = avg + '/30天';
+        } else {
+            cycleEl.textContent = '--/30天';
         }
-        const avg = Math.round(intervals.reduce((a,b) => a+b, 0) / intervals.length);
-        cycleEl.textContent = avg + '/30天';
-    } else if (cycleEl) {
-        cycleEl.textContent = '--/30天';
     }
 }
 
@@ -3191,7 +3271,7 @@ function openMenstrualModal() {
     menstrualCurrentYear = today.getFullYear();
     menstrualCurrentMonth = today.getMonth();
     Menstrual.init();
-    // 自动检查是否需要补全（如果存在实际记录但无预测）
+    // 自动检查是否需要补全
     const actuals = Menstrual.getActualDates();
     if (actuals.length > 0) {
         const hasPred = Menstrual.data.some(item => item.type === 'predicted');
@@ -3271,7 +3351,6 @@ function openMenstrualDetail(dateStr) {
     }
     const d = new Date(dateStr);
     document.getElementById('menstrual-detail-date').textContent = d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日';
-    // 重置流量按钮
     document.querySelectorAll('.menstrual-flow-btn').forEach(btn => {
         const flow = btn.dataset.flow;
         if (flow === menstrualDetailFlow) {
@@ -3286,7 +3365,6 @@ function openMenstrualDetail(dateStr) {
             btn.style.fontWeight = '400';
         }
     });
-    // 重置症状按钮
     document.querySelectorAll('.menstrual-symptom-btn').forEach(btn => {
         const symptom = btn.dataset.symptom;
         if (menstrualDetailSymptoms.includes(symptom)) {
@@ -3351,13 +3429,11 @@ function saveMenstrualDetail() {
     if (!menstrualDetailDate) return;
     const existing = Menstrual.getRecord(menstrualDetailDate);
     if (existing && existing.type === 'actual') {
-        // 编辑已有实际记录 → 只更新，不触发预测
         existing.flow = menstrualDetailFlow;
         existing.symptoms = [...menstrualDetailSymptoms];
         Menstrual.save();
         Menstrual.renderAll();
     } else {
-        // 新增或覆盖预测 → 使用 addRecord 处理（会触发预测）
         Menstrual.addRecord(menstrualDetailDate, menstrualDetailFlow, [...menstrualDetailSymptoms], 'actual');
     }
     closeMenstrualDetail();
@@ -3378,7 +3454,7 @@ function deleteMenstrualDetail() {
 }
 // ========== /经期记录详情弹窗（按钮选择版） ==========
 
-// 兼容旧版保存函数（可能用于其他调用）
+// 兼容旧版保存函数
 function saveMenstrualRecord() {
     const date = document.getElementById('recordDate')?.value || '';
     if (!date) return alert('请选择日期');
