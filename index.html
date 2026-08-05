@@ -2868,14 +2868,23 @@
        // ========== 经期记录核心代码（日历版） ==========
 const Menstrual = {
     data: [],
+    endDate: null, // 用户手动设置的结束日期
+
     init() {
         const saved = localStorage.getItem('menstrual_records');
         this.data = saved ? JSON.parse(saved) : [];
-        console.log('初始化数据:', this.data);
+        const end = localStorage.getItem('menstrual_end_date');
+        this.endDate = end || null;
+        console.log('初始化数据:', this.data, '结束日期:', this.endDate);
     },
     save() {
         localStorage.setItem('menstrual_records', JSON.stringify(this.data));
-        console.log('数据已保存:', this.data);
+        if (this.endDate) {
+            localStorage.setItem('menstrual_end_date', this.endDate);
+        } else {
+            localStorage.removeItem('menstrual_end_date');
+        }
+        console.log('数据已保存:', this.data, '结束日期:', this.endDate);
     },
     getRecord(date) {
         return this.data.find(item => item.date === date) || null;
@@ -2894,12 +2903,18 @@ const Menstrual = {
             this.data = this.data.filter(item => item.date !== date);
         }
 
+        // 如果有结束日期，且新日期在结束日期之后，则不允许添加为实际（或作为新周期开始）
+        if (this.endDate && date > this.endDate) {
+            // 视为新周期开始，清除结束标记并重新开始
+            this.endDate = null;
+        }
+
         const lastStart = this.getLastPeriodStart();
         let isNewPeriod = true;
         if (lastStart) {
             const startDate = new Date(lastStart);
-            const endDate = new Date(startDate);
-            endDate.setDate(endDate.getDate() + 6);
+            const endDate = this.endDate ? new Date(this.endDate) : new Date(startDate);
+            endDate.setDate(endDate.getDate() + 6); // 如果没有结束日期，按7天窗口
             const currentDate = new Date(date);
             if (currentDate >= startDate && currentDate <= endDate) {
                 isNewPeriod = false;
@@ -2908,6 +2923,7 @@ const Menstrual = {
 
         if (isNewPeriod) {
             this.data = this.data.filter(item => item.type !== 'predicted');
+            this.endDate = null; // 新周期清除结束标记
             this._startNewPeriod(date, flow, symptoms);
         } else {
             this.data = this.data.filter(item => item.date !== date);
@@ -2969,6 +2985,10 @@ const Menstrual = {
 
     deleteRecord(date) {
         this.data = this.data.filter(item => item.date !== date);
+        // 如果删除的是结束日期当天，清除结束标记
+        if (this.endDate === date) {
+            this.endDate = null;
+        }
         this.ensurePeriodContinuity();
         this.save();
         this.renderAll();
@@ -3050,12 +3070,29 @@ const Menstrual = {
         return dates;
     },
 
+    // ---------- 修改结束逻辑 ----------
     endPeriod() {
-        this.data = this.data.filter(item => item.type !== 'predicted');
+        const today = new Date().toISOString().split('T')[0];
+        // 将今天标记为实际（如果还不是）
+        const existing = this.getRecord(today);
+        if (!existing || existing.type !== 'actual') {
+            this.data = this.data.filter(item => item.date !== today);
+            this.data.push({ date: today, flow: '中', symptoms: [], type: 'actual' });
+        }
+        // 清除今天之后的所有预测
+        this.data = this.data.filter(item => {
+            if (item.type === 'predicted' && item.date > today) {
+                return false;
+            }
+            return true;
+        });
+        // 设置结束日期为今天
+        this.endDate = today;
         this.save();
         this.renderAll();
     },
 
+    // ---------- 补全逻辑（考虑结束日期） ----------
     ensurePeriodContinuity() {
         console.log('执行 ensurePeriodContinuity...');
         const today = new Date().toISOString().split('T')[0];
@@ -3071,17 +3108,22 @@ const Menstrual = {
             console.log('使用最早实际记录作为开始日:', lastStart);
         }
 
-        const diff = Math.floor((new Date(today) - new Date(lastStart)) / (1000 * 60 * 60 * 24)) + 1;
-        console.log('开始日:', lastStart, '今天:', today, 'diff:', diff);
-
-        if (diff < 1 || diff > 7) {
-            console.log('今天不在经期窗口内，无需补全');
-            return;
+        // 确定结束日期：如果有手动结束日期，则使用；否则按开始日+6天
+        let endDate = this.endDate;
+        if (!endDate) {
+            const start = new Date(lastStart);
+            start.setDate(start.getDate() + 6);
+            endDate = start.toISOString().split('T')[0];
+            // 但今天如果在开始日+6天之前，则不补全到7天，只补全到今天
+            if (today < endDate) {
+                endDate = today;
+            }
         }
 
+        // 确保从开始日到结束日之间的日期都是 actual
         let changed = false;
         let current = new Date(lastStart);
-        const end = new Date(today);
+        const end = new Date(endDate);
         while (current <= end) {
             const d = current.toISOString().split('T')[0];
             const existing = this.getRecord(d);
@@ -3100,25 +3142,16 @@ const Menstrual = {
             current.setDate(current.getDate() + 1);
         }
 
+        // 清除结束日期之后的所有预测
+        const toRemove = this.data.filter(item => item.type === 'predicted' && item.date > endDate);
+        if (toRemove.length > 0) {
+            console.log('清除结束日期之后的预测:', toRemove.map(r => r.date));
+            this.data = this.data.filter(item => !(item.type === 'predicted' && item.date > endDate));
+            changed = true;
+        }
+
         if (changed) {
-            this.data = this.data.filter(item => item.type !== 'predicted');
-            const remaining = 7 - diff;
-            console.log('剩余预测天数:', remaining);
-            if (remaining > 0) {
-                let next = new Date(today);
-                next.setDate(next.getDate() + 1);
-                for (let i = 0; i < remaining; i++) {
-                    const d = next.toISOString().split('T')[0];
-                    if (!this.getRecord(d)) {
-                        this.data.push({ date: d, flow: '中', symptoms: [], type: 'predicted' });
-                        console.log('添加预测日期:', d);
-                    }
-                    next.setDate(next.getDate() + 1);
-                }
-            }
             this.save();
-        } else {
-            console.log('无需补全，数据已是最新');
         }
     },
 
@@ -3202,7 +3235,7 @@ function selectMenstrualDate(dateStr) {
     openMenstrualDetail(dateStr);
 }
 
-// ========== 今日状态更新 ==========
+// ========== 今日状态更新（考虑结束日期） ==========
 function updateMenstrualTodayStatus() {
     const label = document.getElementById('menstrual-today-label');
     const badge = document.getElementById('menstrual-status-badge');
@@ -3211,8 +3244,15 @@ function updateMenstrualTodayStatus() {
     const lastStart = Menstrual.getLastPeriodStart();
     let dayNum = null;
     if (lastStart) {
-        const diff = Math.floor((new Date(today) - new Date(lastStart)) / (1000 * 60 * 60 * 24)) + 1;
-        if (diff >= 1 && diff <= 7) {
+        const endDate = Menstrual.endDate;
+        let end = endDate ? new Date(endDate) : new Date(lastStart);
+        if (!endDate) {
+            end.setDate(end.getDate() + 6); // 未结束则按7天窗口
+        }
+        const start = new Date(lastStart);
+        const todayDate = new Date(today);
+        if (todayDate >= start && todayDate <= end) {
+            const diff = Math.floor((todayDate - start) / (1000 * 60 * 60 * 24)) + 1;
             dayNum = diff;
         }
     }
@@ -3263,7 +3303,7 @@ function updateMenstrualStats() {
 }
 
 function endMenstrualPeriod() {
-    if (confirm('结束当前经期并清除所有预测吗？')) {
+    if (confirm('结束当前经期？这将清除之后的预测，今天将作为最后一天。')) {
         Menstrual.endPeriod();
     }
 }
@@ -3312,6 +3352,7 @@ function openMenstrualModal() {
     Menstrual.ensurePeriodContinuity();
     if (Menstrual.getActualDates().length === 0) {
         Menstrual.data = Menstrual.data.filter(item => item.type !== 'predicted');
+        Menstrual.endDate = null;
         Menstrual.save();
     }
     renderMenstrualCalendar(menstrualCurrentYear, menstrualCurrentMonth);
