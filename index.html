@@ -2865,8 +2865,7 @@
     <script src="js/cloud-media-migration.js"></script>
     <script src="js/cloud-sync-ui.js"></script>
     <script>
-        
-// ========== 经期记录核心代码（日历版） ==========
+        // ========== 经期记录核心代码（日历版） ==========
 const Menstrual = {
     data: [],
     init() {
@@ -3172,35 +3171,38 @@ function selectMenstrualDate(dateStr) {
     openMenstrualDetail(dateStr);
 }
 
-// ========== 修改后的今日状态更新函数 ==========
+// ========== 🔧 修改后的今日状态更新函数 ==========
 function updateMenstrualTodayStatus() {
     const label = document.getElementById('menstrual-today-label');
     const badge = document.getElementById('menstrual-status-badge');
     if (!label) return;
     const today = new Date().toISOString().split('T')[0];
+    const lastStart = Menstrual.getLastPeriodStart();
+    let dayNum = null;
+    if (lastStart) {
+        const diff = Math.floor((new Date(today) - new Date(lastStart)) / (1000 * 60 * 60 * 24)) + 1;
+        if (diff >= 1 && diff <= 7) {
+            dayNum = diff;
+        }
+    }
+    // 如果今天在经期窗口内（1-7天），显示为“经期第X天”
+    if (dayNum !== null) {
+        label.textContent = '今天 经期第' + dayNum + '天';
+        if (badge) badge.textContent = '经期中';
+        return;
+    }
+    // 不在窗口内
     const todayRecord = Menstrual.getRecord(today);
     if (todayRecord && todayRecord.type === 'actual') {
-        // 今天被实际标记，计算第几天
-        const startDate = Menstrual.getLastPeriodStart();
-        if (startDate) {
-            const diff = Math.floor((new Date(today) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
-            label.textContent = '今天 经期第' + diff + '天';
-            if (badge) badge.textContent = '经期中';
-        } else {
-            // 理论上不会发生，但以防万一
-            label.textContent = '今天 经期第1天';
-            if (badge) badge.textContent = '经期中';
-        }
+        // 实际但不在窗口（可能是孤立记录）
+        label.textContent = '今天 经期（已结束）';
+        if (badge) badge.textContent = '经期结束';
+    } else if (todayRecord && todayRecord.type === 'predicted') {
+        label.textContent = '今天 预测经期';
+        if (badge) badge.textContent = '预测中';
     } else {
-        // 今天不是实际经期
-        const predRecord = Menstrual.getRecord(today);
-        if (predRecord && predRecord.type === 'predicted') {
-            label.textContent = '今天 预测经期';
-            if (badge) badge.textContent = '预测中';
-        } else {
-            label.textContent = '今天 暂无记录';
-            if (badge) badge.textContent = '未记录';
-        }
+        label.textContent = '今天 暂无记录';
+        if (badge) badge.textContent = '未记录';
     }
 }
 
