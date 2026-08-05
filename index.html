@@ -2865,7 +2865,7 @@
     <script src="js/cloud-media-migration.js"></script>
     <script src="js/cloud-sync-ui.js"></script>
     <script>
-// ========== 经期记录核心代码（内联版） ==========
+        // ========== 经期记录核心代码（内联版） ==========
 const Menstrual = {
     data: [],
     init() {
@@ -2903,17 +2903,28 @@ const Menstrual = {
 };
 
 function openMenstrualModal() {
-    const modal = document.getElementById('menstrualModal');
-    if (!modal) return;
-    modal.style.display = 'flex';
-    document.getElementById('recordDate').value = new Date().toISOString().split('T')[0];
+    // ✅ 改用项目自带的 showModal
+    if (typeof showModal === 'function') {
+        showModal(document.getElementById('menstrualModal'));
+    } else {
+        var modal = document.getElementById('menstrualModal');
+        if (modal) modal.style.display = 'flex';
+    }
+    // 初始化日期
+    var dateInput = document.getElementById('recordDate');
+    if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
     renderHistory();
     updatePrediction();
 }
 
 function closeMenstrualModal() {
-    const modal = document.getElementById('menstrualModal');
-    if (modal) modal.style.display = 'none';
+    // ✅ 改用项目自带的 hideModal
+    if (typeof hideModal === 'function') {
+        hideModal(document.getElementById('menstrualModal'));
+    } else {
+        var modal = document.getElementById('menstrualModal');
+        if (modal) modal.style.display = 'none';
+    }
 }
 
 function saveMenstrualRecord() {
@@ -2956,11 +2967,6 @@ window.deleteRecord = function(date) {
 // 页面加载时初始化
 document.addEventListener('DOMContentLoaded', function() {
     Menstrual.init();
-    // 如果有菜单项且没有被 onclick 覆盖，加个后备监听
-    const entry = document.getElementById('menstrual-function');
-    if (entry && !entry.getAttribute('onclick')) {
-        entry.addEventListener('click', openMenstrualModal);
-    }
 });
 // ========== /经期记录核心代码 ==========
     </script>
