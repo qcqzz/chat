@@ -1555,6 +1555,16 @@ const addMessage = (message) => {
                 currentReplyTo = null;
                 updateReplyPreview();
 
+                // 同步消息到 Firestore（触发对方推送）
+                if (type === 'normal' && typeof FirebaseSync !== 'undefined' && FirebaseSync.isReady()) {
+                    FirebaseSync.sendMessage(
+                        text || '',
+                        imgSrc ? 'image' : 'normal',
+                        FirebaseSync.getUserId(),
+                        settings.myName || '我'
+                    );
+                }
+
 if (!isBatchMode && type === 'normal') {
     // 触发延迟回复（真实用户消息 → isUserMessage = true）
     window._triggerDelayedReply(true);

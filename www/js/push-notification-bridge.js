@@ -265,6 +265,10 @@
                     console.log('[PushBridge] 推送注册成功');
                     _permissionStatus = 'granted';
                     PushBridge._onFCMToken(token.value);
+                    // 自动注册到 Firestore
+                    if (global.FirebaseSync && global.FirebaseSync.isReady()) {
+                        global.FirebaseSync.registerToken(token.value);
+                    }
                 });
 
                 // 监听注册失败
