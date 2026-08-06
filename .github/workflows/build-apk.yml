@@ -56,6 +56,33 @@ jobs:
           fi
           ./node_modules/.bin/cap sync
 
+      - name: 注入前台服务保活代码
+        run: |
+          # 复制自定义 Android 源文件到 Capacitor 项目
+          mkdir -p android/app/src/main/assets
+          
+          # ForegroundService.java — 前台服务保活
+          cp android-src/app/src/main/java/com/chuanxun/app/ForegroundService.java \
+             android/app/src/main/java/com/chuanxun/app/
+          
+          # ForegroundPlugin.java — Capacitor 插件
+          cp android-src/app/src/main/java/com/chuanxun/app/ForegroundPlugin.java \
+             android/app/src/main/java/com/chuanxun/app/
+          
+          # MainActivity.java — 启动前台服务
+          cp android-src/app/src/main/java/com/chuanxun/app/MainActivity.java \
+             android/app/src/main/java/com/chuanxun/app/
+          
+          # AndroidManifest.xml — 注册服务 + 权限
+          cp android-src/app/src/main/AndroidManifest.xml \
+             android/app/src/main/
+          
+          # capacitor.plugins.json — 注册插件
+          cp android-src/app/src/main/assets/capacitor.plugins.json \
+             android/app/src/main/assets/
+          
+          echo "前台服务代码已注入"
+
       - name: 替换应用图标
         run: |
           for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do

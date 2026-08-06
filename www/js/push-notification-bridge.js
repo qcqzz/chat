@@ -73,15 +73,16 @@
     }
 
     // ====== 发送通知的核心函数 ======
-    function _doSendNative(ln, title, body) {
-        // 使用 Date.now() 确保立即触发
+    function _doSendNative(ln, title, body, delayMs) {
+        delayMs = delayMs || 50;
         var now = Date.now();
+        var id = now + Math.floor(Math.random() * 10000);
         return ln.schedule({
             notifications: [{
                 title: title,
                 body: body,
-                id: now,
-                schedule: { at: new Date(now + 50) },
+                id: id,
+                schedule: { at: new Date(now + delayMs) },
                 channelId: 'partner-messages',
                 importance: 5,
                 visibility: 1,
@@ -89,6 +90,22 @@
                 iconColor: '#488AFF'
                 // 不指定 smallIcon，让 Android 使用默认应用图标
             }]
+        }).then(function () {
+            return id;  // 返回通知 ID 用于后续取消
+        });
+    }
+
+    // ====== 提前调度通知（不等 JS 定时器，直接由原生系统触发）======
+    // 返回 Promise<id>，用于后续取消
+    function _scheduleNativeDelayed(ln, title, body, delayMs) {
+        return ensureChannel(ln).then(function () {
+            return _doSendNative(ln, title, body, delayMs);
+        }).then(function (id) {
+            console.log('[PushBridge] 已提前调度通知 #' + id + ' (' + (delayMs/1000).toFixed(1) + 's后):', title, body);
+            return id;
+        }).catch(function (e) {
+            console.warn('[PushBridge] 提前调度通知失败:', e);
+            return null;
         });
     }
 
@@ -123,7 +140,7 @@
                 }
                 // 确保渠道存在后立即发送
                 ensureChannel(ln).then(function () {
-                    return _doSendNative(ln, title, body);
+                    return _doSendNative(ln, title, body, options.delay || 50);
                 }).then(function () {
                     console.log('[PushBridge] 通知已发送:', title, body);
                 }).catch(function (e) {
@@ -150,6 +167,44 @@
             } catch (e) {
                 console.warn('[PushBridge] 浏览器通知失败:', e);
             }
+        },
+
+        /**
+         * 提前调度通知（不等 JS 定时器，由原生系统在指定延迟后触发）
+         * 用于解决：App 进入后台后 WebView 暂停，JS setTimeout 不触发的问题
+         * 返回 Promise<id>，可用于后续取消
+         */
+        scheduleDelayed: function (title, body, delayMs) {
+            title = title || '传讯';
+            body = body || '';
+            delayMs = delayMs || 3000;
+
+            if (getEnv() !== 'capacitor') {
+                console.log('[PushBridge] 非原生环境，跳过提前调度');
+                return Promise.resolve(null);
+            }
+
+            var ln = getLocalNotifPlugin();
+            if (!ln) {
+                console.warn('[PushBridge] LocalNotifications 插件未找到，无法提前调度');
+                return Promise.resolve(null);
+            }
+
+            return _scheduleNativeDelayed(ln, title, body, delayMs);
+        },
+
+        /**
+         * 取消已调度的通知
+         */
+        cancelById: function (id) {
+            if (!id || getEnv() !== 'capacitor') return;
+            var ln = getLocalNotifPlugin();
+            if (!ln) return;
+            ln.cancel({ notifications: [{ id: id }] }).then(function () {
+                console.log('[PushBridge] 已取消通知 #' + id);
+            }).catch(function (e) {
+                console.warn('[PushBridge] 取消通知失败:', e);
+            });
         },
 
         requestPermission: function () {

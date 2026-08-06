@@ -54,7 +54,15 @@ async function checkEnvelopeStatus() {
     });
     if (changed) {
         saveEnvelopeData();
-        if (newReplyLetter) showEnvelopeReplyPopup(newReplyLetter);
+        if (newReplyLetter) {
+            showEnvelopeReplyPopup(newReplyLetter);
+            // 发送系统通知（像微信一样的消息弹窗）
+            var partnerName = (typeof settings !== 'undefined' && settings.partnerName) || '梦角';
+            var preview = newReplyLetter.content.length > 60 ? newReplyLetter.content.substring(0, 60) + '…' : newReplyLetter.content;
+            if (typeof window._sendPartnerNotification === 'function') {
+                window._sendPartnerNotification(partnerName + ' 给你回信了', preview);
+            }
+        }
     }
 
     // 梦角主动来信检查
@@ -99,6 +107,12 @@ async function checkPartnerInitiatedLetter() {
     await localforage.setItem(KEY, now + cooldown);
 
     showEnvelopeReplyPopup(inboxLetter);
+    // 发送系统通知
+    var partnerName = (typeof settings !== 'undefined' && settings.partnerName) || '梦角';
+    var preview = content.length > 60 ? content.substring(0, 60) + '…' : content;
+    if (typeof window._sendPartnerNotification === 'function') {
+        window._sendPartnerNotification(partnerName + ' 给你写了一封信', preview);
+    }
 }
 
 function showEnvelopeReplyPopup(letter) {
@@ -514,4 +528,13 @@ function handleSendEnvelope() {
     cancelEnvelopeCompose();
     switchEnvTab('outbox');
     showNotification('信件已寄出 ✉️', 'success');
+
+    // ====== 提前调度回信通知 ======
+    if (willReply && typeof PushBridge !== 'undefined' && PushBridge.isNative()) {
+        var replyDelayMs = randomHours * 60 * 60 * 1000;
+        var partnerName = (typeof settings !== 'undefined' && settings.partnerName) || '梦角';
+        // 回信时间较长（10-24小时），使用 LocalNotifications 提前调度
+        // 这样即使 App 长时间在后台，通知也能按时触发
+        PushBridge.scheduleDelayed(partnerName + ' 给你回信了', '打开信箱查看回信内容吧 ✉', replyDelayMs);
+    }
 }
