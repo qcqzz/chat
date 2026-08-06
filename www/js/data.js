@@ -61,6 +61,11 @@
         +       '<div class="dm-row-info"><div class="dm-row-title">声明与致谢</div><div class="dm-row-desc">开源声明、致谢名单</div></div>'
         +       '<button class="dm-nav-btn" id="open-credits-btn"><i class="fas fa-chevron-right"></i></button>'
         +     '</div>'
+        +     '<div class="dm-row-item" id="check-update-row" style="cursor:pointer">'
+        +       '<div class="dm-row-icon green"><i class="fas fa-sync-alt"></i></div>'
+        +       '<div class="dm-row-info"><div class="dm-row-title">检查更新</div><div class="dm-row-desc" id="dm-update-status">当前版本 v1.0.0</div></div>'
+        +       '<button class="dm-nav-btn" id="check-update-dm-btn"><i class="fas fa-chevron-right"></i></button>'
+        +     '</div>'
         +   '</div>'
 
         +   '<div class="dm-section-label danger-label"><i class="fas fa-triangle-exclamation"></i> 危险操作</div>'
@@ -450,6 +455,15 @@
                 } else { startTour(); }
             }
         });
+
+        // 检查更新按钮
+        var updateRow = mc.querySelector('#check-update-row');
+        var updateBtn = mc.querySelector('#check-update-dm-btn');
+        var updateHandler = function () {
+            if (typeof checkAppUpdateDM === 'function') checkAppUpdateDM();
+        };
+        if (updateRow) updateRow.addEventListener('click', updateHandler);
+        if (updateBtn) updateBtn.addEventListener('click', updateHandler);
     }
 
     function onModalOpen(modal) {

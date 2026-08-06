@@ -292,22 +292,45 @@
     }
 
     function _capacitorShareFile(blob, fileName) {
-        var reader = new FileReader();
-        reader.onload = function () {
-            var base64 = reader.result.split(',')[1];
-            window.Capacitor.Plugins.Share.share({
+        // 优先使用 Web Share API 分享文件（现代 Android WebView 支持）
+        var file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            navigator.share({
+                files: [file],
                 title: '传讯 - 保存备份',
-                text: '备份文件：' + fileName,
-                url: reader.result,
-                dialogTitle: '保存备份文件'
+                text: '备份文件：' + fileName
             }).then(function () {
                 if (typeof showNotification === 'function') showNotification('备份已导出', 'success');
             }).catch(function (e) {
-                console.warn('[backup] Share 失败，尝试 fallback', e);
-                _downloadBlobDataUrlFallback(blob, fileName);
+                console.warn('[backup] Web Share 失败，尝试其他方式', e);
+                _capacitorShareFallback(blob, fileName);
             });
-        };
-        reader.readAsDataURL(blob);
+            return;
+        }
+        _capacitorShareFallback(blob, fileName);
+    }
+
+    function _capacitorShareFallback(blob, fileName) {
+        // 回退1：Capacitor Share 插件
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
+            var reader = new FileReader();
+            reader.onload = function () {
+                window.Capacitor.Plugins.Share.share({
+                    title: '传讯 - 保存备份',
+                    text: '备份文件：' + fileName,
+                    url: 'data:' + (blob.type || 'application/octet-stream') + ';base64,' + reader.result.split(',')[1],
+                    dialogTitle: '保存备份文件'
+                }).then(function () {
+                    if (typeof showNotification === 'function') showNotification('备份已导出', 'success');
+                }).catch(function (e) {
+                    console.warn('[backup] Capacitor Share 失败', e);
+                    _downloadBlobDataUrlFallback(blob, fileName);
+                });
+            };
+            reader.readAsDataURL(blob);
+            return;
+        }
+        _downloadBlobDataUrlFallback(blob, fileName);
     }
 
     function _downloadBlobDataUrlFallback(blob, fileName) {

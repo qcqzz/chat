@@ -158,21 +158,45 @@ function deduplicateContentArray(arr, baseSystemArray = []) {
 
         // Capacitor 原生分享
         function _capacitorShareFile(blob, fileName) {
-            var reader = new FileReader();
-            reader.onload = function () {
-                window.Capacitor.Plugins.Share.share({
+            // 优先使用 Web Share API 分享文件（现代 Android WebView 支持）
+            var file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                navigator.share({
+                    files: [file],
                     title: '传讯 - 保存备份',
-                    text: '备份文件：' + fileName,
-                    url: reader.result,
-                    dialogTitle: '保存备份文件'
+                    text: '备份文件：' + fileName
                 }).then(function () {
                     if (typeof showNotification === 'function') showNotification('备份已导出', 'success');
                 }).catch(function (e) {
-                    console.warn('[utils] Share 失败', e);
-                    _webViewDataUrlFallback(blob, fileName);
+                    console.warn('[utils] Web Share 失败，尝试其他方式', e);
+                    _capacitorShareFallback(blob, fileName);
                 });
-            };
-            reader.readAsDataURL(blob);
+                return;
+            }
+            _capacitorShareFallback(blob, fileName);
+        }
+
+        function _capacitorShareFallback(blob, fileName) {
+            // 回退：Capacitor Share 插件
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
+                var reader = new FileReader();
+                reader.onload = function () {
+                    window.Capacitor.Plugins.Share.share({
+                        title: '传讯 - 保存备份',
+                        text: '备份文件：' + fileName,
+                        url: 'data:' + (blob.type || 'application/octet-stream') + ';base64,' + reader.result.split(',')[1],
+                        dialogTitle: '保存备份文件'
+                    }).then(function () {
+                        if (typeof showNotification === 'function') showNotification('备份已导出', 'success');
+                    }).catch(function (e) {
+                        console.warn('[utils] Capacitor Share 失败', e);
+                        _webViewDataUrlFallback(blob, fileName);
+                    });
+                };
+                reader.readAsDataURL(blob);
+                return;
+            }
+            _webViewDataUrlFallback(blob, fileName);
         }
 
         if (typeof localforage !== 'undefined') {
@@ -700,16 +724,14 @@ var APP_VERSION = '1.0.0';
 var GITHUB_REPO = 'qcqzz/chat';
 var GITHUB_RELEASES_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest';
 var GITHUB_API_URL = 'https://api.github.com/repos/' + GITHUB_REPO + '/releases/latest';
+var GITHUB_DOWNLOAD_URL = 'https://github.com/' + GITHUB_REPO + '/releases/download/v1.0.0/app-debug.apk';
 
-function checkAppUpdate() {
-    var statusEl = document.getElementById('update-status');
-    var btn = document.getElementById('check-update-btn');
-    if (!statusEl || !btn) return;
-
-    statusEl.style.display = 'block';
-    statusEl.style.color = 'var(--text-secondary)';
-    statusEl.textContent = '正在检查更新...';
-    btn.disabled = true;
+function checkAppUpdateDM() {
+    var statusEl = document.getElementById('dm-update-status');
+    if (statusEl) {
+        statusEl.textContent = '正在检查更新...';
+        statusEl.style.color = 'var(--text-secondary)';
+    }
 
     // 通过 GitHub API 获取最新 release
     fetch(GITHUB_API_URL, { headers: { 'Accept': 'application/vnd.github.v3+json' } })
@@ -718,33 +740,116 @@ function checkAppUpdate() {
             return res.json();
         })
         .then(function (data) {
-            btn.disabled = false;
             var latestTag = (data.tag_name || '').replace(/^v/, '');
             var currentVer = APP_VERSION.replace(/^v/, '');
+            var downloadUrl = GITHUB_DOWNLOAD_URL;
+
+            // 尝试获取最新 APK 下载地址
+            if (data.assets && data.assets.length > 0) {
+                for (var i = 0; i < data.assets.length; i++) {
+                    if (data.assets[i].name && data.assets[i].name.endsWith('.apk')) {
+                        downloadUrl = data.assets[i].browser_download_url;
+                        break;
+                    }
+                }
+            }
 
             if (latestTag && latestTag !== currentVer) {
-                statusEl.style.color = '#e53935';
-                statusEl.innerHTML = '发现新版本: v' + latestTag + '，当前: v' + currentVer + '<br><a href="' + GITHUB_RELEASES_URL + '" target="_blank" style="color: var(--accent-color); font-weight: bold;">点击前往下载</a>';
+                if (statusEl) {
+                    statusEl.textContent = '发现新版本 v' + latestTag + '，点击下载';
+                    statusEl.style.color = '#e53935';
+                }
+                // 弹出确认对话框
+                if (confirm('发现新版本 v' + latestTag + '！\n当前版本: v' + currentVer + '\n\n是否立即下载更新？')) {
+                    // Capacitor 环境：尝试直接下载并触发安装
+                    if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+                        _downloadAndInstallApk(downloadUrl, latestTag);
+                    } else {
+                        window.open(downloadUrl, '_blank');
+                    }
+                }
             } else if (latestTag === currentVer) {
-                statusEl.style.color = '#4caf50';
-                statusEl.textContent = '已是最新版本 v' + currentVer;
+                if (statusEl) {
+                    statusEl.textContent = '已是最新版本 v' + currentVer;
+                    statusEl.style.color = '#4caf50';
+                }
+                if (typeof showNotification === 'function') showNotification('已是最新版本 v' + currentVer, 'success');
             } else {
-                statusEl.style.color = 'var(--text-secondary)';
-                statusEl.textContent = '无法获取版本信息，请手动访问 GitHub Releases';
+                if (statusEl) {
+                    statusEl.textContent = '检查失败，点击重试';
+                    statusEl.style.color = 'var(--text-secondary)';
+                }
                 window.open(GITHUB_RELEASES_URL, '_blank');
             }
         })
         .catch(function (err) {
-            btn.disabled = false;
             console.warn('[update] API 检查失败:', err);
-            statusEl.style.color = 'var(--text-secondary)';
-            statusEl.textContent = '网络检查失败，正在打开下载页面...';
+            if (statusEl) {
+                statusEl.textContent = '网络错误，点击打开下载页';
+                statusEl.style.color = 'var(--text-secondary)';
+            }
             window.open(GITHUB_RELEASES_URL, '_blank');
         });
+}
+
+// 在 Capacitor 环境中下载 APK 并触发安装
+function _downloadAndInstallApk(downloadUrl, version) {
+    if (typeof showNotification === 'function') showNotification('正在下载更新...', 'info', 3000);
+
+    // 使用 fetch 下载 APK，然后通过 Blob URL 触发安装
+    fetch(downloadUrl)
+        .then(function (res) {
+            if (!res.ok) throw new Error('下载失败: HTTP ' + res.status);
+            var total = parseInt(res.headers.get('content-length') || '0', 10);
+            var loaded = 0;
+            var reader = res.body.getReader();
+            var chunks = [];
+
+            function pump() {
+                return reader.read().then(function (result) {
+                    if (result.done) {
+                        var blob = new Blob(chunks, { type: 'application/vnd.android.package-archive' });
+                        var blobUrl = URL.createObjectURL(blob);
+                        // 触发下载和安装
+                        var a = document.createElement('a');
+                        a.href = blobUrl;
+                        a.download = 'chuanxun-update-v' + version + '.apk';
+                        a.style.display = 'none';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 5000);
+                        if (typeof showNotification === 'function') showNotification('下载完成，请点击通知安装更新', 'success', 5000);
+                        return;
+                    }
+                    chunks.push(result.value);
+                    loaded += result.value.length;
+                    if (total > 0) {
+                        var pct = Math.round(loaded / total * 100);
+                        var statusEl = document.getElementById('dm-update-status');
+                        if (statusEl) statusEl.textContent = '下载中... ' + pct + '%';
+                    }
+                    return pump();
+                });
+            }
+            return pump();
+        })
+        .catch(function (err) {
+            console.error('[update] APK 下载失败:', err);
+            if (typeof showNotification === 'function') showNotification('下载失败，正在打开下载页...', 'warning', 3000);
+            setTimeout(function () { window.open(downloadUrl, '_blank'); }, 1500);
+        });
+}
+
+// 兼容旧版 disclaimer modal 中的按钮
+function checkAppUpdate() {
+    checkAppUpdateDM();
 }
 
 // 初始化版本号显示
 (function () {
     var el = document.getElementById('app-version-info');
     if (el) el.textContent = '当前版本: v' + APP_VERSION;
+    var dmEl = document.getElementById('dm-update-status');
+    if (dmEl) dmEl.textContent = '当前版本 v' + APP_VERSION;
 })();

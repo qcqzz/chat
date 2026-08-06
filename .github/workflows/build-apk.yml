@@ -46,11 +46,15 @@ jobs:
       - name: 安装 npm 依赖
         run: npm ci
 
-      - name: 添加 Android 平台
-        run: ./node_modules/.bin/cap add android
-
-      - name: 同步 Capacitor
-        run: ./node_modules/.bin/cap sync
+      - name: 同步 Capacitor（含插件注册）
+        run: |
+          # 如果 android 平台已存在则跳过 add，直接 sync
+          if [ -d android ]; then
+            echo "Android 平台已存在，跳过 cap add"
+          else
+            ./node_modules/.bin/cap add android
+          fi
+          ./node_modules/.bin/cap sync
 
       - name: 替换应用图标
         run: |
