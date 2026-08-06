@@ -23,6 +23,11 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: 设置 Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-35 build-tools;35.0.0'
+
       - name: 安装 npm 依赖
         run: npm ci
 
