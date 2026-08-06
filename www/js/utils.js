@@ -156,9 +156,15 @@ function deduplicateContentArray(arr, baseSystemArray = []) {
             reader.readAsDataURL(blob);
         }
 
-        // Capacitor 原生分享
+        // Capacitor 原生分享（使用 Filesystem 写入文件）
         function _capacitorShareFile(blob, fileName) {
-            // 优先使用 Web Share API 分享文件（现代 Android WebView 支持）
+            // 优先使用 Filesystem 写入文件（真正保存到设备）
+            if (_getCapFilesystem()) {
+                _capacitorSaveAndShare(blob, fileName);
+                return;
+            }
+
+            // 回退：Web Share API
             var file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
             if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                 navigator.share({
@@ -174,6 +180,61 @@ function deduplicateContentArray(arr, baseSystemArray = []) {
                 return;
             }
             _capacitorShareFallback(blob, fileName);
+        }
+
+        function _getCapFilesystem() {
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem) {
+                return window.Capacitor.Plugins.Filesystem;
+            }
+            return null;
+        }
+
+        function _capacitorSaveAndShare(blob, fileName) {
+            var fs = _getCapFilesystem();
+            if (!fs) {
+                _capacitorShareFallback(blob, fileName);
+                return;
+            }
+
+            var reader = new FileReader();
+            reader.onload = function () {
+                var base64Data = reader.result.split(',')[1];
+                var filePath = 'backups/' + fileName;
+
+                fs.writeFile({
+                    path: filePath,
+                    data: base64Data,
+                    directory: 'CACHE',
+                    recursive: true
+                }).then(function (writeResult) {
+                    console.log('[utils] 文件已写入:', writeResult.uri);
+                    return fs.getUri({ path: filePath, directory: 'CACHE' });
+                }).then(function (uriResult) {
+                    console.log('[utils] 文件 URI:', uriResult.uri);
+                    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
+                        return window.Capacitor.Plugins.Share.share({
+                            title: '传讯 - 保存备份',
+                            text: '备份文件：' + fileName,
+                            url: uriResult.uri,
+                            dialogTitle: '保存备份文件'
+                        });
+                    }
+                    var file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
+                    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                        return navigator.share({ files: [file], title: '传讯 - 保存备份', text: '备份文件：' + fileName });
+                    }
+                    throw new Error('无可用分享方式');
+                }).then(function () {
+                    if (typeof showNotification === 'function') showNotification('备份已导出，请选择保存位置', 'success', 4000);
+                }).catch(function (e) {
+                    console.warn('[utils] 保存分享失败:', e);
+                    _capacitorShareFallback(blob, fileName);
+                });
+            };
+            reader.onerror = function () {
+                _capacitorShareFallback(blob, fileName);
+            };
+            reader.readAsDataURL(blob);
         }
 
         function _capacitorShareFallback(blob, fileName) {

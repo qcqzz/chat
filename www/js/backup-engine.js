@@ -291,8 +291,75 @@
         setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
     }
 
+    function _capacitorSaveAndShare(blob, fileName) {
+        // 使用 Filesystem 插件将文件写入缓存目录，然后分享
+        var fs = _getFilesystemPlugin();
+        if (!fs) {
+            console.warn('[backup] Filesystem 插件未找到，回退到旧方案');
+            _capacitorShareFallback(blob, fileName);
+            return;
+        }
+
+        var reader = new FileReader();
+        reader.onload = function () {
+            var base64Data = reader.result.split(',')[1];
+            var filePath = 'backups/' + fileName;
+
+            fs.writeFile({
+                path: filePath,
+                data: base64Data,
+                directory: 'CACHE',
+                recursive: true
+            }).then(function (writeResult) {
+                console.log('[backup] 文件已写入:', writeResult.uri);
+                // 获取文件 URI 并分享
+                return fs.getUri({ path: filePath, directory: 'CACHE' });
+            }).then(function (uriResult) {
+                console.log('[backup] 文件 URI:', uriResult.uri);
+                // 使用 Share 插件分享文件
+                if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
+                    return window.Capacitor.Plugins.Share.share({
+                        title: '传讯 - 保存备份',
+                        text: '备份文件：' + fileName,
+                        url: uriResult.uri,
+                        dialogTitle: '保存备份文件'
+                    });
+                }
+                // 回退：用 navigator.share
+                var file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    return navigator.share({ files: [file], title: '传讯 - 保存备份', text: '备份文件：' + fileName });
+                }
+                throw new Error('无可用分享方式');
+            }).then(function () {
+                if (typeof showNotification === 'function') showNotification('备份已导出，请选择保存位置', 'success', 4000);
+            }).catch(function (e) {
+                console.warn('[backup] 保存分享失败:', e);
+                // 最终回退：尝试用旧方案
+                _capacitorShareFallback(blob, fileName);
+            });
+        };
+        reader.onerror = function () {
+            _capacitorShareFallback(blob, fileName);
+        };
+        reader.readAsDataURL(blob);
+    }
+
+    function _getFilesystemPlugin() {
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem) {
+            return window.Capacitor.Plugins.Filesystem;
+        }
+        return null;
+    }
+
     function _capacitorShareFile(blob, fileName) {
-        // 优先使用 Web Share API 分享文件（现代 Android WebView 支持）
+        // 优先使用 Filesystem 写入文件（真正保存到设备）
+        if (_getFilesystemPlugin()) {
+            _capacitorSaveAndShare(blob, fileName);
+            return;
+        }
+
+        // 回退：Web Share API
         var file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
             navigator.share({
