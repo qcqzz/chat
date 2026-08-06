@@ -2194,6 +2194,12 @@ function showModal(modalElement, focusElement = null) {
                     const parts = exportObj.exportModules.join('+');
                     const fileName = `chat-export-${parts}-${new Date().toISOString().slice(0,10)}.json`;
 
+                    // Capacitor 环境优先使用原生分享
+                    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
+                        fallbackExport(dataStr, fileName);
+                        return;
+                    }
+
                     if (navigator.share && /Mobile|Android|iPhone|iPad/.test(navigator.userAgent)) {
                         const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
                         const file = new File([blob], fileName, { type: 'application/json' });
