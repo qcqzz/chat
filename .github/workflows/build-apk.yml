@@ -64,6 +64,15 @@ jobs:
             cp resources/mipmap-$density/ic_launcher_foreground.png android/app/src/main/res/mipmap-$density/
           done
           echo "Icons replaced"
+          
+          # 创建通知图标（Android 通知必需）
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p android/app/src/main/res/drawable-$density
+            cp resources/mipmap-$density/ic_launcher.png android/app/src/main/res/drawable-$density/ic_stat_notification.png
+          done
+          mkdir -p android/app/src/main/res/drawable
+          cp resources/mipmap-hdpi/ic_launcher.png android/app/src/main/res/drawable/ic_stat_notification.png
+          echo "Notification icons created"
 
       - name: 构建 APK
         run: |
