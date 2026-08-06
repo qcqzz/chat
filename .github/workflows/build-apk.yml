@@ -47,14 +47,15 @@ jobs:
         run: npm ci
 
       - name: 添加 Android 平台
-        run: npx cap add android
+        run: npx -y @capacitor/cli add android
 
       - name: 同步 Capacitor
-        run: npx cap sync
+        run: npx -y @capacitor/cli sync
 
       - name: 构建 APK
         run: |
           cd android
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
           chmod +x gradlew
           ./gradlew assembleDebug
 
