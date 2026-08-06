@@ -1,4 +1,4 @@
-name: Build APK & Deploy
+name: Build APK
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
@@ -26,11 +26,6 @@ jobs:
       - name: 安装 npm 依赖
         run: npm ci
 
-      - name: 写入 Firebase 配置
-        run: |
-          mkdir -p android/app
-          echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > android/app/google-services.json
-
       - name: 添加 Android 平台
         run: npx cap add android
 
@@ -48,27 +43,3 @@ jobs:
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
-
-  deploy-functions:
-    runs-on: ubuntu-latest
-    needs: build-apk
-    steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-
-      - name: 设置 Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: 安装 Firebase CLI
-        run: npm install -g firebase-tools
-
-      - name: 安装 Functions 依赖
-        run: cd functions && npm ci
-
-      - name: 部署 Firestore 规则
-        run: firebase deploy --only firestore:rules --token "${{ secrets.FIREBASE_TOKEN }}"
-
-      - name: 部署 Cloud Functions
-        run: firebase deploy --only functions --token "${{ secrets.FIREBASE_TOKEN }}"

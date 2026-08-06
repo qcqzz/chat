@@ -7,8 +7,9 @@
     "androidScheme": "https"
   },
   "plugins": {
-    "PushNotifications": {
-      "presentationOptions": ["badge", "sound", "alert"]
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_notification",
+      "iconColor": "#488AFF"
     }
   }
 }
