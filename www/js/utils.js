@@ -66,10 +66,19 @@ function deduplicateContentArray(arr, baseSystemArray = []) {
             });
         }
 
+        function _isCapacitorEnv() {
+            return !!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share);
+        }
+
         function exportDataToMobileOrPC(dataString, fileName) {
+            const blob = new Blob([dataString], { type: 'application/json' });
+            // Capacitor 环境优先使用原生分享
+            if (_isCapacitorEnv()) {
+                downloadFileFallback(blob, fileName);
+                return;
+            }
             if (navigator.share && navigator.canShare) {
                 try {
-                    const blob = new Blob([dataString], { type: 'application/json' });
                     const file = new File([blob], fileName, { type: 'application/json' });
                     if (navigator.canShare({ files: [file] })) {
                         navigator.share({ files: [file], title: '传讯数据备份', text: '请选择"保存到文件"' })
@@ -78,7 +87,6 @@ function deduplicateContentArray(arr, baseSystemArray = []) {
                     }
                 } catch (e) {}
             }
-            const blob = new Blob([dataString], { type: 'application/json' });
             downloadFileFallback(blob, fileName);
         }
 
@@ -512,6 +520,12 @@ async function exportAllData() {
             const dateStr = new Date().toISOString().slice(0, 10);
             const fileName = `chatapp-backup-${dateStr}.json`;
             const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
+            // Capacitor 环境优先使用原生分享
+            if (_isCapacitorEnv()) {
+                downloadFileFallback(blob, fileName);
+                if (typeof showNotification === 'function') showNotification('已导出 JSON 备份', 'success');
+                return;
+            }
             // 移动端 / WebView 优先尝试系统分享（保存到文件）
             if (navigator.share && navigator.canShare && /Mobile|Android|iPhone|iPad/.test(navigator.userAgent)) {
                 try {
@@ -680,3 +694,57 @@ async function importAllData(file) {
         showNotification('导入失败：' + msg, 'error', 5000);
     }
 }
+
+// ====== 软件更新检查 ======
+var APP_VERSION = '1.0.0';
+var GITHUB_REPO = 'qcqzz/chat';
+var GITHUB_RELEASES_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest';
+var GITHUB_API_URL = 'https://api.github.com/repos/' + GITHUB_REPO + '/releases/latest';
+
+function checkAppUpdate() {
+    var statusEl = document.getElementById('update-status');
+    var btn = document.getElementById('check-update-btn');
+    if (!statusEl || !btn) return;
+
+    statusEl.style.display = 'block';
+    statusEl.style.color = 'var(--text-secondary)';
+    statusEl.textContent = '正在检查更新...';
+    btn.disabled = true;
+
+    // 通过 GitHub API 获取最新 release
+    fetch(GITHUB_API_URL, { headers: { 'Accept': 'application/vnd.github.v3+json' } })
+        .then(function (res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        })
+        .then(function (data) {
+            btn.disabled = false;
+            var latestTag = (data.tag_name || '').replace(/^v/, '');
+            var currentVer = APP_VERSION.replace(/^v/, '');
+
+            if (latestTag && latestTag !== currentVer) {
+                statusEl.style.color = '#e53935';
+                statusEl.innerHTML = '发现新版本: v' + latestTag + '，当前: v' + currentVer + '<br><a href="' + GITHUB_RELEASES_URL + '" target="_blank" style="color: var(--accent-color); font-weight: bold;">点击前往下载</a>';
+            } else if (latestTag === currentVer) {
+                statusEl.style.color = '#4caf50';
+                statusEl.textContent = '已是最新版本 v' + currentVer;
+            } else {
+                statusEl.style.color = 'var(--text-secondary)';
+                statusEl.textContent = '无法获取版本信息，请手动访问 GitHub Releases';
+                window.open(GITHUB_RELEASES_URL, '_blank');
+            }
+        })
+        .catch(function (err) {
+            btn.disabled = false;
+            console.warn('[update] API 检查失败:', err);
+            statusEl.style.color = 'var(--text-secondary)';
+            statusEl.textContent = '网络检查失败，正在打开下载页面...';
+            window.open(GITHUB_RELEASES_URL, '_blank');
+        });
+}
+
+// 初始化版本号显示
+(function () {
+    var el = document.getElementById('app-version-info');
+    if (el) el.textContent = '当前版本: v' + APP_VERSION;
+})();

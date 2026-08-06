@@ -386,6 +386,10 @@
         return await loadBackupFromArrayBuffer(ab);
     }
 
+    function _isCapacitorEnv() {
+        return !!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share);
+    }
+
     async function exportBackupToFile(flags) {
         if (typeof showNotification === 'function') showNotification('正在打包备份（ZIP：结构与媒体分离）…', 'info', 4000);
         var payload = await buildBackupPayload(flags);
@@ -429,6 +433,14 @@
                     compression: 'DEFLATE',
                     compressionOptions: { level: 6 }
                 });
+                // Capacitor 环境优先使用原生分享
+                if (_isCapacitorEnv()) {
+                    downloadBlob(zipBlob, fileNameZip);
+                    if (typeof showNotification === 'function') {
+                        showNotification('已导出 ZIP：主 JSON 不含大图，导入更不易失败', 'success', 3500);
+                    }
+                    return;
+                }
                 if (navigator.share && /Mobile|Android|iPhone|iPad/.test(navigator.userAgent)) {
                     try {
                         var shareFile = new File([zipBlob], fileNameZip, { type: 'application/zip' });
@@ -461,6 +473,12 @@
         var str = serializeBackupV4(payload);
         var blob = new Blob([str], { type: 'application/json;charset=utf-8' });
         var fileName = 'chatapp-backup-' + dateStr + '.json';
+        // Capacitor 环境优先使用原生分享
+        if (_isCapacitorEnv()) {
+            downloadBlob(blob, fileName);
+            if (typeof showNotification === 'function') showNotification('备份导出成功（JSON）', 'success');
+            return;
+        }
         if (navigator.share && /Mobile|Android|iPhone|iPad/.test(navigator.userAgent)) {
             try {
                 var f = new File([blob], fileName, { type: 'application/json' });

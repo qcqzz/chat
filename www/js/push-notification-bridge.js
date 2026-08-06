@@ -12,19 +12,26 @@
 
     var _initialized = false;
 
-    // ====== 环境检测 ======
+    // ====== 环境检测（动态检测，每次调用时重新判断） ======
     function detectEnv() {
-        if (global.Capacitor && global.Capacitor.isNativePlatform && global.Capacitor.isNativePlatform()) {
+        if (global.Capacitor && typeof global.Capacitor.isNativePlatform === 'function' && global.Capacitor.isNativePlatform()) {
+            return 'capacitor';
+        }
+        // 备用检测：Android WebView 且 Capacitor 已注入
+        if (global.Capacitor && global.Capacitor.Plugins && global.Capacitor.Plugins.LocalNotifications) {
             return 'capacitor';
         }
         return 'browser';
     }
 
-    var _env = detectEnv();
+    function getEnv() {
+        return detectEnv();
+    }
 
     // ====== Capacitor 插件引用 ======
     function getLocalNotifPlugin() {
-        if (_env === 'capacitor' && global.Capacitor && global.Capacitor.Plugins) {
+        var env = getEnv();
+        if (env === 'capacitor' && global.Capacitor && global.Capacitor.Plugins) {
             return global.Capacitor.Plugins.LocalNotifications;
         }
         return null;
@@ -33,11 +40,11 @@
     // ====== 公开 API ======
     var PushBridge = {
         isNative: function () {
-            return _env === 'capacitor';
+            return getEnv() === 'capacitor';
         },
 
         isAvailable: function () {
-            if (_env === 'capacitor') {
+            if (getEnv() === 'capacitor') {
                 return !!(global.Capacitor && global.Capacitor.Plugins && global.Capacitor.Plugins.LocalNotifications);
             }
             return 'Notification' in global;
@@ -56,7 +63,7 @@
             }
 
             // Capacitor 环境：使用 LocalNotifications 弹出系统通知
-            if (_env === 'capacitor') {
+            if (getEnv() === 'capacitor') {
                 var ln = getLocalNotifPlugin();
                 if (ln) {
                     try {
@@ -99,7 +106,7 @@
          * 请求通知权限
          */
         requestPermission: function () {
-            if (_env === 'capacitor') {
+            if (getEnv() === 'capacitor') {
                 var ln = getLocalNotifPlugin();
                 if (!ln) return Promise.resolve('unsupported');
                 return ln.requestPermissions().then(function (result) {
@@ -118,7 +125,7 @@
          * 获取通知权限状态（同步）
          */
         getStatus: function () {
-            if (_env === 'capacitor') {
+            if (getEnv() === 'capacitor') {
                 // LocalNotifications 没有同步检查，用缓存
                 return 'unknown';
             }
@@ -133,7 +140,7 @@
             if (_initialized) return;
             _initialized = true;
 
-            console.log('[PushBridge] 初始化完成，环境:', _env,
+            console.log('[PushBridge] 初始化完成，环境:', getEnv(),
                 this.isAvailable() ? '✓ 可用' : '✗ 不可用');
         }
     };
