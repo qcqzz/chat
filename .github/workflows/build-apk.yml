@@ -15,13 +15,13 @@ jobs:
       - name: 设置 Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: 设置 Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: 安装 Android SDK
         run: |
@@ -47,10 +47,10 @@ jobs:
         run: npm ci
 
       - name: 添加 Android 平台
-        run: npx -y @capacitor/cli add android
+        run: ./node_modules/.bin/cap add android
 
       - name: 同步 Capacitor
-        run: npx -y @capacitor/cli sync
+        run: ./node_modules/.bin/cap sync
 
       - name: 构建 APK
         run: |
