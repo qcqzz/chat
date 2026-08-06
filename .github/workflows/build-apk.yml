@@ -52,6 +52,15 @@ jobs:
       - name: 同步 Capacitor
         run: ./node_modules/.bin/cap sync
 
+      - name: 替换应用图标
+        run: |
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            cp resources/mipmap-$density/ic_launcher.png android/app/src/main/res/mipmap-$density/
+            cp resources/mipmap-$density/ic_launcher_round.png android/app/src/main/res/mipmap-$density/
+            cp resources/mipmap-$density/ic_launcher_foreground.png android/app/src/main/res/mipmap-$density/
+          done
+          echo "Icons replaced"
+
       - name: 构建 APK
         run: |
           cd android
