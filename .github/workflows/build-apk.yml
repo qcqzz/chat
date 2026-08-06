@@ -41,7 +41,7 @@ jobs:
           
           # 接受许可协议并安装 SDK
           yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
-          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools" 2>&1
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" 2>&1
 
       - name: 安装 npm 依赖
         run: npm ci
