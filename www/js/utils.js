@@ -83,6 +83,11 @@ function deduplicateContentArray(arr, baseSystemArray = []) {
         }
 
         function downloadFileFallback(blob, fileName) {
+            // Capacitor 环境：使用原生分享
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
+                _capacitorShareFile(blob, fileName);
+                return;
+            }
             // 检测是否在 Android WebView 中运行
             var isAndroidWebView = /Android/.test(navigator.userAgent) && /wv/.test(navigator.userAgent);
 
@@ -139,6 +144,25 @@ function deduplicateContentArray(arr, baseSystemArray = []) {
                         showNotification('无法下载文件，请尝试在浏览器中打开', 'warning', 3000);
                     }
                 }
+            };
+            reader.readAsDataURL(blob);
+        }
+
+        // Capacitor 原生分享
+        function _capacitorShareFile(blob, fileName) {
+            var reader = new FileReader();
+            reader.onload = function () {
+                window.Capacitor.Plugins.Share.share({
+                    title: '传讯 - 保存备份',
+                    text: '备份文件：' + fileName,
+                    url: reader.result,
+                    dialogTitle: '保存备份文件'
+                }).then(function () {
+                    if (typeof showNotification === 'function') showNotification('备份已导出', 'success');
+                }).catch(function (e) {
+                    console.warn('[utils] Share 失败', e);
+                    _webViewDataUrlFallback(blob, fileName);
+                });
             };
             reader.readAsDataURL(blob);
         }

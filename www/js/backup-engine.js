@@ -259,6 +259,11 @@
             downloadFileFallback(blob, fileName);
             return;
         }
+        // Capacitor 环境：使用原生分享
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
+            _capacitorShareFile(blob, fileName);
+            return;
+        }
         // WebView 环境检测：Android WebView 不支持 a.click() 下载
         var isAndroidWebView = /Android/.test(navigator.userAgent) && /wv/.test(navigator.userAgent);
         if (isAndroidWebView) {
@@ -284,6 +289,25 @@
         a.click();
         document.body.removeChild(a);
         setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    }
+
+    function _capacitorShareFile(blob, fileName) {
+        var reader = new FileReader();
+        reader.onload = function () {
+            var base64 = reader.result.split(',')[1];
+            window.Capacitor.Plugins.Share.share({
+                title: '传讯 - 保存备份',
+                text: '备份文件：' + fileName,
+                url: reader.result,
+                dialogTitle: '保存备份文件'
+            }).then(function () {
+                if (typeof showNotification === 'function') showNotification('备份已导出', 'success');
+            }).catch(function (e) {
+                console.warn('[backup] Share 失败，尝试 fallback', e);
+                _downloadBlobDataUrlFallback(blob, fileName);
+            });
+        };
+        reader.readAsDataURL(blob);
     }
 
     function _downloadBlobDataUrlFallback(blob, fileName) {
