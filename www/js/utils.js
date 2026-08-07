@@ -781,11 +781,11 @@ async function importAllData(file) {
 }
 
 // ====== 软件更新检查 ======
-var APP_VERSION = '1.2.0';
+var APP_VERSION = '1.2.1';
 var GITHUB_REPO = 'qcqzz/chat';
 var GITHUB_RELEASES_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest';
 var GITHUB_API_URL = 'https://api.github.com/repos/' + GITHUB_REPO + '/releases/latest';
-var GITHUB_DOWNLOAD_URL = 'https://github.com/' + GITHUB_REPO + '/releases/download/v1.2.0/app-debug.apk';
+var GITHUB_DOWNLOAD_LATEST_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest/download/app-debug.apk';
 
 function checkAppUpdateDM() {
     var statusEl = document.getElementById('dm-update-status');
@@ -803,7 +803,7 @@ function checkAppUpdateDM() {
         .then(function (data) {
             var latestTag = (data.tag_name || '').replace(/^v/, '');
             var currentVer = APP_VERSION.replace(/^v/, '');
-            var downloadUrl = GITHUB_DOWNLOAD_URL;
+            var downloadUrl = GITHUB_DOWNLOAD_LATEST_URL;
 
             // 尝试获取最新 APK 下载地址
             if (data.assets && data.assets.length > 0) {
@@ -820,14 +820,8 @@ function checkAppUpdateDM() {
                     statusEl.textContent = '发现新版本 v' + latestTag + '，点击下载';
                     statusEl.style.color = '#e53935';
                 }
-                // 弹出确认对话框
                 if (confirm('发现新版本 v' + latestTag + '！\n当前版本: v' + currentVer + '\n\n是否立即下载更新？')) {
-                    // Capacitor 环境：尝试直接下载并触发安装
-                    if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
-                        _downloadAndInstallApk(downloadUrl, latestTag);
-                    } else {
-                        window.open(downloadUrl, '_blank');
-                    }
+                    _downloadAndInstallApk(downloadUrl, latestTag);
                 }
             } else if (latestTag === currentVer) {
                 if (statusEl) {
@@ -853,53 +847,32 @@ function checkAppUpdateDM() {
         });
 }
 
-// 在 Capacitor 环境中下载 APK 并触发安装
+// 下载 APK 并触发安装
+// 优先使用原生 NotificationPlugin.downloadApk，回退到浏览器下载
 function _downloadAndInstallApk(downloadUrl, version) {
-    if (typeof showNotification === 'function') showNotification('正在下载更新...', 'info', 3000);
-
-    // 使用 fetch 下载 APK，然后通过 Blob URL 触发安装
-    fetch(downloadUrl)
-        .then(function (res) {
-            if (!res.ok) throw new Error('下载失败: HTTP ' + res.status);
-            var total = parseInt(res.headers.get('content-length') || '0', 10);
-            var loaded = 0;
-            var reader = res.body.getReader();
-            var chunks = [];
-
-            function pump() {
-                return reader.read().then(function (result) {
-                    if (result.done) {
-                        var blob = new Blob(chunks, { type: 'application/vnd.android.package-archive' });
-                        var blobUrl = URL.createObjectURL(blob);
-                        // 触发下载和安装
-                        var a = document.createElement('a');
-                        a.href = blobUrl;
-                        a.download = 'chuanxun-update-v' + version + '.apk';
-                        a.style.display = 'none';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 5000);
-                        if (typeof showNotification === 'function') showNotification('下载完成，请点击通知安装更新', 'success', 5000);
-                        return;
-                    }
-                    chunks.push(result.value);
-                    loaded += result.value.length;
-                    if (total > 0) {
-                        var pct = Math.round(loaded / total * 100);
-                        var statusEl = document.getElementById('dm-update-status');
-                        if (statusEl) statusEl.textContent = '下载中... ' + pct + '%';
-                    }
-                    return pump();
-                });
-            }
-            return pump();
-        })
-        .catch(function (err) {
-            console.error('[update] APK 下载失败:', err);
-            if (typeof showNotification === 'function') showNotification('下载失败，正在打开下载页...', 'warning', 3000);
-            setTimeout(function () { window.open(downloadUrl, '_blank'); }, 1500);
-        });
+    // 原生环境：通过 NotificationPlugin 下载并触发安装
+    if (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web') {
+        var notifPlugin = window.Capacitor.Plugins && window.Capacitor.Plugins.NotificationPlugin;
+        if (notifPlugin && typeof notifPlugin.downloadApk === 'function') {
+            if (typeof showNotification === 'function') showNotification('正在下载更新...', 'info', 3000);
+            var statusEl = document.getElementById('dm-update-status');
+            notifPlugin.downloadApk({ url: downloadUrl, version: version }).then(function (result) {
+                if (result && result.success) {
+                    if (statusEl) statusEl.textContent = '下载完成，正在安装...';
+                    if (typeof showNotification === 'function') showNotification('下载完成，即将安装更新', 'success', 3000);
+                } else {
+                    if (statusEl) statusEl.textContent = '下载失败，点击重试';
+                    window.open(downloadUrl, '_blank');
+                }
+            }).catch(function (err) {
+                console.warn('[update] 原生下载失败，回退浏览器:', err);
+                window.open(downloadUrl, '_blank');
+            });
+            return;
+        }
+    }
+    // 回退：浏览器下载
+    window.open(downloadUrl, '_blank');
 }
 
 // 兼容旧版 disclaimer modal 中的按钮

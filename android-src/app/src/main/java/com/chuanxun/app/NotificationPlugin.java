@@ -5,17 +5,27 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
+import android.os.Environment;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.FileProvider;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 @CapacitorPlugin(name = "NotificationPlugin")
 public class NotificationPlugin extends Plugin {
@@ -110,5 +120,82 @@ public class NotificationPlugin extends Plugin {
             Log.i(TAG, "Notification cancelled: id=" + id);
         }
         call.resolve();
+    }
+
+    /**
+     * 下载 APK 并触发系统安装
+     * 在后台线程中下载，完成后通过 FileProvider + Intent 触发安装
+     */
+    @PluginMethod
+    public void downloadApk(PluginCall call) {
+        String urlStr = call.getString("url");
+        String version = call.getString("version", "");
+
+        if (urlStr == null || urlStr.isEmpty()) {
+            call.reject("URL is required");
+            return;
+        }
+
+        // 在后台线程执行下载
+        getBridge().executeOnMainThread(() -> {
+            // 在主线程先 resolve，下载在后台线程进行
+            call.resolve(new JSObject().put("success", true).put("message", "Download started"));
+        });
+
+        new Thread(() -> {
+            try {
+                Context ctx = getContext();
+                File cacheDir = ctx.getExternalCacheDir();
+                if (cacheDir == null) {
+                    cacheDir = ctx.getCacheDir();
+                }
+                File apkFile = new File(cacheDir, "update-v" + version + ".apk");
+
+                Log.i(TAG, "Downloading APK from: " + urlStr);
+                URL url = new URL(urlStr);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setConnectTimeout(30000);
+                conn.setReadTimeout(120000);
+                conn.setInstanceFollowRedirects(true);
+                conn.connect();
+
+                if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                    Log.e(TAG, "Download failed: HTTP " + conn.getResponseCode());
+                    return;
+                }
+
+                // 删除旧文件
+                if (apkFile.exists()) {
+                    apkFile.delete();
+                }
+
+                try (InputStream in = new BufferedInputStream(conn.getInputStream());
+                     FileOutputStream out = new FileOutputStream(apkFile)) {
+                    byte[] buffer = new byte[8192];
+                    int bytesRead;
+                    while ((bytesRead = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, bytesRead);
+                    }
+                    out.flush();
+                }
+
+                conn.disconnect();
+                Log.i(TAG, "APK downloaded: " + apkFile.getAbsolutePath() + " size=" + apkFile.length());
+
+                // 通过 FileProvider 获取 URI 并触发安装
+                Uri apkUri = FileProvider.getUriForFile(ctx, ctx.getPackageName() + ".fileprovider", apkFile);
+
+                Intent installIntent = new Intent(Intent.ACTION_VIEW);
+                installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                ctx.startActivity(installIntent);
+                Log.i(TAG, "Install intent launched for: " + apkUri);
+
+            } catch (Exception e) {
+                Log.e(TAG, "APK download/install failed: " + e.getMessage());
+            }
+        }).start();
     }
 }
