@@ -96,15 +96,15 @@
     }
 
     // ====== 提前调度通知（不等 JS 定时器，直接由原生系统触发）======
-    // 返回 Promise<id>，用于后续取消
+    // 保留此方法以兼容旧代码，但实际通知由 send() 直接发送
     function _scheduleNativeDelayed(ln, title, body, delayMs) {
         return ensureChannel(ln).then(function () {
             return _doSendNative(ln, title, body, delayMs);
         }).then(function (id) {
-            console.log('[PushBridge] 已提前调度通知 #' + id + ' (' + (delayMs/1000).toFixed(1) + 's后):', title, body);
+            console.log('[PushBridge] 通知已调度 #' + id + ' (' + (delayMs/1000).toFixed(1) + 's后):', title, body);
             return id;
         }).catch(function (e) {
-            console.warn('[PushBridge] 提前调度通知失败:', e);
+            console.warn('[PushBridge] 调度通知失败:', e);
             return null;
         });
     }
@@ -124,21 +124,22 @@
 
         /**
          * 发送通知弹窗（梦角回复时调用）
-         * APK 环境：始终尝试发送，不受 notifEnabled 限制
+         * 前台服务保活确保 WebView 持续运行，setTimeout 可正常触发
+         * APK 环境：始终发送系统通知
+         * 浏览器环境：仅页面隐藏时发送
          */
         send: function (title, body, options) {
             options = options || {};
             title = title || '传讯';
             body = body || '';
 
-            // Capacitor 环境：直接发送系统通知，不检查 notifEnabled
+            // Capacitor 环境：始终发送系统通知（前台服务保活）
             if (getEnv() === 'capacitor') {
                 var ln = getLocalNotifPlugin();
                 if (!ln) {
                     console.warn('[PushBridge] LocalNotifications 插件未找到');
                     return;
                 }
-                // 确保渠道存在后立即发送
                 ensureChannel(ln).then(function () {
                     return _doSendNative(ln, title, body, options.delay || 50);
                 }).then(function () {
@@ -170,9 +171,7 @@
         },
 
         /**
-         * 提前调度通知（不等 JS 定时器，由原生系统在指定延迟后触发）
-         * 用于解决：App 进入后台后 WebView 暂停，JS setTimeout 不触发的问题
-         * 返回 Promise<id>，可用于后续取消
+         * 调度延迟通知（保留兼容，实际推荐直接使用 send()）
          */
         scheduleDelayed: function (title, body, delayMs) {
             title = title || '传讯';
@@ -180,13 +179,11 @@
             delayMs = delayMs || 3000;
 
             if (getEnv() !== 'capacitor') {
-                console.log('[PushBridge] 非原生环境，跳过提前调度');
                 return Promise.resolve(null);
             }
 
             var ln = getLocalNotifPlugin();
             if (!ln) {
-                console.warn('[PushBridge] LocalNotifications 插件未找到，无法提前调度');
                 return Promise.resolve(null);
             }
 
@@ -194,7 +191,7 @@
         },
 
         /**
-         * 取消已调度的通知
+         * 取消已调度的通知（保留兼容）
          */
         cancelById: function (id) {
             if (!id || getEnv() !== 'capacitor') return;

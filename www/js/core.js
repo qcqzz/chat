@@ -1838,44 +1838,14 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                 ? messages.filter(m => m.sender === 'user' && m.text).slice(-10)
                 : [];
 
-            // ====== 提前调度原生通知（不等 JS 定时器，防止 App 后台时 WebView 暂停导致通知丢失）======
-            var _preNotifIds = [];  // 存储预调度的通知 ID，用于前台时取消
-            if (typeof PushBridge !== 'undefined' && PushBridge.isNative()) {
-                var partnerName = settings.partnerName || '对方';
-                var preReplyCount = replyCount;
-                var preDelay = 0;
-                for (var pi = 0; pi < preReplyCount; pi++) {
-                    var delayRange = settings.replyDelayMax - settings.replyDelayMin;
-                    preDelay += settings.replyDelayMin + Math.random() * delayRange;
-                    // 预生成回复文本
-                    var preReplyText = '';
-                    for (var pt = 0; pt < 6; pt++) {
-                        var picked = replyPoolOnce[Math.floor(Math.random() * replyPoolOnce.length)];
-                        if (picked && String(picked).trim()) {
-                            preReplyText = String(picked).trim();
-                            break;
-                        }
-                    }
-                    if (!preReplyText) continue;
-                    var preBody = preReplyText.length > 60 ? preReplyText.substring(0, 60) + '…' : preReplyText;
-                    // 立即调度原生通知（由 Android 系统在指定时间后触发，不受 WebView 暂停影响）
-                    _preNotifIds.push(PushBridge.scheduleDelayed(partnerName, preBody, preDelay));
-                }
-            }
-            // ====== 提前调度结束 ======
+            // 前台服务保活确保 WebView 持续运行，setTimeout 可正常触发通知
 
             for (let i = 0; i < replyCount; i++) {
                 const delayRange = settings.replyDelayMax - settings.replyDelayMin;
                 delay += settings.replyDelayMin + Math.random() * delayRange;
                 setTimeout(() => {
                     try {
-                    // ====== JS 定时器成功触发 → 取消对应的预调度通知（前台不弹双重通知）======
-                    if (_preNotifIds[i]) {
-                        _preNotifIds[i].then(function(id) {
-                            if (id && typeof PushBridge !== 'undefined') PushBridge.cancelById(id);
-                        });
-                    }
-                    // ====== 取消预调度结束 ======
+                    // 前台服务保活后 WebView 持续运行，始终发送通知
                     const replyPool = replyPoolOnce;
                     // 被屏蔽或无效项直接换下一个，尽量保证每次都产出可用回复
                     let replyText = '';
@@ -1925,11 +1895,11 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                             : null,
                         type: 'normal'
                     });
-                    if (typeof window._sendPartnerNotification === 'function') {
-                        // 仅在页面隐藏时发送通知（前台用户已在看聊天，不需要弹通知）
-                        if (document.hidden) {
-                            window._sendPartnerNotification(settings.partnerName || '对方', finalText);
-                        }
+                    if (typeof PushBridge !== 'undefined' && PushBridge.isAvailable()) {
+                        // 始终发送通知（前台服务保活期间，通知是用户唯一能感知到消息的方式）
+                        PushBridge.send(settings.partnerName || '对方', finalText);
+                    } else if (typeof window._sendPartnerNotification === 'function') {
+                        window._sendPartnerNotification(settings.partnerName || '对方', finalText);
                     }
                     playSound('message');
 
@@ -1948,11 +1918,11 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                                 type: 'normal'
                             });
                             playSound('message');
-                            if (typeof window._sendPartnerNotification === 'function') {
-                                if (document.hidden) {
+                            if (typeof PushBridge !== 'undefined' && PushBridge.isAvailable()) {
+                                    PushBridge.send(settings.partnerName || '对方', '[表情]');
+                                } else if (typeof window._sendPartnerNotification === 'function') {
                                     window._sendPartnerNotification(settings.partnerName || '对方', '[表情]');
                                 }
-                            }
                         }, 400 + Math.random() * 600);
                     }
 
