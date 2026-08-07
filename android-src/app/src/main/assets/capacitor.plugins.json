@@ -14,5 +14,9 @@
 	{
 		"pkg": "com.chuanxun.app.ForegroundPlugin",
 		"classpath": "com.chuanxun.app.ForegroundPlugin"
+	},
+	{
+		"pkg": "com.chuanxun.app.NotificationPlugin",
+		"classpath": "com.chuanxun.app.NotificationPlugin"
 	}
 ]

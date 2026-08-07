@@ -1895,12 +1895,8 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                             : null,
                         type: 'normal'
                     });
-                    if (typeof PushBridge !== 'undefined' && PushBridge.isAvailable()) {
-                        // 始终发送通知（前台服务保活期间，通知是用户唯一能感知到消息的方式）
-                        PushBridge.send(settings.partnerName || '对方', finalText);
-                    } else if (typeof window._sendPartnerNotification === 'function') {
-                        window._sendPartnerNotification(settings.partnerName || '对方', finalText);
-                    }
+                    // 发送通知（PushBridge 统一处理所有环境）
+                    PushBridge.send(settings.partnerName || '对方', finalText);
                     playSound('message');
 
                     if (shouldSendSticker) {
@@ -1918,11 +1914,7 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                                 type: 'normal'
                             });
                             playSound('message');
-                            if (typeof PushBridge !== 'undefined' && PushBridge.isAvailable()) {
-                                    PushBridge.send(settings.partnerName || '对方', '[表情]');
-                                } else if (typeof window._sendPartnerNotification === 'function') {
-                                    window._sendPartnerNotification(settings.partnerName || '对方', '[表情]');
-                                }
+                            PushBridge.send(settings.partnerName || '对方', '[表情]');
                         }, 400 + Math.random() * 600);
                     }
 

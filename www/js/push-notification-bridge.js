@@ -1,286 +1,335 @@
 /**
  * push-notification-bridge.js — 统一通知桥接层
  *
- * 自动检测运行环境：
- *   - Capacitor APK：使用 LocalNotifications 插件 → 系统级弹窗（微信式）
- *   - 浏览器：使用 Web Notification API
+ * 自动检测运行环境，按优先级尝试：
+ *   1. 自定义 NotificationPlugin（APK，直接调用 Android NotificationManager）
+ *   2. Capacitor LocalNotifications 插件（APK 回退）
+ *   3. Web Notification API（浏览器）
  *
- * 用途：梦角自动回复时，像微信一样弹出系统通知
+ * 用途：对方自动回复时，像微信一样弹出系统通知
  */
 (function (global) {
     'use strict';
 
     var _initialized = false;
-    var _cachedEnv = null;
-    var _channelCreated = false;
-    var _channelName = '';
-    var _permissionGranted = false;
+    var _capacitorReady = false;
+    var _waitPromise = null;
+    var _notifPlugin = null;   // 自定义 NotificationPlugin 引用
+    var _lnPlugin = null;      // LocalNotifications 插件引用
+    var _pluginChecked = false;
 
-    // ====== 环境检测 ======
-    function detectEnv() {
-        if (global.Capacitor && typeof global.Capacitor.isNativePlatform === 'function' && global.Capacitor.isNativePlatform()) {
-            return 'capacitor';
-        }
-        if (global.Capacitor && global.Capacitor.Plugins) {
-            var plugins = global.Capacitor.Plugins;
-            if (plugins.LocalNotifications || plugins.Share || plugins.Filesystem) {
-                return 'capacitor';
+    // ====== 等待 Capacitor 桥接就绪 ======
+    function waitForCapacitor(timeoutMs) {
+        timeoutMs = timeoutMs || 5000;
+        if (_waitPromise) return _waitPromise;
+        if (_capacitorReady) return Promise.resolve(true);
+
+        _waitPromise = new Promise(function (resolve) {
+            var start = Date.now();
+            function check() {
+                if (global.Capacitor && global.Capacitor.Plugins) {
+                    _capacitorReady = true;
+                    resolve(true);
+                    return;
+                }
+                if (Date.now() - start > timeoutMs) {
+                    console.log('[PushBridge] Capacitor 桥接超时，回退到浏览器模式');
+                    resolve(false);
+                    return;
+                }
+                setTimeout(check, 200);
             }
-        }
-        var ua = navigator.userAgent || '';
-        if (/Android/.test(ua) && /wv/.test(ua) && global.Capacitor) {
-            return 'capacitor';
-        }
-        return 'browser';
+            check();
+        });
+        return _waitPromise;
     }
 
-    function getEnv() {
-        if (_cachedEnv === 'capacitor') return 'capacitor';
-        var env = detectEnv();
-        if (env === 'capacitor') _cachedEnv = env;
-        return env;
-    }
+    // ====== 获取插件引用 ======
+    function discoverPlugins() {
+        if (_pluginChecked) return;
+        _pluginChecked = true;
+        if (!global.Capacitor || !global.Capacitor.Plugins) return;
 
-    function getLocalNotifPlugin() {
-        if (global.Capacitor && global.Capacitor.Plugins && global.Capacitor.Plugins.LocalNotifications) {
-            return global.Capacitor.Plugins.LocalNotifications;
-        }
-        return null;
-    }
-
-    // ====== 创建通知渠道（Android 8.0+ 必需，同步阻塞直到完成） ======
-    function ensureChannel(ln) {
-        if (!ln) return Promise.resolve(false);
-        // 获取系统内的昵称
-        var partnerName = '梦角';
         try {
-            if (typeof window.settings !== 'undefined' && window.settings.partnerName) {
-                partnerName = window.settings.partnerName;
+            // 优先使用自定义 NotificationPlugin（直接调用 Android NotificationManager）
+            if (global.Capacitor.Plugins.NotificationPlugin) {
+                _notifPlugin = global.Capacitor.Plugins.NotificationPlugin;
+                console.log('[PushBridge] 自定义 NotificationPlugin 已就绪');
             }
         } catch (e) {}
-        var channelName = partnerName + '消息';
-        var channelDesc = partnerName + '发来消息时的通知';
-        // 如果渠道已创建且名称未变，跳过
-        if (_channelCreated && _channelName === channelName) return Promise.resolve(true);
-        return ln.createChannel({
-            id: 'partner-messages',
-            name: channelName,
-            description: channelDesc,
-            importance: 5,  // MAX — 最高优先级，类似微信
-            visibility: 1,  // PUBLIC — 锁屏可见
-            lights: true,
-            vibration: true,
-            sound: null
-        }).then(function () {
-            _channelCreated = true;
-            _channelName = channelName;
-            console.log('[PushBridge] 通知渠道创建成功 (importance=5):', channelName);
-            return true;
+
+        try {
+            // 回退：LocalNotifications 插件
+            if (!_notifPlugin && global.Capacitor.Plugins.LocalNotifications) {
+                _lnPlugin = global.Capacitor.Plugins.LocalNotifications;
+                console.log('[PushBridge] LocalNotifications 插件已就绪');
+            }
+        } catch (e) {}
+
+        if (!_notifPlugin && !_lnPlugin) {
+            console.log('[PushBridge] 无原生通知插件，使用浏览器模式 | Plugins:',
+                Object.keys(global.Capacitor.Plugins || {}).join(','));
+        }
+    }
+
+    // ====== 获取对方昵称（多来源回退，每次调用都实时获取） ======
+    function getPartnerName() {
+        try {
+            if (typeof window.settings !== 'undefined' && window.settings && window.settings.partnerName) {
+                return window.settings.partnerName;
+            }
+        } catch (e) {}
+        try {
+            if (typeof settings !== 'undefined' && settings && settings.partnerName) {
+                return settings.partnerName;
+            }
+        } catch (e) {}
+        try {
+            var stored = localStorage.getItem('partnerName');
+            if (stored) return stored;
+        } catch (e) {}
+        try {
+            var el = document.getElementById('partner-name');
+            if (el && el.textContent && el.textContent.trim()) {
+                return el.textContent.trim();
+            }
+        } catch (e) {}
+        return '对方';
+    }
+
+    // ====== 发送自定义通知插件 ======
+    function _sendViaCustomPlugin(title, body) {
+        if (!_notifPlugin) return Promise.resolve(false);
+        var id = Date.now() + Math.floor(Math.random() * 10000);
+        return _notifPlugin.send({
+            title: title,
+            body: body,
+            id: id
+        }).then(function (result) {
+            console.log('[PushBridge] 自定义通知已发送 #' + id + ':', title, body);
+            return id;
         }).catch(function (e) {
-            // 渠道可能已存在，标记为已创建
-            console.log('[PushBridge] 通知渠道已存在或创建失败:', e.message);
-            _channelCreated = true;
-            _channelName = channelName;
-            return true;
+            console.warn('[PushBridge] 自定义通知失败:', e.message || e);
+            return null;
         });
     }
 
-    // ====== 发送通知的核心函数 ======
-    function _doSendNative(ln, title, body, delayMs) {
-        delayMs = delayMs || 50;
+    // ====== 发送 LocalNotifications 通知 ======
+    function _sendViaLocalNotif(title, body) {
+        if (!_lnPlugin) return Promise.resolve(false);
         var now = Date.now();
         var id = now + Math.floor(Math.random() * 10000);
-        return ln.schedule({
+        return _lnPlugin.schedule({
             notifications: [{
                 title: title,
                 body: body,
                 id: id,
-                schedule: { at: new Date(now + delayMs) },
+                schedule: { at: new Date(now + 50) },
                 channelId: 'partner-messages',
                 importance: 5,
                 visibility: 1,
                 sound: null,
                 iconColor: '#488AFF'
-                // 不指定 smallIcon，让 Android 使用默认应用图标
             }]
         }).then(function () {
-            return id;  // 返回通知 ID 用于后续取消
-        });
-    }
-
-    // ====== 提前调度通知（不等 JS 定时器，直接由原生系统触发）======
-    // 保留此方法以兼容旧代码，但实际通知由 send() 直接发送
-    function _scheduleNativeDelayed(ln, title, body, delayMs) {
-        return ensureChannel(ln).then(function () {
-            return _doSendNative(ln, title, body, delayMs);
-        }).then(function (id) {
-            console.log('[PushBridge] 通知已调度 #' + id + ' (' + (delayMs/1000).toFixed(1) + 's后):', title, body);
+            console.log('[PushBridge] LocalNotifications 通知已发送 #' + id + ':', title, body);
             return id;
         }).catch(function (e) {
-            console.warn('[PushBridge] 调度通知失败:', e);
+            console.warn('[PushBridge] LocalNotifications 通知失败:', e.message || e);
             return null;
         });
     }
 
+    // ====== 浏览器通知 ======
+    function _sendBrowserNotif(title, body) {
+        try {
+            if (typeof localStorage !== 'undefined' && localStorage.getItem('notifEnabled') !== '1') {
+                return false;
+            }
+        } catch (e) {}
+        if (!('Notification' in global)) return false;
+        if (global.Notification.permission !== 'granted') return false;
+        if (!document.hidden) return false;
+
+        try {
+            new global.Notification(title, {
+                body: body,
+                tag: 'partner-msg',
+                renotify: true
+            });
+            console.log('[PushBridge] 浏览器通知:', title, body);
+            return true;
+        } catch (e) {
+            console.warn('[PushBridge] 浏览器通知失败:', e);
+            return false;
+        }
+    }
+
     // ====== 公开 API ======
     var PushBridge = {
+        /**
+         * 是否原生环境（Capacitor APK）
+         */
         isNative: function () {
-            return getEnv() === 'capacitor';
+            return !!(global.Capacitor && global.Capacitor.Plugins);
         },
 
+        /**
+         * 通知是否可用
+         */
         isAvailable: function () {
-            if (getEnv() === 'capacitor') {
-                return !!(global.Capacitor && global.Capacitor.Plugins && global.Capacitor.Plugins.LocalNotifications);
+            if (global.Capacitor && global.Capacitor.Plugins) {
+                discoverPlugins();
+                if (_notifPlugin || _lnPlugin) return true;
             }
             return 'Notification' in global;
         },
 
         /**
-         * 发送通知弹窗（梦角回复时调用）
-         * 前台服务保活确保 WebView 持续运行，setTimeout 可正常触发
-         * APK 环境：始终发送系统通知
-         * 浏览器环境：仅页面隐藏时发送
+         * 发送通知弹窗
+         * 优先使用自定义 NotificationPlugin，回退到 LocalNotifications，最后回退到浏览器
          */
         send: function (title, body, options) {
             options = options || {};
             title = title || '传讯';
             body = body || '';
 
-            // Capacitor 环境：始终发送系统通知（前台服务保活）
-            if (getEnv() === 'capacitor') {
-                var ln = getLocalNotifPlugin();
-                if (!ln) {
-                    console.warn('[PushBridge] LocalNotifications 插件未找到');
+            // APK 环境：使用原生插件
+            if (global.Capacitor && global.Capacitor.Plugins) {
+                discoverPlugins();
+
+                if (_notifPlugin) {
+                    _sendViaCustomPlugin(title, body);
                     return;
                 }
-                ensureChannel(ln).then(function () {
-                    return _doSendNative(ln, title, body, options.delay || 50);
-                }).then(function () {
-                    console.log('[PushBridge] 通知已发送:', title, body);
-                }).catch(function (e) {
-                    console.warn('[PushBridge] 通知发送失败:', e);
+
+                if (_lnPlugin) {
+                    _sendViaLocalNotif(title, body);
+                    return;
+                }
+
+                // 插件未就绪，等待 Capacitor 桥接后重试
+                console.log('[PushBridge] 插件未就绪，等待 Capacitor 桥接...');
+                var self = this;
+                waitForCapacitor(3000).then(function (ready) {
+                    if (ready) {
+                        discoverPlugins();
+                        if (_notifPlugin) {
+                            _sendViaCustomPlugin(title, body);
+                        } else if (_lnPlugin) {
+                            _sendViaLocalNotif(title, body);
+                        }
+                    }
                 });
                 return;
             }
 
-            // 浏览器环境：检查权限和页面状态
-            if (typeof localStorage !== 'undefined' && localStorage.getItem('notifEnabled') !== '1') {
-                return;
-            }
-            if (!('Notification' in global)) return;
-            if (global.Notification.permission !== 'granted') return;
-            if (!document.hidden) return;
-
-            try {
-                new global.Notification(title, {
-                    body: body,
-                    icon: options.icon || undefined,
-                    tag: options.tag || 'partner-msg',
-                    renotify: true
-                });
-            } catch (e) {
-                console.warn('[PushBridge] 浏览器通知失败:', e);
-            }
+            // 浏览器回退
+            _sendBrowserNotif(title, body);
         },
 
         /**
-         * 调度延迟通知（保留兼容，实际推荐直接使用 send()）
+         * 调度延迟通知
          */
         scheduleDelayed: function (title, body, delayMs) {
             title = title || '传讯';
             body = body || '';
             delayMs = delayMs || 3000;
 
-            if (getEnv() !== 'capacitor') {
-                return Promise.resolve(null);
+            if (global.Capacitor && global.Capacitor.Plugins) {
+                discoverPlugins();
+                if (_lnPlugin) {
+                    return _sendViaLocalNotif(title, body);
+                }
+                if (_notifPlugin) {
+                    return _sendViaCustomPlugin(title, body);
+                }
             }
-
-            var ln = getLocalNotifPlugin();
-            if (!ln) {
-                return Promise.resolve(null);
-            }
-
-            return _scheduleNativeDelayed(ln, title, body, delayMs);
+            return Promise.resolve(null);
         },
 
         /**
-         * 取消已调度的通知（保留兼容）
+         * 取消已调度的通知
          */
         cancelById: function (id) {
-            if (!id || getEnv() !== 'capacitor') return;
-            var ln = getLocalNotifPlugin();
-            if (!ln) return;
-            ln.cancel({ notifications: [{ id: id }] }).then(function () {
-                console.log('[PushBridge] 已取消通知 #' + id);
-            }).catch(function (e) {
-                console.warn('[PushBridge] 取消通知失败:', e);
-            });
+            if (!id) return;
+            if (_notifPlugin) {
+                _notifPlugin.cancel({ id: id }).catch(function () {});
+            }
+            if (_lnPlugin) {
+                _lnPlugin.cancel({ notifications: [{ id: id }] }).catch(function () {});
+            }
         },
 
+        /**
+         * 请求通知权限
+         */
         requestPermission: function () {
-            if (getEnv() === 'capacitor') {
-                var ln = getLocalNotifPlugin();
-                if (!ln) {
-                    return Promise.resolve('unsupported');
+            if (global.Capacitor && global.Capacitor.Plugins) {
+                discoverPlugins();
+                if (_notifPlugin) {
+                    return _notifPlugin.requestPermission().then(function (result) {
+                        console.log('[PushBridge] 权限:', result.granted);
+                        return result.granted ? 'granted' : 'denied';
+                    }).catch(function () {
+                        return 'denied';
+                    });
                 }
-                return ln.requestPermissions().then(function (result) {
-                    _permissionGranted = (result.display === 'granted');
-                    console.log('[PushBridge] 权限请求结果:', result.display);
-                    return _permissionGranted ? 'granted' : 'denied';
-                }).catch(function (e) {
-                    console.warn('[PushBridge] 权限请求失败:', e);
-                    return 'denied';
-                });
+                if (_lnPlugin) {
+                    return _lnPlugin.requestPermissions().then(function (result) {
+                        console.log('[PushBridge] 权限:', result.display);
+                        return result.display === 'granted' ? 'granted' : 'denied';
+                    }).catch(function () {
+                        return 'denied';
+                    });
+                }
             }
-
             if (!('Notification' in global)) return Promise.resolve('unsupported');
             if (global.Notification.permission === 'granted') return Promise.resolve('granted');
             return global.Notification.requestPermission();
         },
 
         getStatus: function () {
-            if (getEnv() === 'capacitor') {
-                return _permissionGranted ? 'granted' : 'unknown';
-            }
-            if (!('Notification' in global)) return 'unsupported';
-            return global.Notification.permission;
+            return 'unknown';
         },
 
+        /**
+         * 初始化
+         */
         init: function () {
             if (_initialized) return;
             _initialized = true;
 
-            var env = getEnv();
-            var available = this.isAvailable();
-            console.log('[PushBridge] 初始化');
-            console.log('[PushBridge]   环境:', env, '| 可用:', available, '| Capacitor:', !!global.Capacitor);
-            if (global.Capacitor && global.Capacitor.Plugins) {
-                console.log('[PushBridge]   已注册插件:', Object.keys(global.Capacitor.Plugins).join(', '));
-            }
+            console.log('[PushBridge] 初始化 | Capacitor:', !!global.Capacitor,
+                '| 昵称:', getPartnerName());
 
-            if (env === 'capacitor' && available) {
-                var ln = getLocalNotifPlugin();
-                if (ln) {
-                    // 1. 创建通知渠道
-                    // 2. 请求权限
-                    // 3. 标记可用
-                    ensureChannel(ln).then(function () {
-                        return ln.requestPermissions();
-                    }).then(function (result) {
-                        _permissionGranted = (result.display === 'granted');
-                        console.log('[PushBridge] 权限:', result.display, '| 渠道:', _channelCreated);
-                        // 始终设置 notifEnabled，让 send() 可以工作
-                        if (typeof localStorage !== 'undefined') {
-                            localStorage.setItem('notifEnabled', '1');
-                        }
-                    }).catch(function (e) {
-                        console.warn('[PushBridge] 初始化失败:', e);
-                        // 即使失败也尝试设置
-                        if (typeof localStorage !== 'undefined') {
-                            localStorage.setItem('notifEnabled', '1');
-                        }
-                    });
+            // 等待 Capacitor 桥接就绪
+            var self = this;
+            waitForCapacitor(5000).then(function (ready) {
+                if (ready) {
+                    discoverPlugins();
+                    console.log('[PushBridge] 桥接就绪 | 自定义插件:', !!_notifPlugin,
+                        '| LocalNotifications:', !!_lnPlugin);
+
+                    // 请求权限
+                    if (_notifPlugin) {
+                        _notifPlugin.requestPermission().catch(function () {});
+                    }
+                    if (_lnPlugin && !_notifPlugin) {
+                        _lnPlugin.requestPermissions().catch(function () {});
+                    }
+
+                    if (typeof localStorage !== 'undefined') {
+                        localStorage.setItem('notifEnabled', '1');
+                    }
+                } else {
+                    console.log('[PushBridge] 桥接超时，使用浏览器模式');
                 }
+            });
+
+            // 浏览器环境也请求权限
+            if (!global.Capacitor && 'Notification' in global && global.Notification.permission === 'default') {
+                global.Notification.requestPermission();
             }
         }
     };

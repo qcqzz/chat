@@ -69,6 +69,10 @@ jobs:
           cp android-src/app/src/main/java/com/chuanxun/app/ForegroundPlugin.java \
              android/app/src/main/java/com/chuanxun/app/
           
+          # NotificationPlugin.java — 自定义通知插件
+          cp android-src/app/src/main/java/com/chuanxun/app/NotificationPlugin.java \
+             android/app/src/main/java/com/chuanxun/app/
+          
           # MainActivity.java — 启动前台服务
           cp android-src/app/src/main/java/com/chuanxun/app/MainActivity.java \
              android/app/src/main/java/com/chuanxun/app/

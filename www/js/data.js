@@ -545,15 +545,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 window._sendPartnerNotification = function(title, body) {
-    // 使用 PushBridge 统一推送层（自动适配浏览器 / APK 环境）
-    if (typeof PushBridge !== 'undefined' && PushBridge.isAvailable()) {
-        // APK 环境中不检查 document.hidden，由原生端判断
-        if (PushBridge.isNative()) {
-            PushBridge.send(title, body);
-            return;
-        }
-        // 浏览器环境：仅页面隐藏时发送
-        if (!document.hidden) return;
+    // 统一使用 PushBridge 推送层（自动适配浏览器 / APK 环境）
+    if (typeof PushBridge !== 'undefined') {
         PushBridge.send(title, body);
         return;
     }
