@@ -73,6 +73,14 @@ jobs:
           cp android-src/app/src/main/java/com/chuanxun/app/NotificationPlugin.java \
              android/app/src/main/java/com/chuanxun/app/
           
+          # KeepAliveReceiver.java — 定时唤醒接收器
+          cp android-src/app/src/main/java/com/chuanxun/app/KeepAliveReceiver.java \
+             android/app/src/main/java/com/chuanxun/app/
+          
+          # BootReceiver.java — 开机自启动接收器
+          cp android-src/app/src/main/java/com/chuanxun/app/BootReceiver.java \
+             android/app/src/main/java/com/chuanxun/app/
+          
           # MainActivity.java — 启动前台服务
           cp android-src/app/src/main/java/com/chuanxun/app/MainActivity.java \
              android/app/src/main/java/com/chuanxun/app/

@@ -38,6 +38,20 @@
             android:name=".ForegroundService"
             android:foregroundServiceType="dataSync"
             android:exported="false" />
+
+        <!-- 定时唤醒接收器（熄屏/Doze 保活） -->
+        <receiver
+            android:name=".KeepAliveReceiver"
+            android:exported="false" />
+
+        <!-- 开机自启动接收器 -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 
     <!-- Permissions -->
@@ -50,4 +64,5 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 </manifest>

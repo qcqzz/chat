@@ -1,8 +1,8 @@
 /**
- * foreground-bridge.js — 前台服务桥接层
+ * foreground-bridge.js — 前台服务 + 电池优化 + 定时唤醒桥接层
  *
- * 控制 Android 前台服务，让 App 在后台保持运行。
- * 前台服务会在状态栏显示"传讯正在后台运行"的持续通知。
+ * 控制 Android 前台服务，让 App 在后台保持运行，即使熄屏也能收到消息。
+ * 前台服务在状态栏显示"正在后台运行"的持续通知。
  */
 (function (global) {
     'use strict';
@@ -30,7 +30,7 @@
 
     var ForegroundBridge = {
         /**
-         * 启动前台服务（状态栏显示持续通知，保活）
+         * 启动前台服务（状态栏显示持续通知，保活 + 定时唤醒）
          */
         start: function () {
             var fg = getCapacitor();
@@ -70,6 +70,40 @@
                 console.log('[ForegroundBridge] 前台通知已更新, 昵称:', name);
             }).catch(function (e) {
                 console.warn('[ForegroundBridge] 更新失败:', e);
+            });
+        },
+
+        /**
+         * 请求忽略电池优化（免除 Doze 限制）
+         * 如果未授权，会打开系统设置页让用户手动允许
+         */
+        requestBatteryOptimization: function () {
+            var fg = getCapacitor();
+            if (!fg) return;
+            fg.requestBatteryOptimization().then(function (result) {
+                if (result.alreadyGranted) {
+                    console.log('[ForegroundBridge] 电池优化已豁免');
+                } else if (result.needAction) {
+                    console.log('[ForegroundBridge] 已打开电池优化设置页，请手动允许');
+                }
+            }).catch(function (e) {
+                console.warn('[ForegroundBridge] 电池优化请求失败:', e);
+            });
+        },
+
+        /**
+         * 检查是否已忽略电池优化
+         */
+        isBatteryOptimized: function (callback) {
+            var fg = getCapacitor();
+            if (!fg) {
+                if (callback) callback(true);
+                return;
+            }
+            fg.isBatteryOptimized().then(function (result) {
+                if (callback) callback(result.ignored);
+            }).catch(function () {
+                if (callback) callback(false);
             });
         },
 
