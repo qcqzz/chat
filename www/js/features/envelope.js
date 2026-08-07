@@ -528,13 +528,4 @@ function handleSendEnvelope() {
     cancelEnvelopeCompose();
     switchEnvTab('outbox');
     showNotification('信件已寄出 ✉️', 'success');
-
-    // ====== 提前调度回信通知 ======
-    if (willReply && typeof PushBridge !== 'undefined' && PushBridge.isNative()) {
-        var replyDelayMs = randomHours * 60 * 60 * 1000;
-        var partnerName = (typeof settings !== 'undefined' && settings.partnerName) || '梦角';
-        // 回信时间较长（10-24小时），使用 LocalNotifications 提前调度
-        // 这样即使 App 长时间在后台，通知也能按时触发
-        PushBridge.scheduleDelayed(partnerName + ' 给你回信了', '打开信箱查看回信内容吧 ✉', replyDelayMs);
-    }
 }

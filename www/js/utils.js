@@ -781,11 +781,11 @@ async function importAllData(file) {
 }
 
 // ====== 软件更新检查 ======
-var APP_VERSION = '1.0.0';
+var APP_VERSION = '1.2.0';
 var GITHUB_REPO = 'qcqzz/chat';
 var GITHUB_RELEASES_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest';
 var GITHUB_API_URL = 'https://api.github.com/repos/' + GITHUB_REPO + '/releases/latest';
-var GITHUB_DOWNLOAD_URL = 'https://github.com/' + GITHUB_REPO + '/releases/download/v1.0.0/app-debug.apk';
+var GITHUB_DOWNLOAD_URL = 'https://github.com/' + GITHUB_REPO + '/releases/download/v1.2.0/app-debug.apk';
 
 function checkAppUpdateDM() {
     var statusEl = document.getElementById('dm-update-status');
