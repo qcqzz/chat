@@ -13,6 +13,7 @@
     var _initialized = false;
     var _cachedEnv = null;
     var _channelCreated = false;
+    var _channelName = '';
     var _permissionGranted = false;
 
     // ====== 环境检测 ======
@@ -50,11 +51,21 @@
     // ====== 创建通知渠道（Android 8.0+ 必需，同步阻塞直到完成） ======
     function ensureChannel(ln) {
         if (!ln) return Promise.resolve(false);
-        if (_channelCreated) return Promise.resolve(true);
+        // 获取系统内的昵称
+        var partnerName = '梦角';
+        try {
+            if (typeof window.settings !== 'undefined' && window.settings.partnerName) {
+                partnerName = window.settings.partnerName;
+            }
+        } catch (e) {}
+        var channelName = partnerName + '消息';
+        var channelDesc = partnerName + '发来消息时的通知';
+        // 如果渠道已创建且名称未变，跳过
+        if (_channelCreated && _channelName === channelName) return Promise.resolve(true);
         return ln.createChannel({
             id: 'partner-messages',
-            name: '梦角消息',
-            description: '梦角发来消息时的通知',
+            name: channelName,
+            description: channelDesc,
             importance: 5,  // MAX — 最高优先级，类似微信
             visibility: 1,  // PUBLIC — 锁屏可见
             lights: true,
@@ -62,12 +73,14 @@
             sound: null
         }).then(function () {
             _channelCreated = true;
-            console.log('[PushBridge] 通知渠道创建成功 (importance=5)');
+            _channelName = channelName;
+            console.log('[PushBridge] 通知渠道创建成功 (importance=5):', channelName);
             return true;
         }).catch(function (e) {
             // 渠道可能已存在，标记为已创建
             console.log('[PushBridge] 通知渠道已存在或创建失败:', e.message);
             _channelCreated = true;
+            _channelName = channelName;
             return true;
         });
     }
