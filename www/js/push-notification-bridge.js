@@ -17,6 +17,7 @@
     var _notifPlugin = null;   // 自定义 NotificationPlugin 引用
     var _lnPlugin = null;      // LocalNotifications 插件引用
     var _pluginChecked = false;
+    var _permissionGranted = false;  // 权限是否已授予
 
     // ====== 等待 Capacitor 桥接就绪 ======
     function waitForCapacitor(timeoutMs) {
@@ -269,28 +270,42 @@
                 discoverPlugins();
                 if (_notifPlugin) {
                     return _notifPlugin.requestPermission().then(function (result) {
-                        console.log('[PushBridge] 权限:', result.granted);
-                        return result.granted ? 'granted' : 'denied';
+                        _permissionGranted = (result && result.granted === true);
+                        console.log('[PushBridge] 权限:', _permissionGranted);
+                        return _permissionGranted ? 'granted' : 'denied';
                     }).catch(function () {
                         return 'denied';
                     });
                 }
                 if (_lnPlugin) {
                     return _lnPlugin.requestPermissions().then(function (result) {
-                        console.log('[PushBridge] 权限:', result.display);
-                        return result.display === 'granted' ? 'granted' : 'denied';
+                        _permissionGranted = (result && result.display === 'granted');
+                        console.log('[PushBridge] 权限:', _permissionGranted);
+                        return _permissionGranted ? 'granted' : 'denied';
                     }).catch(function () {
                         return 'denied';
                     });
                 }
             }
             if (!('Notification' in global)) return Promise.resolve('unsupported');
-            if (global.Notification.permission === 'granted') return Promise.resolve('granted');
-            return global.Notification.requestPermission();
+            if (global.Notification.permission === 'granted') {
+                _permissionGranted = true;
+                return Promise.resolve('granted');
+            }
+            return global.Notification.requestPermission().then(function (perm) {
+                _permissionGranted = (perm === 'granted');
+                return perm;
+            });
         },
 
         getStatus: function () {
-            return 'unknown';
+            // 原生环境：返回缓存的权限状态
+            if (global.Capacitor && global.Capacitor.Plugins) {
+                return _permissionGranted ? 'granted' : 'unknown';
+            }
+            // 浏览器环境
+            if (!('Notification' in global)) return 'unsupported';
+            return global.Notification.permission;
         },
 
         /**
@@ -313,10 +328,16 @@
 
                     // 请求权限
                     if (_notifPlugin) {
-                        _notifPlugin.requestPermission().catch(function () {});
+                        _notifPlugin.requestPermission().then(function (result) {
+                            _permissionGranted = (result && result.granted === true);
+                            console.log('[PushBridge] 权限状态:', _permissionGranted);
+                        }).catch(function () {});
                     }
                     if (_lnPlugin && !_notifPlugin) {
-                        _lnPlugin.requestPermissions().catch(function () {});
+                        _lnPlugin.requestPermissions().then(function (result) {
+                            _permissionGranted = (result && result.display === 'granted');
+                            console.log('[PushBridge] 权限状态:', _permissionGranted);
+                        }).catch(function () {});
                     }
 
                     if (typeof localStorage !== 'undefined') {

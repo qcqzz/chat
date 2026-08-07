@@ -81,6 +81,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateLoader('连接成功，欢迎回来。', '100%');
         setTimeout(hideWelcomeScreen, 3500);
 
+        // 启动前台服务保活（更新通知昵称）
+        setTimeout(function () {
+            if (typeof ForegroundBridge !== 'undefined') {
+                ForegroundBridge.start();
+            }
+        }, 1000);
+
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
                 try {

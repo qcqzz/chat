@@ -375,6 +375,10 @@ if (target.classList.contains('delete-btn')) {
                         isPartner ? settings.partnerName = newName: settings.myName = newName;
                         throttledSaveData();
                         updateUI();
+                        // 更新前台服务通知文字
+                        if (isPartner && typeof ForegroundBridge !== 'undefined') {
+                            ForegroundBridge.updateNotification();
+                        }
                         showNotification('昵称已更新', 'success');
                     }
                     hideModal(modal.modal);
