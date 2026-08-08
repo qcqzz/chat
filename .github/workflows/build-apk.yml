@@ -100,6 +100,7 @@ jobs:
       - name: 替换应用图标
         run: |
           for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p android/app/src/main/res/mipmap-$density
             cp resources/mipmap-$density/ic_launcher.png android/app/src/main/res/mipmap-$density/
             cp resources/mipmap-$density/ic_launcher_round.png android/app/src/main/res/mipmap-$density/
             cp resources/mipmap-$density/ic_launcher_foreground.png android/app/src/main/res/mipmap-$density/
