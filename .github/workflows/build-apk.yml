@@ -60,6 +60,8 @@ jobs:
         run: |
           # 复制自定义 Android 源文件到 Capacitor 项目
           mkdir -p android/app/src/main/assets
+          mkdir -p android/app/src/main/java/com/chuanxun/app/
+          mkdir -p android/app/src/main/res/xml/
           
           # ForegroundService.java — 前台服务保活
           cp android-src/app/src/main/java/com/chuanxun/app/ForegroundService.java \
