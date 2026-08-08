@@ -20,53 +20,61 @@ async function loadEnvelopeData() {
     }
 }
 
-function saveEnvelopeData() {
-    localforage.setItem(getStorageKey('envelopeData'), envelopeData);
+async function saveEnvelopeData() {
+    return localforage.setItem(getStorageKey('envelopeData'), envelopeData);
 }
 
+var _checkingEnvelope = false;
+
 async function checkEnvelopeStatus() {
-    await loadEnvelopeData();
-    const now = Date.now();
-    let changed = false;
-    let newReplyLetter = null;
-    envelopeData.outbox.forEach(letter => {
-        if (letter.status === 'sent' && letter.deliveredTime && now >= letter.deliveredTime) {
-            letter.status = 'received';
-            changed = true;
-        }
-        if (letter.willReply && letter.status === 'received' && letter.replyTime && now >= letter.replyTime) {
-            letter.status = 'replied';
-            const replyContent = generateEnvelopeReplyText();
-            const replyId = 'reply_' + Date.now() + '_' + Math.random().toString(36).substr(2,4);
-            const inboxLetter = {
-                id: replyId,
-                refId: letter.id,
-                originalContent: letter.content,
-                content: replyContent,
-                receivedTime: Date.now(),
-                isNew: true
-            };
-            envelopeData.inbox.push(inboxLetter);
-            newReplyLetter = inboxLetter;
-            changed = true;
-            playSound('message');
-        }
-    });
-    if (changed) {
-        saveEnvelopeData();
-        if (newReplyLetter) {
-            showEnvelopeReplyPopup(newReplyLetter);
-            // 发送系统通知（像微信一样的消息弹窗）
-            var partnerName = (typeof settings !== 'undefined' && settings.partnerName) || '梦角';
-            var preview = newReplyLetter.content.length > 60 ? newReplyLetter.content.substring(0, 60) + '…' : newReplyLetter.content;
-            if (typeof window._sendPartnerNotification === 'function') {
-                window._sendPartnerNotification(partnerName + ' 给你回信了', preview);
+    // 防重入：如果正在检查中，跳过本次调用
+    if (_checkingEnvelope) return;
+    _checkingEnvelope = true;
+    try {
+        await loadEnvelopeData();
+        const now = Date.now();
+        let changed = false;
+        let newReplyLetter = null;
+        envelopeData.outbox.forEach(letter => {
+            if (letter.status === 'sent' && letter.deliveredTime && now >= letter.deliveredTime) {
+                letter.status = 'received';
+                changed = true;
+            }
+            if (letter.willReply && letter.status === 'received' && letter.replyTime && now >= letter.replyTime) {
+                letter.status = 'replied';
+                const replyContent = generateEnvelopeReplyText();
+                const replyId = 'reply_' + Date.now() + '_' + Math.random().toString(36).substr(2,4);
+                const inboxLetter = {
+                    id: replyId,
+                    refId: letter.id,
+                    originalContent: letter.content,
+                    content: replyContent,
+                    receivedTime: Date.now(),
+                    isNew: true
+                };
+                envelopeData.inbox.push(inboxLetter);
+                newReplyLetter = inboxLetter;
+                changed = true;
+                playSound('message');
+            }
+        });
+        if (changed) {
+            await saveEnvelopeData();
+            if (newReplyLetter) {
+                showEnvelopeReplyPopup(newReplyLetter);
+                var partnerName = (typeof settings !== 'undefined' && settings.partnerName) || '梦角';
+                var preview = newReplyLetter.content.length > 60 ? newReplyLetter.content.substring(0, 60) + '…' : newReplyLetter.content;
+                if (typeof window._sendPartnerNotification === 'function') {
+                    window._sendPartnerNotification(partnerName + ' 给你回信了', preview);
+                }
             }
         }
-    }
 
-    // 梦角主动来信检查
-    await checkPartnerInitiatedLetter();
+        // 梦角主动来信检查
+        await checkPartnerInitiatedLetter();
+    } finally {
+        _checkingEnvelope = false;
+    }
 }
 
 async function checkPartnerInitiatedLetter() {
