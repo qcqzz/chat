@@ -781,7 +781,7 @@ async function importAllData(file) {
 }
 
 // ====== 软件更新检查 ======
-var APP_VERSION = '1.2.1';
+var APP_VERSION = '1.2.2';
 var GITHUB_REPO = 'qcqzz/chat';
 var GITHUB_RELEASES_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest';
 var GITHUB_API_URL = 'https://api.github.com/repos/' + GITHUB_REPO + '/releases/latest';

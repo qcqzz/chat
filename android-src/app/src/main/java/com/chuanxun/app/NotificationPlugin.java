@@ -49,8 +49,19 @@ public class NotificationPlugin extends Plugin {
                 channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
                 channel.enableVibration(true);
                 channel.enableLights(true);
+                channel.setBypassDnd(true);
                 manager.createNotificationChannel(channel);
                 Log.i(TAG, "Notification channel created: " + CHANNEL_ID);
+            } else {
+                // 确保已有 channel 也启用了振动和免打扰绕过
+                if (existing.getImportance() < NotificationManager.IMPORTANCE_HIGH) {
+                    existing.setImportance(NotificationManager.IMPORTANCE_HIGH);
+                }
+                existing.enableVibration(true);
+                existing.enableLights(true);
+                existing.setBypassDnd(true);
+                manager.createNotificationChannel(existing);
+                Log.i(TAG, "Notification channel updated: " + CHANNEL_ID);
             }
         }
     }
@@ -81,7 +92,14 @@ public class NotificationPlugin extends Plugin {
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setVibrate(new long[]{0, 300, 200, 300});
+
+        // Android 10+ 需要 FullScreenIntent 才能在锁屏/其他 APP 前台时弹出提醒
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            builder.setFullScreenIntent(pendingIntent, true);
+        }
 
         try {
             NotificationManagerCompat.from(context).notify(id, builder.build());

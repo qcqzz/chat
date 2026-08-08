@@ -129,7 +129,6 @@
                 channelId: 'partner-messages',
                 importance: 5,
                 visibility: 1,
-                sound: null,
                 iconColor: '#488AFF'
             }]
         }).then(function () {
