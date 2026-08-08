@@ -781,12 +781,104 @@ async function importAllData(file) {
 }
 
 // ====== 软件更新检查 ======
-var APP_VERSION = '1.2.3';
+var APP_VERSION = '1.3.0';
 var GITHUB_REPO = 'qcqzz/chat';
 var GITHUB_RELEASES_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest';
 var GITHUB_API_URL = 'https://api.github.com/repos/' + GITHUB_REPO + '/releases/latest';
 var GITHUB_DOWNLOAD_LATEST_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest/download/app-debug.apk';
+var _updatePendingInfo = null; // 待处理的更新信息，供弹窗按钮使用
 
+// 自动检查更新（启动时静默检查，有更新则弹窗）
+function autoCheckUpdate() {
+    fetch(GITHUB_API_URL, { headers: { 'Accept': 'application/vnd.github.v3+json' } })
+        .then(function (res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        })
+        .then(function (data) {
+            var latestTag = (data.tag_name || '').replace(/^v/, '');
+            var currentVer = APP_VERSION.replace(/^v/, '');
+            
+            if (!latestTag || latestTag === currentVer) return;
+
+            var downloadUrl = GITHUB_DOWNLOAD_LATEST_URL;
+            if (data.assets && data.assets.length > 0) {
+                for (var i = 0; i < data.assets.length; i++) {
+                    if (data.assets[i].name && data.assets[i].name.endsWith('.apk')) {
+                        downloadUrl = data.assets[i].browser_download_url;
+                        break;
+                    }
+                }
+            }
+
+            // 检查是否已经忽略过此版本
+            var ignoredKey = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_') + 'ignored_update_version';
+            localforage.getItem(ignoredKey).then(function (ignoredVer) {
+                if (ignoredVer === latestTag) {
+                    console.log('[update] 版本 v' + latestTag + ' 已被用户忽略，跳过弹窗');
+                    return;
+                }
+                // 显示更新弹窗
+                _showUpdateModal(latestTag, currentVer, downloadUrl);
+            }).catch(function () {
+                // localforage 不可用时直接弹窗
+                _showUpdateModal(latestTag, currentVer, downloadUrl);
+            });
+        })
+        .catch(function (err) {
+            console.warn('[update] 自动检查更新失败:', err);
+        });
+}
+
+// 显示版本更新弹窗
+function _showUpdateModal(latestTag, currentVer, downloadUrl) {
+    var modal = document.getElementById('update-available-modal');
+    if (!modal) {
+        // 回退到 confirm
+        if (confirm('发现新版本 v' + latestTag + '！\n当前版本: v' + currentVer + '\n\n是否立即下载更新？')) {
+            _downloadAndInstallApk(downloadUrl, latestTag);
+        }
+        return;
+    }
+
+    // 更新弹窗内容
+    var newVerEl = document.getElementById('update-new-version');
+    var curVerEl = document.getElementById('update-current-version');
+    if (newVerEl) newVerEl.textContent = 'v' + latestTag;
+    if (curVerEl) curVerEl.textContent = currentVer;
+
+    // 保存待处理信息
+    _updatePendingInfo = { latestTag: latestTag, downloadUrl: downloadUrl };
+
+    // 绑定按钮事件（只绑定一次）
+    var ignoreBtn = document.getElementById('update-ignore-btn');
+    var downloadBtn = document.getElementById('update-download-btn');
+
+    if (ignoreBtn && !ignoreBtn._updateBound) {
+        ignoreBtn._updateBound = true;
+        ignoreBtn.addEventListener('click', function () {
+            var ignoredKey = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_') + 'ignored_update_version';
+            localforage.setItem(ignoredKey, _updatePendingInfo.latestTag).catch(function () {});
+            if (typeof hideModal === 'function') hideModal(modal);
+            _updatePendingInfo = null;
+        });
+    }
+
+    if (downloadBtn && !downloadBtn._updateBound) {
+        downloadBtn._updateBound = true;
+        downloadBtn.addEventListener('click', function () {
+            if (typeof hideModal === 'function') hideModal(modal);
+            if (_updatePendingInfo) {
+                _downloadAndInstallApk(_updatePendingInfo.downloadUrl, _updatePendingInfo.latestTag);
+                _updatePendingInfo = null;
+            }
+        });
+    }
+
+    if (typeof showModal === 'function') showModal(modal);
+}
+
+// 手动检查更新（设置页面调用，忽略已忽略的版本，直接弹出）
 function checkAppUpdateDM() {
     var statusEl = document.getElementById('dm-update-status');
     if (statusEl) {
@@ -794,7 +886,6 @@ function checkAppUpdateDM() {
         statusEl.style.color = 'var(--text-secondary)';
     }
 
-    // 通过 GitHub API 获取最新 release
     fetch(GITHUB_API_URL, { headers: { 'Accept': 'application/vnd.github.v3+json' } })
         .then(function (res) {
             if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -805,7 +896,6 @@ function checkAppUpdateDM() {
             var currentVer = APP_VERSION.replace(/^v/, '');
             var downloadUrl = GITHUB_DOWNLOAD_LATEST_URL;
 
-            // 尝试获取最新 APK 下载地址
             if (data.assets && data.assets.length > 0) {
                 for (var i = 0; i < data.assets.length; i++) {
                     if (data.assets[i].name && data.assets[i].name.endsWith('.apk')) {
@@ -820,9 +910,8 @@ function checkAppUpdateDM() {
                     statusEl.textContent = '发现新版本 v' + latestTag + '，点击下载';
                     statusEl.style.color = '#e53935';
                 }
-                if (confirm('发现新版本 v' + latestTag + '！\n当前版本: v' + currentVer + '\n\n是否立即下载更新？')) {
-                    _downloadAndInstallApk(downloadUrl, latestTag);
-                }
+                // 手动检查时忽略之前的忽略记录，直接弹窗
+                _showUpdateModal(latestTag, currentVer, downloadUrl);
             } else if (latestTag === currentVer) {
                 if (statusEl) {
                     statusEl.textContent = '已是最新版本 v' + currentVer;

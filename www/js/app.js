@@ -81,6 +81,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateLoader('连接成功，欢迎回来。', '100%');
         setTimeout(hideWelcomeScreen, 3500);
 
+        // 自动检查更新（启动后延迟执行，避免影响启动性能）
+        setTimeout(function () {
+            if (typeof autoCheckUpdate === 'function') autoCheckUpdate();
+        }, 5000);
+
         // 启动前台服务保活（更新通知昵称）
         setTimeout(function () {
             if (typeof ForegroundBridge !== 'undefined') {

@@ -2832,6 +2832,22 @@
     </div>
 </div>
 
+    <!-- 版本更新弹窗 -->
+<div class="modal" id="update-available-modal" style="z-index:3000;">
+    <div class="modal-content" style="padding-bottom:24px;">
+        <div class="modal-title"><i class="fas fa-cloud-download-alt"></i> 发现新版本</div>
+        <div style="margin-bottom:8px;line-height:1.6;">
+            <p style="margin:0 0 8px;font-size:15px;" id="update-version-text">新版本 <strong id="update-new-version"></strong> 已发布</p>
+            <p style="margin:0;font-size:13px;color:var(--text-secondary);">当前版本: v<span id="update-current-version"></span></p>
+            <p style="margin:8px 0 0;font-size:13px;color:var(--text-secondary);">建议更新到最新版本以获得更好的体验和修复</p>
+        </div>
+        <div class="modal-buttons">
+            <button class="modal-btn modal-btn-secondary" id="update-ignore-btn">暂时忽略</button>
+            <button class="modal-btn modal-btn-primary" id="update-download-btn">立即更新</button>
+        </div>
+    </div>
+</div>
+
     <!-- == 核心层 == -->
     <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
