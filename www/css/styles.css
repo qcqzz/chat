@@ -11638,7 +11638,6 @@ body #user-sticker-picker .empty-sticker-tip {
     font-size: 13px;
 }
 
-/* 高级功能里"敬请期待"占位项 */
 .settings-item.settings-item-disabled {
     opacity: 0.45;
     cursor: not-allowed;
