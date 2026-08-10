@@ -142,7 +142,7 @@ public class NotificationPlugin extends Plugin {
 
     /**
      * 下载 APK 并触发系统安装
-     * 在后台线程中下载，通过 notifyListeners 实时报告进度，
+     * 在后台线程中下载，通过 bridge.triggerJSEvent 实时报告进度，
      * 下载完成后通过 FileProvider + Intent 触发安装，最后 resolve。
      */
     @PluginMethod
@@ -212,7 +212,7 @@ public class NotificationPlugin extends Plugin {
                                 progress.put("progress", finalPercent);
                                 progress.put("downloaded", finalTotalRead);
                                 progress.put("total", totalSize);
-                                notifyListeners("downloadProgress", progress);
+                                getBridge().triggerJSEvent("downloadProgress", "window", progress.toString());
                             });
                         }
                     }

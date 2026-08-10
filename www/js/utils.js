@@ -980,7 +980,7 @@ function checkAppUpdateDM() {
 
 // 下载 APK 并触发安装
 // 优先使用原生 NotificationPlugin.downloadApk（带进度回调），回退到浏览器下载
-var _downloadProgressListener = null;
+var _downloadProgressHandler = null;
 
 function _downloadAndInstallApk(downloadUrl, version) {
     var progressBar = document.getElementById('update-progress-bar');
@@ -995,14 +995,15 @@ function _downloadAndInstallApk(downloadUrl, version) {
         var notifPlugin = window.Capacitor.Plugins && window.Capacitor.Plugins.NotificationPlugin;
         if (notifPlugin && typeof notifPlugin.downloadApk === 'function') {
             // 清理旧的进度监听器
-            if (_downloadProgressListener && typeof _downloadProgressListener.remove === 'function') {
-                _downloadProgressListener.remove();
+            if (_downloadProgressHandler) {
+                window.removeEventListener('downloadProgress', _downloadProgressHandler);
+                _downloadProgressHandler = null;
             }
-            _downloadProgressListener = null;
 
-            // 注册进度监听器
-            if (typeof notifPlugin.addListener === 'function') {
-                _downloadProgressListener = notifPlugin.addListener('downloadProgress', function (data) {
+            // 注册进度监听器（通过 window 事件）
+            _downloadProgressHandler = function (event) {
+                try {
+                    var data = typeof event.detail === 'string' ? JSON.parse(event.detail) : event.detail;
                     if (progressBar && data.progress >= 0) {
                         progressBar.style.width = data.progress + '%';
                     }
@@ -1017,15 +1018,16 @@ function _downloadAndInstallApk(downloadUrl, version) {
                         var totalMB = (data.total / 1048576).toFixed(1);
                         progressStatus.textContent = downloadedMB + ' MB / ' + totalMB + ' MB';
                     }
-                });
-            }
+                } catch (e) {}
+            };
+            window.addEventListener('downloadProgress', _downloadProgressHandler);
 
             notifPlugin.downloadApk({ url: downloadUrl, version: version }).then(function (result) {
                 // 清理进度监听器
-                if (_downloadProgressListener && typeof _downloadProgressListener.remove === 'function') {
-                    _downloadProgressListener.remove();
+                if (_downloadProgressHandler) {
+                    window.removeEventListener('downloadProgress', _downloadProgressHandler);
+                    _downloadProgressHandler = null;
                 }
-                _downloadProgressListener = null;
 
                 if (result && result.success) {
                     // 下载完成，更新进度条到 100%
@@ -1040,10 +1042,10 @@ function _downloadAndInstallApk(downloadUrl, version) {
                 }
             }).catch(function (err) {
                 // 清理进度监听器
-                if (_downloadProgressListener && typeof _downloadProgressListener.remove === 'function') {
-                    _downloadProgressListener.remove();
+                if (_downloadProgressHandler) {
+                    window.removeEventListener('downloadProgress', _downloadProgressHandler);
+                    _downloadProgressHandler = null;
                 }
-                _downloadProgressListener = null;
 
                 console.warn('[update] 原生下载失败:', err);
                 if (progressText) progressText.textContent = '下载失败';
@@ -1054,11 +1056,10 @@ function _downloadAndInstallApk(downloadUrl, version) {
                 if (buttonsSection) buttonsSection.style.display = '';
                 if (progressSection) progressSection.style.display = 'none';
 
-                // 重新绑定下载按钮事件（因为 _updatePendingInfo 已被清空）
+                // 重新绑定下载按钮事件
                 var downloadBtn = document.getElementById('update-download-btn');
                 if (downloadBtn) {
                     downloadBtn.textContent = '重试更新';
-                    var oldClick = downloadBtn.onclick;
                     downloadBtn.onclick = function () {
                         if (buttonsSection) buttonsSection.style.display = 'none';
                         if (progressSection) progressSection.style.display = '';
