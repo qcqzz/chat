@@ -142,8 +142,8 @@ public class NotificationPlugin extends Plugin {
 
     /**
      * 下载 APK 并触发系统安装
-     * 在后台线程中下载，通过 bridge.triggerJSEvent 实时报告进度，
-     * 下载完成后通过 FileProvider + Intent 触发安装，最后 resolve。
+     * 在后台线程中下载，完成后通过 FileProvider + Intent 触发安装。
+     * 重要：仅在下载完成并触发安装后才 resolve，不会提前 resolve。
      */
     @PluginMethod
     public void downloadApk(PluginCall call) {
@@ -154,9 +154,6 @@ public class NotificationPlugin extends Plugin {
             call.reject("URL is required");
             return;
         }
-
-        // 保持 call 存活，等待异步下载完成后再 resolve
-        call.setKeepAlive(true);
 
         new Thread(() -> {
             try {
@@ -183,8 +180,6 @@ public class NotificationPlugin extends Plugin {
                     return;
                 }
 
-                int totalSize = conn.getContentLength();
-
                 // 删除旧文件
                 if (apkFile.exists()) {
                     apkFile.delete();
@@ -194,27 +189,8 @@ public class NotificationPlugin extends Plugin {
                      FileOutputStream out = new FileOutputStream(apkFile)) {
                     byte[] buffer = new byte[8192];
                     int bytesRead;
-                    int totalRead = 0;
-                    int lastReportedPercent = -1;
-
                     while ((bytesRead = in.read(buffer)) != -1) {
                         out.write(buffer, 0, bytesRead);
-                        totalRead += bytesRead;
-
-                        // 节流：仅在百分比变化时报告进度
-                        int percent = totalSize > 0 ? (int) (totalRead * 100L / totalSize) : -1;
-                        if (percent != lastReportedPercent) {
-                            lastReportedPercent = percent;
-                            final int finalPercent = percent;
-                            final int finalTotalRead = totalRead;
-                            getBridge().executeOnMainThread(() -> {
-                                JSObject progress = new JSObject();
-                                progress.put("progress", finalPercent);
-                                progress.put("downloaded", finalTotalRead);
-                                progress.put("total", totalSize);
-                                getBridge().triggerJSEvent("downloadProgress", "window", progress.toString());
-                            });
-                        }
                     }
                     out.flush();
                 }
@@ -233,7 +209,7 @@ public class NotificationPlugin extends Plugin {
                 ctx.startActivity(installIntent);
                 Log.i(TAG, "Install intent launched for: " + apkUri);
 
-                // 下载 + 安装完成，通知 JS 层
+                // 下载完成 + 安装已触发，通知 JS 层
                 getBridge().executeOnMainThread(() -> {
                     call.resolve(new JSObject().put("success", true).put("message", "Download complete, installing"));
                 });
@@ -242,6 +218,66 @@ public class NotificationPlugin extends Plugin {
                 Log.e(TAG, "APK download/install failed: " + e.getMessage());
                 getBridge().executeOnMainThread(() -> {
                     call.reject("Download failed: " + e.getMessage());
+                });
+            }
+        }).start();
+    }
+
+    /**
+     * 安装已下载的 APK 文件
+     * 接收 base64 编码的 APK 数据，写入文件后触发安装
+     */
+    @PluginMethod
+    public void installApk(PluginCall call) {
+        String base64Data = call.getString("data");
+        String version = call.getString("version", "");
+
+        if (base64Data == null || base64Data.isEmpty()) {
+            call.reject("APK data is required");
+            return;
+        }
+
+        new Thread(() -> {
+            try {
+                Context ctx = getContext();
+                File cacheDir = ctx.getExternalCacheDir();
+                if (cacheDir == null) {
+                    cacheDir = ctx.getCacheDir();
+                }
+                File apkFile = new File(cacheDir, "update-v" + version + ".apk");
+
+                // 删除旧文件
+                if (apkFile.exists()) {
+                    apkFile.delete();
+                }
+
+                byte[] apkBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT);
+                try (FileOutputStream out = new FileOutputStream(apkFile)) {
+                    out.write(apkBytes);
+                    out.flush();
+                }
+
+                Log.i(TAG, "APK written: " + apkFile.getAbsolutePath() + " size=" + apkFile.length());
+
+                // 通过 FileProvider 获取 URI 并触发安装
+                Uri apkUri = FileProvider.getUriForFile(ctx, ctx.getPackageName() + ".fileprovider", apkFile);
+
+                Intent installIntent = new Intent(Intent.ACTION_VIEW);
+                installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                ctx.startActivity(installIntent);
+                Log.i(TAG, "Install intent launched for: " + apkUri);
+
+                getBridge().executeOnMainThread(() -> {
+                    call.resolve(new JSObject().put("success", true).put("message", "Install triggered"));
+                });
+
+            } catch (Exception e) {
+                Log.e(TAG, "APK install failed: " + e.getMessage());
+                getBridge().executeOnMainThread(() -> {
+                    call.reject("Install failed: " + e.getMessage());
                 });
             }
         }).start();
