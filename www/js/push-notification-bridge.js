@@ -95,7 +95,7 @@
                 return el.textContent.trim();
             }
         } catch (e) {}
-        return '对方';
+        return '梦角';
     }
 
     // ====== 发送自定义通知插件 ======

@@ -479,7 +479,7 @@ window._runMsgSearch = function() {
     var myAvatar = myAvatarEl ? myAvatarEl.src : '';
     var partnerAvatar = partnerAvatarEl ? partnerAvatarEl.src : '';
     var myName = (typeof settings !== 'undefined' && settings.myName) || '我';
-    var partnerName = (typeof settings !== 'undefined' && settings.partnerName) || '对方';
+    var partnerName = (typeof settings !== 'undefined' && settings.partnerName) || '梦角';
 
     function highlight(text) {
         if (!q || !text) return (text || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');

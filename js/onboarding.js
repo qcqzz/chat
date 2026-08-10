@@ -12,7 +12,7 @@
 
     function getTiLabel() {
         if (tiCustomText) return tiCustomText;
-        var name = (window.settings && settings.partnerName) ? settings.partnerName : '对方';
+        var name = (window.settings && settings.partnerName) ? settings.partnerName : '梦角';
         return name + ' 正在输入';
     }
 

@@ -25,7 +25,7 @@
                 return settings.partnerName;
             }
         } catch (e) {}
-        return '对方';
+        return '梦角';
     }
 
     var ForegroundBridge = {

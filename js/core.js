@@ -1228,7 +1228,7 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
         if (!isSameSenderForName) {
             const nameLabel = document.createElement('div');
             nameLabel.className = 'group-sender-name';
-            nameLabel.textContent = settings.partnerName || msg.sender || '对方';
+            nameLabel.textContent = settings.partnerName || msg.sender || '梦角';
             contentWrapper.appendChild(nameLabel);
         }
     }
@@ -1236,7 +1236,7 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
     let messageHTML = '';
     if (msg.replyTo) {
         const repliedText = _escapeHtml(msg.replyTo.text || (msg.replyTo.voice ? '语音 ' + (msg.replyTo.voice.duration || 0) + '"' : (msg.replyTo.image ? '🖼 图片' : '[消息]')));
-        const repliedSender = _escapeHtml(msg.replyTo.sender === 'user' ? (settings.myName || '我') : (settings.partnerName || '对方'));
+        const repliedSender = _escapeHtml(msg.replyTo.sender === 'user' ? (settings.myName || '我') : (settings.partnerName || '梦角'));
         messageHTML += `<div class="reply-indicator" data-reply-id="${msg.replyTo.id || ''}" style="cursor:pointer;" onclick="scrollToQuotedMessage(this)"><span class="reply-indicator-sender">${repliedSender}</span><span class="reply-indicator-text">${repliedText}</span></div>`;
     }
 
@@ -1695,7 +1695,7 @@ const addMessage = (message) => {
                 container.style.display = 'none';
                 return;
             }
-            const senderName = currentReplyTo.sender === 'user' ? (settings.myName || '我') : (settings.partnerName || '对方');
+            const senderName = currentReplyTo.sender === 'user' ? (settings.myName || '我') : (settings.partnerName || '梦角');
             const previewText = currentReplyTo.text ? currentReplyTo.text.slice(0, 40) : (currentReplyTo.voice ? `语音 ${currentReplyTo.voice.duration || 0}"` : '🖼 图片');
             container.style.display = 'flex';
             container.innerHTML = `
@@ -1987,7 +1987,7 @@ if (!isBatchMode && type === 'normal') {
                 const tiWrapper = document.getElementById('typing-indicator-wrapper');
                 const tiLabel = document.getElementById('typing-indicator-label');
                 const tiAvatar = document.getElementById('typing-indicator-avatar');
-                if (tiLabel) tiLabel.textContent = (settings.partnerName || '对方') + ' 正在输入';
+                if (tiLabel) tiLabel.textContent = (settings.partnerName || '梦角') + ' 正在输入';
                 if (tiWrapper) {
                     positionTypingIndicator();
                     tiWrapper.style.display = 'block';
@@ -2015,7 +2015,7 @@ if (!isBatchMode && type === 'normal') {
                 const tiWrapper = document.getElementById('typing-indicator-wrapper');
                 const tiLabel = document.getElementById('typing-indicator-label');
                 const tiAvatar = document.getElementById('typing-indicator-avatar');
-                if (tiLabel) tiLabel.textContent = (settings.partnerName || '对方') + ' 正在输入';
+                if (tiLabel) tiLabel.textContent = (settings.partnerName || '梦角') + ' 正在输入';
                 if (tiWrapper) { 
                     positionTypingIndicator(); 
                     tiWrapper.style.display = 'block'; 
@@ -2153,7 +2153,7 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
 
                     addMessage({
                         id: Date.now() + i,
-                        sender: settings.partnerName || '对方',
+                        sender: settings.partnerName || '梦角',
                         text: finalText,
                         timestamp: new Date(),
                         status: 'received',
@@ -2166,7 +2166,12 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                     });
                     // 发送通知
                     if (typeof window._sendPartnerNotification === 'function') {
-                        window._sendPartnerNotification(settings.partnerName || '对方', finalText);
+                        window._sendPartnerNotification(settings.partnerName || '梦角', finalText);
+                    }
+                    // 应用内消息弹窗
+                    if (typeof showNotification === 'function') {
+                        var partnerName = settings.partnerName || '梦角';
+                        showNotification(partnerName + '发来了消息', 'info', 3000);
                     }
                     playSound('message');
 
@@ -2175,7 +2180,7 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                         setTimeout(() => {
                             addMessage({
                                 id: Date.now() + i + 2000,
-                                sender: settings.partnerName || '对方',
+                                sender: settings.partnerName || '梦角',
                                 text: '',
                                 timestamp: new Date(),
                                 image: randomSticker,
@@ -2186,7 +2191,12 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                             });
                             playSound('message');
                             if (typeof window._sendPartnerNotification === 'function') {
-                                window._sendPartnerNotification(settings.partnerName || '对方', '[表情]');
+                                window._sendPartnerNotification(settings.partnerName || '梦角', '[表情]');
+                            }
+                            // 应用内表情弹窗
+                            if (typeof showNotification === 'function') {
+                                var partnerName = settings.partnerName || '梦角';
+                                showNotification(partnerName + '发来了表情', 'info', 3000);
                             }
                         }, 400 + Math.random() * 600);
                     }
@@ -2195,7 +2205,7 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                         setTimeout(() => {
                             addMessage({
                                 id: Date.now() + i + 1000,
-                                sender: settings.partnerName || '对方',
+                                sender: settings.partnerName || '梦角',
                                 text: separateEmoji,
                                 timestamp: new Date(),
                                 status: 'received',

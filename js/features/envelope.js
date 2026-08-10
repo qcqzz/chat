@@ -143,7 +143,7 @@ function showEnvelopeReplyPopup(letter) {
         <div style="display:flex;align-items:center;gap:10px;">
             <span style="font-size:26px;">💌</span>
             <div>
-                <div style="font-size:14px;font-weight:700;color:var(--text-primary);">${letter.fromPartner ? ((typeof settings !== 'undefined' && settings.partnerName) || '对方') + '给你写了一封信' : '收到了一封回信'}</div>
+                <div style="font-size:14px;font-weight:700;color:var(--text-primary);">${letter.fromPartner ? ((typeof settings !== 'undefined' && settings.partnerName) || '梦角') + '给你写了一封信' : '收到了一封回信'}</div>
                 <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;opacity:0.8;">${letter.fromPartner ? '打开信箱查看吧~' : 'Ta 给你写了回信，快去看看吧~'}</div>
             </div>
         </div>
@@ -309,7 +309,7 @@ function renderInboxList() {
             <div class="env-letter-header">
                 <div class="env-letter-header-from">
                     <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:3px;"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></svg>
-                    ${letter.fromPartner ? ((typeof settings !== 'undefined' && settings.partnerName) || '对方') + '的来信' : '收到'} · ${date}
+                    ${letter.fromPartner ? ((typeof settings !== 'undefined' && settings.partnerName) || '梦角') + '的来信' : '收到'} · ${date}
                     ${isNew ? '<span style="background:rgba(255,255,255,0.3);color:#fff;font-size:9px;padding:1px 5px;border-radius:6px;margin-left:6px;">新</span>' : ''}
                 </div>
                 <div class="env-stamp">
@@ -343,7 +343,7 @@ window.viewEnvLetter = function(section, id) {
     const isInbox = section === 'inbox';
     let titleText, stampLabel, stampSub;
     if (isInbox) {
-        const pName = (typeof settings !== 'undefined' && settings.partnerName) || '对方';
+        const pName = (typeof settings !== 'undefined' && settings.partnerName) || '梦角';
         titleText = letter.fromPartner ? pName + '的来信' : '收到的回信';
         stampLabel = '已收到'; stampSub = 'RECEIVED';
     } else {
@@ -393,7 +393,7 @@ window.viewEnvLetter = function(section, id) {
         const myName = (typeof settings !== 'undefined' && settings.myName) || '你';
         if (signNameEl) signNameEl.textContent = myName;
     } else {
-        const partnerName = (typeof settings !== 'undefined' && settings.partnerName) || '对方';
+        const partnerName = (typeof settings !== 'undefined' && settings.partnerName) || '梦角';
         if (signNameEl) signNameEl.textContent = partnerName;
     }
 

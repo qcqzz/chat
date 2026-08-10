@@ -96,7 +96,7 @@
             var ms = mv==='custom'?(document.getElementById('psm-my-ci').value||'✦'):((PRESETS.find(function(x){return x.value===mv;})||{}).sym||'');
             var ps = pv==='custom'?(document.getElementById('psm-ptr-ci').value||'✦'):((PRESETS.find(function(x){return x.value===pv;})||{}).sym||'');
             var myN  = (typeof settings!=='undefined'&&settings.myName)||'我';
-            var pN   = (typeof settings!=='undefined'&&settings.partnerName)||'对方';
+            var pN   = (typeof settings!=='undefined'&&settings.partnerName)||'梦角';
             var mt   = ms?(ms+' '+myN+' 拍了拍你 '+ms):(myN+' 拍了拍你');
             var pt   = ps?(ps+' '+pN+' 拍了拍你 '+ps):(pN+' 拍了拍你');
             document.getElementById('psm-preview').innerHTML =
@@ -324,7 +324,7 @@
             var d=new Date(ts);
             return d.getFullYear()+'/'+(d.getMonth()+1+'').padStart(2,'0')+'/'+(d.getDate()+'').padStart(2,'0')+' '+(d.getHours()+'').padStart(2,'0')+':'+(d.getMinutes()+'').padStart(2,'0');
         }
-        function nm(m){ return m.sender==='user'?((typeof settings!=='undefined'&&settings.myName)||'我'):((typeof settings!=='undefined'&&settings.partnerName)||'对方'); }
+        function nm(m){ return m.sender==='user'?((typeof settings!=='undefined'&&settings.myName)||'我'):((typeof settings!=='undefined'&&settings.partnerName)||'梦角'); }
 
         var _myAvSrc = (function(){
             var el = document.querySelector('#my-avatar img,[id*="my-avatar"] img');

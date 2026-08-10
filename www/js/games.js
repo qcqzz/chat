@@ -821,7 +821,7 @@ function renderFavorites() {
         const isUser = msg.sender === 'user';
         const senderName = isUser
             ? ((typeof settings !== 'undefined' && settings.myName) || '我')
-            : ((typeof settings !== 'undefined' && settings.partnerName) || msg.sender || '对方');
+            : ((typeof settings !== 'undefined' && settings.partnerName) || msg.sender || '梦角');
         const ts = msg.timestamp ? new Date(msg.timestamp).toLocaleString('zh-CN', {
             month: '2-digit', day: '2-digit',
             hour: '2-digit', minute: '2-digit'
@@ -1051,7 +1051,7 @@ window._runMsgSearch = function() {
         const isUser = msg.sender === 'user';
         const senderName = isUser
             ? ((typeof settings !== 'undefined' && settings.myName) || '我')
-            : ((typeof settings !== 'undefined' && settings.partnerName) || msg.sender || '对方');
+            : ((typeof settings !== 'undefined' && settings.partnerName) || msg.sender || '梦角');
         const ts = msg.timestamp ? new Date(msg.timestamp).toLocaleString('zh-CN', {
             month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
         }) : '';
@@ -1766,7 +1766,7 @@ function initComboMenu() {
             return;
         }
 
-        var pName = (typeof settings !== 'undefined' && settings.partnerName) ? settings.partnerName : '对方';
+        var pName = (typeof settings !== 'undefined' && settings.partnerName) ? settings.partnerName : '梦角';
         var mName = (typeof settings !== 'undefined' && settings.myName)      ? settings.myName      : '我';
 
         var partnerMsgs = messages.filter(function(m) { return m.sender !== 'user' && m.text && m.type !== 'system' && m.type !== 'call-event'; });

@@ -280,9 +280,18 @@ function deduplicateContentArray(arr, baseSystemArray = []) {
             document.body.appendChild(notification);
             setTimeout(() => {
                 notification.classList.add('hiding');
-                notification.addEventListener('animationend', () => notification.remove());
+                // WebView 中 animationend 可能不触发，加兜底强制移除
+                let removed = false;
+                const cleanup = () => {
+                    if (removed) return;
+                    removed = true;
+                    if (notification.parentNode) notification.remove();
+                };
+                notification.addEventListener('animationend', cleanup, { once: true });
+                setTimeout(cleanup, 500);
             }, duration);
         }
+        window.showNotification = showNotification;
 
         let _currentAudioContext = null;
         let _currentAudio = null;

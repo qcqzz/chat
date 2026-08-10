@@ -366,7 +366,7 @@ if (target.classList.contains('delete-btn')) {
             const openNameModal = (isPartner) => {
                 const modal = DOMElements.editModal;
                 showModal(modal.modal, modal.input);
-                modal.title.textContent = `修改${isPartner ? (settings.partnerName || '对方'): '我'}的昵称`;
+                modal.title.textContent = `修改${isPartner ? (settings.partnerName || '梦角'): '我'}的昵称`;
                 modal.input.value = isPartner ? settings.partnerName: settings.myName;
                 modal.save.disabled = !modal.input.value.trim();
                 modal.save.onclick = () => {
@@ -389,7 +389,7 @@ if (target.classList.contains('delete-btn')) {
                 const modal = DOMElements.avatarModal;
 
                 modal.modal.querySelector('.modal-content').innerHTML = `
-            <div class="modal-title"><i class="fas fa-portrait"></i><span>上传${isPartner ? '对方': '我'}的头像</span></div>
+            <div class="modal-title"><i class="fas fa-portrait"></i><span>上传${isPartner ? '梦角': '我'}的头像</span></div>
             <div style="margin-bottom: 16px;">
             <div style="display: flex; gap: 10px; margin-bottom: 10px;">
             <button class="modal-btn modal-btn-secondary" id="upload-file-btn" style="flex: 1;">选择文件</button>
@@ -624,8 +624,8 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
     const pokePartnerName = document.getElementById('poke-preview-partnername');
     const pokePreview = document.getElementById('poke-action-preview');
     if (pokeMyName) pokeMyName.textContent = settings.myName || '我';
-    if (pokePartnerName) pokePartnerName.textContent = settings.partnerName || '对方';
-    if (pokePreview) pokePreview.textContent = `${settings.myName || '我'} ${settings.myPokeText || '拍了拍'} ${settings.partnerName || '对方'}`;
+    if (pokePartnerName) pokePartnerName.textContent = settings.partnerName || '梦角';
+    if (pokePreview) pokePreview.textContent = `${settings.myName || '我'} ${settings.myPokeText || '拍了拍'} ${settings.partnerName || '梦角'}`;
 
     // 保存按钮 dirty 状态
     const myPokeSaveBtn = document.getElementById('my-poke-text-save');
@@ -646,7 +646,7 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
     if (myPokeTextInput) {
         myPokeTextInput.oninput = () => {
             const verb = myPokeTextInput.value.trim() || '拍了拍';
-            if (pokePreview) pokePreview.textContent = `${settings.myName || '我'} ${verb} ${settings.partnerName || '对方'}`;
+            if (pokePreview) pokePreview.textContent = `${settings.myName || '我'} ${verb} ${settings.partnerName || '梦角'}`;
             // 跟已保存值比较
             const isDirty = myPokeTextInput.value.trim() !== (settings.myPokeText || '');
             _applyPokeSaveBtnState(isDirty);
@@ -684,6 +684,7 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
     const autoToggle = document.getElementById('auto-send-toggle');
     if (autoToggle) autoToggle.classList.toggle('active', !!settings.autoSendEnabled);
     updateAutoSendUI();
+    if (typeof updateCombineCardsUI === 'function') updateCombineCardsUI();
     updateDelayUI();
     const immToggle = document.getElementById('immersive-toggle');
     if (immToggle) immToggle.classList.toggle('active', document.body.classList.contains('immersive-mode'));
@@ -1565,7 +1566,14 @@ updateCombineCardsUI();
 combineCardsToggle.addEventListener('click', () => {
     settings.combineReplyCards = !settings.combineReplyCards;
     updateCombineCardsUI();
-    throttledSaveData();
+    // 开关这种一次性点击的操作，不能用"等0.5秒再存"的节流保存——万一点完立刻退出网页，
+    // 这0.5秒还没到就直接白点了，等于没保存。改成点了立刻存，不等待
+    if (typeof saveData === 'function') {
+        try {
+            const p = saveData();
+            if (p && typeof p.catch === 'function') p.catch(e => console.error('[回复拼接字卡] 保存失败:', e));
+        } catch (e) { console.error('[回复拼接字卡] 保存失败:', e); }
+    }
     showNotification(`回复拼接字卡已${settings.combineReplyCards ? '开启' : '关闭'}`, 'success');
 });
 

@@ -506,7 +506,7 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         const img = document.querySelector('#partner-avatar img,[id*="partner-avatar"] img,.partner-avatar img');
         return img ? img.src : null;
     };
-    const getName = () => window.settings?.partnerName || document.getElementById('partner-name')?.textContent.trim() || '对方';
+    const getName = () => window.settings?.partnerName || document.getElementById('partner-name')?.textContent.trim() || '梦角';
 
     function fillAv(avId) {
         const av = document.getElementById(avId), src = getAvSrc();
