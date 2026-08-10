@@ -1,4 +1,5 @@
 let envelopeData = { outbox: [], inbox: [] }; 
+let _envelopeDataLoaded = false; // 只有loadEnvelopeData()成功跑完一次才会变true，saveEnvelopeData()靠这个判断能不能安全保存
 let currentEnvTab = 'outbox';
 let editingEnvId = null; 
 let editingEnvSection = null; 
@@ -6,6 +7,7 @@ let editingEnvSection = null;
 async function loadEnvelopeData() {
     const saved = await localforage.getItem(getStorageKey('envelopeData'));
     if (saved) envelopeData = saved;
+    _envelopeDataLoaded = true; // 不管读到的是真数据还是空的，这次读取本身没出错就算加载成功
     const oldPending = await localforage.getItem(getStorageKey('pending_envelope'));
     if (oldPending && envelopeData.outbox.length === 0) {
         envelopeData.outbox.push({
@@ -18,47 +20,70 @@ async function loadEnvelopeData() {
         await localforage.removeItem(getStorageKey('pending_envelope'));
         saveEnvelopeData();
     }
+    // 刚加载完信件数据，顺手刷新一下小红点——覆盖"上次会话就有未读信件，
+    // 这次重新打开app"的情况，不用等用户真的点开信箱才会算一次
+    if (typeof renderEnvelopeLists === 'function') { try { renderEnvelopeLists(); } catch(e) {} }
 }
 
-function saveEnvelopeData() {
-    localforage.setItem(getStorageKey('envelopeData'), envelopeData);
+async function saveEnvelopeData() {
+    if (!_envelopeDataLoaded) {
+        console.warn('[envelope] 本次会话还没有确认加载成功过信箱数据，为了避免覆盖历史记录，跳过这次保存');
+        return;
+    }
+    return localforage.setItem(getStorageKey('envelopeData'), envelopeData);
 }
+
+var _checkingEnvelope = false;
 
 async function checkEnvelopeStatus() {
-    await loadEnvelopeData();
-    const now = Date.now();
-    let changed = false;
-    let newReplyLetter = null;
-    envelopeData.outbox.forEach(letter => {
-        if (letter.status === 'sent' && letter.deliveredTime && now >= letter.deliveredTime) {
-            letter.status = 'received';
-            changed = true;
+    // 防重入：如果正在检查中，跳过本次调用
+    if (_checkingEnvelope) return;
+    _checkingEnvelope = true;
+    try {
+        await loadEnvelopeData();
+        const now = Date.now();
+        let changed = false;
+        let newReplyLetter = null;
+        envelopeData.outbox.forEach(letter => {
+            if (letter.status === 'sent' && letter.deliveredTime && now >= letter.deliveredTime) {
+                letter.status = 'received';
+                changed = true;
+            }
+            if (letter.willReply && letter.status === 'received' && letter.replyTime && now >= letter.replyTime) {
+                letter.status = 'replied';
+                const replyContent = generateEnvelopeReplyText();
+                const replyId = 'reply_' + Date.now() + '_' + Math.random().toString(36).substr(2,4);
+                const inboxLetter = {
+                    id: replyId,
+                    refId: letter.id,
+                    originalContent: letter.content,
+                    content: replyContent,
+                    receivedTime: Date.now(),
+                    isNew: true
+                };
+                envelopeData.inbox.push(inboxLetter);
+                newReplyLetter = inboxLetter;
+                changed = true;
+                playSound('message');
+            }
+        });
+        if (changed) {
+            await saveEnvelopeData();
+            if (newReplyLetter) {
+                showEnvelopeReplyPopup(newReplyLetter);
+                var partnerName = (typeof settings !== 'undefined' && settings.partnerName) || '梦角';
+                var preview = newReplyLetter.content.length > 60 ? newReplyLetter.content.substring(0, 60) + '…' : newReplyLetter.content;
+                if (typeof window._sendPartnerNotification === 'function') {
+                    window._sendPartnerNotification(partnerName + ' 给你回信了', preview);
+                }
+            }
         }
-        if (letter.willReply && letter.status === 'received' && letter.replyTime && now >= letter.replyTime) {
-            letter.status = 'replied';
-            const replyContent = generateEnvelopeReplyText();
-            const replyId = 'reply_' + Date.now() + '_' + Math.random().toString(36).substr(2,4);
-            const inboxLetter = {
-                id: replyId,
-                refId: letter.id,
-                originalContent: letter.content,
-                content: replyContent,
-                receivedTime: Date.now(),
-                isNew: true
-            };
-            envelopeData.inbox.push(inboxLetter);
-            newReplyLetter = inboxLetter;
-            changed = true;
-            playSound('message');
-        }
-    });
-    if (changed) {
-        saveEnvelopeData();
-        if (newReplyLetter) showEnvelopeReplyPopup(newReplyLetter);
-    }
 
-    // 梦角主动来信检查
-    await checkPartnerInitiatedLetter();
+        // 梦角主动来信检查
+        await checkPartnerInitiatedLetter();
+    } finally {
+        _checkingEnvelope = false;
+    }
 }
 
 async function checkPartnerInitiatedLetter() {
@@ -99,6 +124,12 @@ async function checkPartnerInitiatedLetter() {
     await localforage.setItem(KEY, now + cooldown);
 
     showEnvelopeReplyPopup(inboxLetter);
+    // 发送系统通知
+    var partnerName = (typeof settings !== 'undefined' && settings.partnerName) || '梦角';
+    var preview = content.length > 60 ? content.substring(0, 60) + '…' : content;
+    if (typeof window._sendPartnerNotification === 'function') {
+        window._sendPartnerNotification(partnerName + ' 给你写了一封信', preview);
+    }
 }
 
 function showEnvelopeReplyPopup(letter) {

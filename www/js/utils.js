@@ -781,15 +781,40 @@ async function importAllData(file) {
 }
 
 // ====== 软件更新检查 ======
-var APP_VERSION = '1.3.0';
+var APP_VERSION = '1.4.0';
 var GITHUB_REPO = 'qcqzz/chat';
 var GITHUB_RELEASES_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest';
 var GITHUB_API_URL = 'https://api.github.com/repos/' + GITHUB_REPO + '/releases/latest';
 var GITHUB_DOWNLOAD_LATEST_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest/download/app-debug.apk';
 var _updatePendingInfo = null; // 待处理的更新信息，供弹窗按钮使用
 
+// 比较两个版本号，返回 1（a>b）、-1（a<b）、0（相等）
+function _compareVersions(a, b) {
+    var pa = (a || '0').split('.').map(Number);
+    var pb = (b || '0').split('.').map(Number);
+    for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
+        var na = pa[i] || 0;
+        var nb = pb[i] || 0;
+        if (na > nb) return 1;
+        if (na < nb) return -1;
+    }
+    return 0;
+}
+
 // 自动检查更新（启动时静默检查，有更新则弹窗）
 function autoCheckUpdate() {
+    var ignoredKey = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_') + 'ignored_update_version';
+
+    // 先清理：如果当前 APP 版本变了，清除旧的忽略记录
+    var savedAppVerKey = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_') + 'saved_app_version';
+    localforage.getItem(savedAppVerKey).then(function (savedVer) {
+        if (savedVer && savedVer !== APP_VERSION) {
+            // 用户已经升级过了，清除旧的忽略记录
+            localforage.removeItem(ignoredKey).catch(function () {});
+        }
+        localforage.setItem(savedAppVerKey, APP_VERSION).catch(function () {});
+    }).catch(function () {});
+
     fetch(GITHUB_API_URL, { headers: { 'Accept': 'application/vnd.github.v3+json' } })
         .then(function (res) {
             if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -798,8 +823,13 @@ function autoCheckUpdate() {
         .then(function (data) {
             var latestTag = (data.tag_name || '').replace(/^v/, '');
             var currentVer = APP_VERSION.replace(/^v/, '');
-            
-            if (!latestTag || latestTag === currentVer) return;
+
+            if (!latestTag) return;
+            // 只有远程版本比当前版本更高时才弹窗
+            if (_compareVersions(latestTag, currentVer) <= 0) {
+                console.log('[update] 当前已是最新版本 v' + currentVer + '（远程 v' + latestTag + '）');
+                return;
+            }
 
             var downloadUrl = GITHUB_DOWNLOAD_LATEST_URL;
             if (data.assets && data.assets.length > 0) {
@@ -812,7 +842,6 @@ function autoCheckUpdate() {
             }
 
             // 检查是否已经忽略过此版本
-            var ignoredKey = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_') + 'ignored_update_version';
             localforage.getItem(ignoredKey).then(function (ignoredVer) {
                 if (ignoredVer === latestTag) {
                     console.log('[update] 版本 v' + latestTag + ' 已被用户忽略，跳过弹窗');
@@ -826,7 +855,7 @@ function autoCheckUpdate() {
             });
         })
         .catch(function (err) {
-            console.warn('[update] 自动检查更新失败:', err);
+            console.warn('[update] 自动检查更新失败:', err.message || err);
         });
 }
 
@@ -905,14 +934,7 @@ function checkAppUpdateDM() {
                 }
             }
 
-            if (latestTag && latestTag !== currentVer) {
-                if (statusEl) {
-                    statusEl.textContent = '发现新版本 v' + latestTag + '，点击下载';
-                    statusEl.style.color = '#e53935';
-                }
-                // 手动检查时忽略之前的忽略记录，直接弹窗
-                _showUpdateModal(latestTag, currentVer, downloadUrl);
-            } else if (latestTag === currentVer) {
+            if (!latestTag || _compareVersions(latestTag, currentVer) <= 0) {
                 if (statusEl) {
                     statusEl.textContent = '已是最新版本 v' + currentVer;
                     statusEl.style.color = '#4caf50';
@@ -920,19 +942,29 @@ function checkAppUpdateDM() {
                 if (typeof showNotification === 'function') showNotification('已是最新版本 v' + currentVer, 'success');
             } else {
                 if (statusEl) {
-                    statusEl.textContent = '检查失败，点击重试';
-                    statusEl.style.color = 'var(--text-secondary)';
+                    statusEl.textContent = '发现新版本 v' + latestTag + '，点击下载';
+                    statusEl.style.color = '#e53935';
                 }
-                window.open(GITHUB_RELEASES_URL, '_blank');
+                // 手动检查时清除忽略记录，强制弹窗
+                var ignoredKey = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_') + 'ignored_update_version';
+                localforage.removeItem(ignoredKey).catch(function () {});
+                _showUpdateModal(latestTag, currentVer, downloadUrl);
             }
         })
         .catch(function (err) {
-            console.warn('[update] API 检查失败:', err);
+            console.warn('[update] API 检查失败:', err.message || err);
             if (statusEl) {
                 statusEl.textContent = '网络错误，点击打开下载页';
                 statusEl.style.color = 'var(--text-secondary)';
             }
-            window.open(GITHUB_RELEASES_URL, '_blank');
+            // 点击状态文字时打开下载页
+            if (statusEl && !statusEl._clickBound) {
+                statusEl._clickBound = true;
+                statusEl.style.cursor = 'pointer';
+                statusEl.addEventListener('click', function () {
+                    window.open(GITHUB_RELEASES_URL, '_blank');
+                });
+            }
         });
 }
 

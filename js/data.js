@@ -61,6 +61,11 @@
         +       '<div class="dm-row-info"><div class="dm-row-title">声明与致谢</div><div class="dm-row-desc">开源声明、致谢名单</div></div>'
         +       '<button class="dm-nav-btn" id="open-credits-btn"><i class="fas fa-chevron-right"></i></button>'
         +     '</div>'
+        +     '<div class="dm-row-item" id="check-update-row" style="cursor:pointer">'
+        +       '<div class="dm-row-icon green"><i class="fas fa-sync-alt"></i></div>'
+        +       '<div class="dm-row-info"><div class="dm-row-title">检查更新</div><div class="dm-row-desc" id="dm-update-status">当前版本 v1.4.0</div></div>'
+        +       '<button class="dm-nav-btn" id="check-update-dm-btn"><i class="fas fa-chevron-right"></i></button>'
+        +     '</div>'
         +   '</div>'
 
         +   '<div class="dm-section-label danger-label"><i class="fas fa-triangle-exclamation"></i> 危险操作</div>'
@@ -255,7 +260,10 @@
                             else cfg += r.b;
                         });
                         applyStats(total, msgs, cfg, media);
-                    }).catch(processLS);
+                    }).catch(function (err) {
+                        console.warn('localforage 统计部分失败，回退到 localStorage:', err);
+                        processLS();
+                    });
                 }).catch(processLS);
             } else { processLS(); }
         } catch (e) { processLS(); }
@@ -263,9 +271,14 @@
 
     function syncToggles() {
         var n = document.getElementById('notif-permission-toggle');
-        if (n) n.checked = localStorage.getItem('notifEnabled') === '1'
-                        && 'Notification' in window
-                        && Notification.permission === 'granted';
+        if (!n) return;
+        var enabled = localStorage.getItem('notifEnabled') === '1';
+        // APK 环境：通过 PushBridge 检查权限状态
+        if (typeof PushBridge !== 'undefined' && PushBridge.isNative()) {
+            n.checked = enabled && PushBridge.getStatus() === 'granted';
+            return;
+        }
+        n.checked = enabled && 'Notification' in window && Notification.permission === 'granted';
     }
 
     function openDrawer(drawerId) {
@@ -442,6 +455,15 @@
                 } else { startTour(); }
             }
         });
+
+        // 检查更新按钮
+        var updateRow = mc.querySelector('#check-update-row');
+        var updateBtn = mc.querySelector('#check-update-dm-btn');
+        var updateHandler = function () {
+            if (typeof checkAppUpdateDM === 'function') checkAppUpdateDM();
+        };
+        if (updateRow) updateRow.addEventListener('click', updateHandler);
+        if (updateBtn) updateBtn.addEventListener('click', updateHandler);
     }
 
     function onModalOpen(modal) {
@@ -523,6 +545,13 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 window._sendPartnerNotification = function(title, body) {
+    // 统一使用 PushBridge 推送层（自动适配浏览器 / APK 环境）
+    if (typeof PushBridge !== 'undefined') {
+        PushBridge.send(title, body);
+        return;
+    }
+
+    // 回退：原有的 Web Notification API
     try {
         if (localStorage.getItem('notifEnabled') !== '1') return;
         if (!('Notification' in window)) return;
@@ -539,6 +568,40 @@ window._sendPartnerNotification = function(title, body) {
 
 window.handleNotifToggle = function(checkbox) {
     var statusEl = document.getElementById('notif-status-text');
+
+    // 使用 PushBridge 统一权限请求
+    if (typeof PushBridge !== 'undefined' && PushBridge.isAvailable()) {
+        if (checkbox.checked) {
+            PushBridge.requestPermission().then(function(perm) {
+                if (perm === 'granted') {
+                    if (statusEl) statusEl.textContent = '✅ 已开启 — 当页面在后台时，收到消息会弹出系统通知';
+                    localStorage.setItem('notifEnabled', '1');
+                    // 浏览器环境发送测试通知，APK 环境跳过
+                    if (!PushBridge.isNative()) {
+                        try { new Notification('传讯通知已开启 ✨', { body: '你现在可以在后台收到消息提醒了', tag: 'notif-test' }); } catch(e) {}
+                    }
+                } else if (perm === 'denied') {
+                    checkbox.checked = false;
+                    if (statusEl) statusEl.textContent = '❌ 权限被拒绝，请到系统设置中开启通知权限';
+                    localStorage.setItem('notifEnabled', '0');
+                } else {
+                    checkbox.checked = false;
+                    if (statusEl) statusEl.textContent = '⚠️ 未做出选择，请重试';
+                    localStorage.setItem('notifEnabled', '0');
+                }
+            }).catch(function() {
+                checkbox.checked = false;
+                if (statusEl) statusEl.textContent = '❌ 请求权限失败，请自行搜索如何打开';
+                localStorage.setItem('notifEnabled', '0');
+            });
+        } else {
+            if (statusEl) statusEl.textContent = '已关闭 — 后台将不再弹出消息提醒';
+            localStorage.setItem('notifEnabled', '0');
+        }
+        return;
+    }
+
+    // 回退：原有的 Web Notification API
     if (!('Notification' in window)) {
         checkbox.checked = false;
         if (statusEl) statusEl.textContent = '⚠️ 您的浏览器不支持通知功能，请更换浏览器';
@@ -575,11 +638,19 @@ document.addEventListener('DOMContentLoaded', function() {
     var statusEl = document.getElementById('notif-status-text');
     if (!toggle) return;
     var enabled = localStorage.getItem('notifEnabled') === '1';
-    var granted = ('Notification' in window) && Notification.permission === 'granted';
+
+    // APK 环境：通过 PushBridge 检查权限状态
+    var isNative = typeof PushBridge !== 'undefined' && PushBridge.isNative();
+    var granted = isNative
+        ? PushBridge.getStatus() === 'granted'
+        : ('Notification' in window) && Notification.permission === 'granted';
+
     toggle.checked = enabled && granted;
     if (!statusEl) return;
     if (toggle.checked) {
         statusEl.textContent = '✅ 已开启 — 当页面在后台时，收到消息会弹出系统通知';
+    } else if (isNative && PushBridge.getStatus() === 'denied') {
+        statusEl.textContent = '❌ 通知权限已被系统屏蔽，请到系统设置中开启';
     } else if ('Notification' in window && Notification.permission === 'denied') {
         statusEl.textContent = '❌ 通知权限已被浏览器屏蔽，请自行搜索如何开启';
     } else {

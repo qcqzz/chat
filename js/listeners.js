@@ -27,6 +27,8 @@ function initChatActionListeners() {
             let _longPressTriggered = false;
             const LONG_PRESS_MS = 500;
 
+            if (!DOMElements.chatContainer) return;
+
             function _hideAllActions() {
                 document.querySelectorAll('.message-wrapper.actions-visible').forEach(w => {
                     w.classList.remove('actions-visible');
@@ -373,6 +375,10 @@ if (target.classList.contains('delete-btn')) {
                         isPartner ? settings.partnerName = newName: settings.myName = newName;
                         throttledSaveData();
                         updateUI();
+                        // 更新前台服务通知文字
+                        if (isPartner && typeof ForegroundBridge !== 'undefined') {
+                            ForegroundBridge.updateNotification();
+                        }
                         showNotification('昵称已更新', 'success');
                     }
                     hideModal(modal.modal);
@@ -1537,6 +1543,38 @@ autoSendSlider.addEventListener('change', () => {
     manageAutoSendTimer(); 
     throttledSaveData();
 });
+
+const combineCardsToggle  = document.getElementById('combine-cards-toggle');
+const combineCardsControl = document.getElementById('combine-cards-control');
+const combineCardsSlider  = document.getElementById('combine-cards-slider');
+const combineCardsValue   = document.getElementById('combine-cards-value');
+
+const updateCombineCardsUI = () => {
+    const on = !!settings.combineReplyCards;
+    combineCardsToggle.classList.toggle('active', on);
+    combineCardsSlider.disabled = !on;
+    combineCardsControl.style.opacity = on ? '1' : '0.4';
+    combineCardsControl.style.pointerEvents = on ? 'auto' : 'none';
+    const currentVal = settings.combineReplyMaxCards || 3;
+    combineCardsSlider.value = currentVal;
+    combineCardsValue.textContent = `${currentVal}句`;
+};
+
+updateCombineCardsUI();
+
+combineCardsToggle.addEventListener('click', () => {
+    settings.combineReplyCards = !settings.combineReplyCards;
+    updateCombineCardsUI();
+    throttledSaveData();
+    showNotification(`回复拼接字卡已${settings.combineReplyCards ? '开启' : '关闭'}`, 'success');
+});
+
+combineCardsSlider.addEventListener('input', (e) => {
+    const val = parseInt(e.target.value);
+    settings.combineReplyMaxCards = val;
+    combineCardsValue.textContent = `${val}句`;
+});
+combineCardsSlider.addEventListener('change', throttledSaveData);
 
             const resetBgBtn = document.getElementById('reset-default-bg');
             if (resetBgBtn) {
@@ -3117,13 +3155,15 @@ playlist.style.top = (rect.top + (player.classList.contains('collapsed') ? 65 : 
 
         function initCoreListeners() {
 
-            DOMElements.chatContainer.addEventListener('scroll', () => {
-                const container = DOMElements.chatContainer;
-                if (!container) return;
-                if (container.scrollTop < 50 && !isLoadingHistory && messages.length > displayedMessageCount) {
-                    if (typeof loadMoreHistory === 'function') loadMoreHistory();
-                }
-            });
+            if (DOMElements.chatContainer) {
+                DOMElements.chatContainer.addEventListener('scroll', () => {
+                    const container = DOMElements.chatContainer;
+                    if (!container) return;
+                    if (container.scrollTop < 50 && !isLoadingHistory && messages.length > displayedMessageCount) {
+                        if (typeof loadMoreHistory === 'function') loadMoreHistory();
+                    }
+                });
+            }
 
             DOMElements.sendBtn.addEventListener('click', () => isBatchMode ? addToBatch(): sendMessage());
             DOMElements.messageInput.addEventListener('keydown', e => {

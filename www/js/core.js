@@ -5,6 +5,14 @@ var _escapeHtml = function(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 };
 
+// 梦角回复消息的多监听通道（跟 window._onPartnerMessage 单函数钩子并行，互不覆盖）
+// 需要监听"梦角发了消息"这个事件的新模块，用 window._registerPartnerMessageListener(fn) 注册，
+// 不要直接赋值 window._onPartnerMessage，那个是给旧模块（陪伴模块）用的，赋值会覆盖掉它。
+window._partnerMessageListeners = window._partnerMessageListeners || [];
+window._registerPartnerMessageListener = window._registerPartnerMessageListener || function (fn) {
+    if (typeof fn === 'function') window._partnerMessageListeners.push(fn);
+};
+
         function clearAllAppData() {
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease;';
@@ -45,6 +53,9 @@ var _escapeHtml = function(str) {
             messages = [];
             window.messages = messages; // 双保险：同步 window 属性
             displayedMessageCount = HISTORY_BATCH_SIZE;
+            msgViewMode = 'latest'; // 清空消息了，历史浏览模式的窗口下标肯定全部失效，一并重置
+            newMsgCountWhileBrowsing = 0;
+            if (typeof window._updateBackToLatestBtn === 'function') window._updateBackToLatestBtn();
 
             // 立即清除 localStorage 备份，防止 _tryRecoverFromBackup 在 IndexedDB 写入前恢复旧消息
             try { localStorage.removeItem('BACKUP_V1_critical'); } catch(e) {}
@@ -77,10 +88,76 @@ var _escapeHtml = function(str) {
     };
 }
 
+// 把 messages[startIdx, endIdxExclusive) 这一批更早的消息，直接插到聊天区域最上面——
+// 不清空、不重画已经显示着的内容，所以不会有"整个区域先藏起来再露出来"那种白屏闪烁
+function _prependOlderMessages(startIdx, endIdxExclusive) {
+    const container = DOMElements.chatContainer;
+    const batch = messages.slice(startIdx, endIdxExclusive);
+    if (!batch.length || !container) return;
+
+    const fragment = new DocumentFragment();
+    let lastSenderRef = { current: null };
+    batch.forEach((msg, i) => {
+        const globalIdx = startIdx + i;
+        const prevMsg = globalIdx > 0 ? messages[globalIdx - 1] : null;
+        const nextMsg = messages[globalIdx + 1] || null; // 批次内的下一条，或者已经渲染在下面的那一条，都能正确取到
+        const msgFragment = createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef);
+        fragment.appendChild(msgFragment);
+    });
+
+    // 最上面固定有一个用来撑高度的占位div（spacer），新内容要插在它后面、原有消息前面
+    const spacer = container.querySelector('div[style*="flex: 1"]');
+    const insertBeforeNode = spacer ? spacer.nextSibling : container.firstChild;
+
+    // 聊天框本身开着"平滑滚动"效果（CSS scroll-behavior: smooth），这跟"瞬间精确挪到某个位置"是冲突的——
+    // 不临时关掉的话，下面这行补偿滚动条位置的操作会被浏览器理解成"慢慢滑过去"，
+    // 读到的中间值就会不准，视觉上也会变成"先加载、又滑到别的地方"，这正是这次要修的问题
+    const prevScrollBehavior = container.style.scrollBehavior;
+    container.style.scrollBehavior = 'auto';
+
+    const oldScrollHeight = container.scrollHeight;
+    if (insertBeforeNode) {
+        container.insertBefore(fragment, insertBeforeNode);
+    } else {
+        container.appendChild(fragment);
+    }
+    // 上面新插入了这么多高度，滚动条也跟着往下挪同样的距离，视觉上就像"没有动过"，用户能无缝接着往上看
+    const newScrollHeight = container.scrollHeight;
+    container.scrollTop += (newScrollHeight - oldScrollHeight);
+
+    container.style.scrollBehavior = prevScrollBehavior || '';
+}
+
+// 把 messages[startIdx, endIdxExclusive) 这一批更晚的消息，直接接在聊天区域最下面——
+// 同样不清空重画，往下追加不会影响当前已经看到的内容和滚动位置，不需要额外补偿滚动条
+function _appendNewerMessages(startIdx, endIdxExclusive) {
+    const container = DOMElements.chatContainer;
+    const batch = messages.slice(startIdx, endIdxExclusive);
+    if (!batch.length || !container) return;
+
+    const fragment = new DocumentFragment();
+    // lastSenderRef 要先接上"当前已经渲染的最后一条是谁发的"，不然本来该合并显示的头像/时间会重复冒出来
+    let lastSenderRef = { current: null };
+    if (startIdx > 0) {
+        const lastRenderedMsg = messages[startIdx - 1];
+        const prevGroupMember = (lastRenderedMsg.sender !== 'user' && typeof getGroupMemberForMessage === 'function') ? getGroupMemberForMessage(lastRenderedMsg.id) : null;
+        lastSenderRef.current = prevGroupMember ? ('group_' + prevGroupMember.name) : lastRenderedMsg.sender;
+    }
+    batch.forEach((msg, i) => {
+        const globalIdx = startIdx + i;
+        const prevMsg = globalIdx > 0 ? messages[globalIdx - 1] : null;
+        const nextMsg = messages[globalIdx + 1] || null;
+        const msgFragment = createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef);
+        fragment.appendChild(msgFragment);
+    });
+
+    container.appendChild(fragment);
+}
+
 function loadMoreHistory() {
     const historyLoader = document.getElementById('history-loader');
     const container = DOMElements && DOMElements.chatContainer;
-    const currentOldestMsgIndex = messages.length - displayedMessageCount;
+    const currentOldestMsgIndex = msgViewMode === 'window' ? msgWinStart : (messages.length - displayedMessageCount);
 
     if (!container) return;
     if (isLoadingHistory) return;
@@ -93,49 +170,64 @@ function loadMoreHistory() {
     isLoadingHistory = true;
     if (historyLoader) historyLoader.style.display = 'flex';
 
-    const visibleWrappers = Array.from(container.querySelectorAll('.message-wrapper'));
-    const firstVisible = visibleWrappers.find(function(el) {
-        return el.offsetTop + el.offsetHeight >= container.scrollTop;
-    }) || visibleWrappers[0] || null;
+    // 消息本来就已经在内存里了，不是要发网络请求，这里保留一点延迟纯粹是为了让转圈动效能被看清楚、
+    // 感觉更像"正在加载"，不会显得太突兀。真正的DOM操作只插入新增的这一批，不会有白屏闪烁。
+    setTimeout(() => {
+        const oldStart = msgViewMode === 'window' ? msgWinStart : Math.max(0, messages.length - displayedMessageCount);
+        let newStart;
+        if (msgViewMode === 'window') {
+            msgWinStart = Math.max(0, msgWinStart - HISTORY_BATCH_SIZE);
+            newStart = msgWinStart;
+        } else {
+            displayedMessageCount = Math.min(messages.length, displayedMessageCount + HISTORY_BATCH_SIZE);
+            newStart = Math.max(0, messages.length - displayedMessageCount);
+        }
 
-    const anchorId = firstVisible ? firstVisible.dataset.msgId : null;
-    const anchorTop = firstVisible ? firstVisible.getBoundingClientRect().top : 0;
+        _prependOlderMessages(newStart, oldStart);
 
-    const prevVisibility = container.style.visibility;
-    const prevOverflow = container.style.overflow;
-    const prevScrollBehavior = container.style.scrollBehavior;
-    const prevOpacity = container.style.opacity;
+        const stillHasMore = msgViewMode === 'window' ? msgWinStart > 0 : (messages.length > displayedMessageCount);
+        if (historyLoader) {
+            historyLoader.style.display = stillHasMore ? 'flex' : 'none';
+        }
+        isLoadingHistory = false;
+    }, 120);
+}
 
-    container.style.opacity = '0.015';
-    container.style.visibility = 'hidden';
-    container.style.overflow = 'hidden';
-    container.style.scrollBehavior = 'auto';
+// 往下翻，加载更晚的消息——跟 loadMoreHistory 对称，只在 window（历史浏览）模式下会用到，
+// 正常的 latest 模式本来就已经渲染到最新消息了，没有"更晚"可以加载
+function loadMoreFuture() {
+    const futureLoader = document.getElementById('future-loader');
+    const container = DOMElements && DOMElements.chatContainer;
+    if (!container) return;
+    if (msgViewMode !== 'window') return;
+    if (isLoadingFuture) return;
+
+    if (msgWinEnd >= messages.length) {
+        if (futureLoader) futureLoader.style.display = 'none';
+        return;
+    }
+
+    isLoadingFuture = true;
+    if (futureLoader) futureLoader.style.display = 'flex';
 
     setTimeout(() => {
-        displayedMessageCount = Math.min(messages.length, displayedMessageCount + HISTORY_BATCH_SIZE);
-        renderMessages(true);
+        const oldEnd = msgWinEnd;
+        msgWinEnd = Math.min(messages.length, msgWinEnd + HISTORY_BATCH_SIZE);
 
-        requestAnimationFrame(() => {
-            if (anchorId) {
-                const newAnchor = container.querySelector('[data-msg-id="' + anchorId + '"]');
-                if (newAnchor) {
-                    const newTop = newAnchor.getBoundingClientRect().top;
-                    container.scrollTop += (newTop - anchorTop);
-                }
-            }
+        // 如果这一下已经追到最新消息了，直接切回正常模式，体验上等同于"回到最新"——
+        // 这是一次性的模式切换，不是重复的翻页动作，用一次完整渲染没问题
+        if (msgWinEnd >= messages.length) {
+            window._backToLatestMessages();
+            isLoadingFuture = false;
+            return;
+        }
 
-            requestAnimationFrame(() => {
-                container.style.opacity = prevOpacity || '';
-                container.style.visibility = prevVisibility || '';
-                container.style.overflow = prevOverflow || '';
-                container.style.scrollBehavior = prevScrollBehavior || '';
+        _appendNewerMessages(oldEnd, msgWinEnd);
 
-                if (historyLoader) {
-                    historyLoader.style.display = (messages.length > displayedMessageCount) ? 'flex' : 'none';
-                }
-                isLoadingHistory = false;
-            });
-        });
+        if (futureLoader) {
+            futureLoader.style.display = (msgWinEnd < messages.length) ? 'flex' : 'none';
+        }
+        isLoadingFuture = false;
     }, 120);
 }
 
@@ -178,6 +270,8 @@ autoSendEnabled: false,
 autoSendInterval: 5,
         allowReadNoReply: false, 
         readNoReplyChance: 0.2,
+        combineReplyCards: false,
+        combineReplyMaxCards: 3,
         timeFormat: 'HH:mm',
         customSoundUrl: '',
         // 音效：两方分别可选（若对应 URL 为空则使用内置预设）
@@ -516,11 +610,15 @@ const loadData = async () => {
         try { await loadEnvelopeData(); } catch(e) { console.warn("信封数据加载失败", e); }
         
         displayedMessageCount = HISTORY_BATCH_SIZE;
+        msgViewMode = 'latest'; // 切换/加载会话时，重置掉"历史浏览模式"，避免带着上一个会话的浏览状态串过来
+        newMsgCountWhileBrowsing = 0;
+        if (typeof window._updateBackToLatestBtn === 'function') window._updateBackToLatestBtn();
         
         setTimeout(() => {
             applyAllAvatarFrames();
             manageAutoSendTimer(); 
             checkEnvelopeStatus(); 
+            if (typeof checkMomentsStatus === 'function') checkMomentsStatus();
             updateUI();
             if (settings.customBubbleCss) {
                 try { applyCustomBubbleCss(settings.customBubbleCss); } catch(e) {}
@@ -989,31 +1087,21 @@ function manageAutoSendTimer() {
         window.scrollToQuotedMessage = function(el) {
             const id = el.getAttribute('data-reply-id');
             if (!id) return;
-            const tryScroll = () => {
-                const target = document.querySelector(`[data-msg-id="${id}"]`);
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    target.classList.add('msg-highlight');
-                    setTimeout(() => target.classList.remove('msg-highlight'), 1500);
-                    return true;
-                }
-                return false;
-            };
-            if (!tryScroll()) {
-                const msgIndex = messages.findIndex(m => String(m.id) === String(id));
-                if (msgIndex === -1) {
-                    if (typeof showNotification === 'function') showNotification('消息可能已被删除', 'info');
-                    return;
-                }
-                const needed = messages.length - msgIndex;
-                if (needed > displayedMessageCount) {
-                    displayedMessageCount = needed;
-                    renderMessages(false);
-                    setTimeout(tryScroll, 150);
-                } else {
-                    if (typeof showNotification === 'function') showNotification('消息可能已被删除', 'info');
-                }
+            const target = document.querySelector(`[data-msg-id="${id}"]`);
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                target.classList.add('msg-highlight');
+                setTimeout(() => target.classList.remove('msg-highlight'), 1500);
+                return;
             }
+            // 当前页面上没有这条消息（可能太老了，还没渲染到），统一走"定位到某条消息"这条路，
+            // 不管这条消息有多老，只渲染它附近一小段，不会因为聊天记录长就变慢
+            if (!window._jumpToMessage(id)) return;
+            setTimeout(() => {
+                const el2 = document.querySelector(`[data-msg-id="${id}"]`);
+                if (el2) el2.classList.add('msg-highlight');
+                setTimeout(() => { if (el2) el2.classList.remove('msg-highlight'); }, 1500);
+            }, 60);
         };
 
 function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
@@ -1284,12 +1372,27 @@ function _updateReadReceiptsDOM() {
 function renderMessages(preserveScroll = false) {
     const container = DOMElements.chatContainer;
     const totalMessages = messages.length;
-    const startIndex = Math.max(0, totalMessages - displayedMessageCount);
-    const msgsToRender = messages.slice(startIndex);
+
+    let startIndex, endIndex, msgsToRender;
+    if (msgViewMode === 'window') {
+        // 历史浏览模式：只渲染 [msgWinStart, msgWinEnd) 这一小段，不管这段离最新消息有多远，
+        // 渲染量都是恒定的，不会因为聊天记录变长就跟着变慢
+        startIndex = Math.max(0, Math.min(msgWinStart, totalMessages));
+        endIndex = Math.max(startIndex, Math.min(msgWinEnd, totalMessages));
+        msgsToRender = messages.slice(startIndex, endIndex);
+    } else {
+        startIndex = Math.max(0, totalMessages - displayedMessageCount);
+        endIndex = totalMessages;
+        msgsToRender = messages.slice(startIndex);
+    }
 
     const historyLoader = document.getElementById('history-loader');
     if (historyLoader) {
         historyLoader.style.display = startIndex > 0 ? 'flex' : 'none';
+    }
+    const futureLoader = document.getElementById('future-loader');
+    if (futureLoader) {
+        futureLoader.style.display = (msgViewMode === 'window' && endIndex < totalMessages) ? 'flex' : 'none';
     }
 
     DOMElements.emptyState.style.display = totalMessages === 0 ? 'flex' : 'none';
@@ -1318,11 +1421,88 @@ function renderMessages(preserveScroll = false) {
     if (preserveScroll) {
         const newScrollHeight = container.scrollHeight;
         container.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
-    } else {
+    } else if (msgViewMode !== 'window') {
         requestAnimationFrame(() => {
             container.scrollTop = container.scrollHeight;
         });
     }
+    // window模式下不自动滚动到底部/顶部，滚动位置由调用方（比如跳转定位）自己处理
+}
+
+// 跳转到某一条消息（搜索结果点击、引用消息点击都可以用这个统一入口），
+// 不管这条消息离最新消息有多远，只渲染它附近一小段，不会因为聊天记录很长就卡顿
+window._jumpToMessage = function(id) {
+    const idx = messages.findIndex(m => String(m.id) === String(id));
+    if (idx === -1) {
+        if (typeof showNotification === 'function') showNotification('这条消息可能已被删除', 'info');
+        return false;
+    }
+
+    const container = DOMElements && DOMElements.chatContainer;
+    if (!container) return false;
+
+    const HALF = 50; // 目标消息前后各带50条上下文，数量固定，不会因为消息在哪个位置而变化
+    msgViewMode = 'window';
+    msgWinStart = Math.max(0, idx - HALF);
+    msgWinEnd = Math.min(messages.length, idx + HALF + 1);
+    newMsgCountWhileBrowsing = 0;
+
+    renderMessages(false);
+
+    requestAnimationFrame(() => {
+        const el = container.querySelector('[data-msg-id="' + id + '"]');
+        if (el) {
+            el.scrollIntoView({ behavior: 'auto', block: 'center' });
+            el.style.transition = 'background .3s ease';
+            el.style.background = 'rgba(var(--accent-color-rgb),.14)';
+            setTimeout(() => { el.style.background = ''; }, 1800);
+        }
+        if (typeof window._updateBackToLatestBtn === 'function') window._updateBackToLatestBtn();
+        if (typeof window._updateNewMsgIndicator === 'function') window._updateNewMsgIndicator();
+    });
+    return true;
+};
+
+// 从历史浏览模式回到最新消息——切回正常模式，重置成"只看最近一批"，然后自动滚到底部
+window._backToLatestMessages = function() {
+    msgViewMode = 'latest';
+    displayedMessageCount = HISTORY_BATCH_SIZE;
+    newMsgCountWhileBrowsing = 0;
+    renderMessages(false);
+    if (typeof window._updateBackToLatestBtn === 'function') window._updateBackToLatestBtn();
+    if (typeof window._updateNewMsgIndicator === 'function') window._updateNewMsgIndicator();
+};
+
+// "回到最新消息"悬浮按钮的显示/隐藏——判断标准跟自动滚动是同一套：只要没追上底部就显示
+window._updateBackToLatestBtn = function() {
+    const btn = document.getElementById('back-to-latest-btn');
+    if (!btn) return;
+    btn.style.display = _isCaughtUpToLatest() ? 'none' : 'flex';
+};
+
+// "有N条新消息"提示——文案套在同一个按钮上，不额外加控件
+window._updateNewMsgIndicator = function() {
+    const btn = document.getElementById('back-to-latest-btn');
+    const label = document.getElementById('back-to-latest-label');
+    if (!btn || !label) return;
+    if (msgViewMode === 'window' && newMsgCountWhileBrowsing > 0) {
+        label.textContent = '有' + newMsgCountWhileBrowsing + '条新消息';
+        btn.classList.add('has-new-msg');
+    } else {
+        label.textContent = '';
+        btn.classList.remove('has-new-msg');
+    }
+};
+
+
+// 判断"用户现在是不是正停在聊天最底部"——不看是通过什么方式到达当前位置的（正常聊天时手指往上划了一点、
+// 还是从搜索/引用跳转过来的历史记录），只看两件事：① 当前渲染的这一段有没有已经连到最新消息；
+// ② 滚动条实际位置离底部够不够近。两个都满足才算"追上了"，新消息来的时候才会自动帮你滚下去。
+function _isCaughtUpToLatest() {
+    if (msgViewMode === 'window' && msgWinEnd < messages.length) return false; // 当前渲染的窗口本来就没到最新，不管怎么滚都不算追上
+    const c = DOMElements && DOMElements.chatContainer;
+    if (!c) return true;
+    return (c.scrollHeight - c.scrollTop - c.clientHeight) < 100;
 }
 
 const addMessage = (message) => {
@@ -1332,12 +1512,73 @@ const addMessage = (message) => {
     const wasEmpty = messages.length === 0;
 
     const prevMsg = messages.length > 0 ? messages[messages.length - 1] : null;
+    // 追没追上底部，要在"往数组里塞新消息、改动滚动高度"之前就先判断好，不然滚动高度已经变了，判断就不准了
+    const wasCaughtUp = _isCaughtUpToLatest();
     messages.push(message);
     
     if (wasEmpty) {
         DOMElements.emptyState.style.display = 'none';
     }
 
+    // 用户自己发的新消息：不能让它发出去后自己却看不到，不管之前在不在底部，都直接跳回/滚到最新（所有聊天软件的通用逻辑）
+    if (message.sender === 'user') {
+        if (msgViewMode === 'window') {
+            throttledSaveData();
+            if (message.type === 'normal' && typeof window._onUserMessage === 'function') {
+                try { window._onUserMessage(message); } catch (e) { console.warn('[onUserMessage]', e); }
+            }
+            if (typeof window._backToLatestMessages === 'function') window._backToLatestMessages();
+            return;
+        }
+        // 已经在 latest 模式，走下面正常的"追加+滚动到底"逻辑即可（wasCaughtUp 对用户自己发消息没意义，永远滚底）
+    } else if (!wasCaughtUp) {
+        // 对方发来新消息，但用户当前没有停在底部（不管是因为在翻很久以前的历史记录，
+        // 还是就是正常聊天时手指往上划了一点点）——新消息不硬塞进当前视野、也不强行拽人，只悄悄计数提示
+        if (msgViewMode === 'window' && msgWinEnd < messages.length) {
+            // 窗口本来就没连到最新，DOM里没法接着往后加，直接跳过渲染这一步
+        } else {
+            // 处于 latest 模式但没在底部：消息本身仍然要能在"滚到底"之后看到，所以还是要把DOM追加上，只是不强制滚动
+            const existingWrappers = container.querySelectorAll('.message-wrapper');
+            const lastWrapper = existingWrappers.length > 0 ? existingWrappers[existingWrappers.length - 1] : null;
+            if (lastWrapper && prevMsg) {
+                const currentTs = new Date(message.timestamp).getTime();
+                const prevTs = new Date(prevMsg.timestamp).getTime();
+                if (message.sender === prevMsg.sender && message.type === 'normal' && prevMsg.type === 'normal' && (currentTs - prevTs < 60000)) {
+                    const metaEl = lastWrapper.querySelector('.message-meta');
+                    if (metaEl) metaEl.style.display = 'none';
+                    const avatarEl = lastWrapper.querySelector('.message-avatar');
+                    if (avatarEl) avatarEl.style.marginBottom = '';
+                }
+            }
+            let lastSenderRef = { current: null };
+            if (prevMsg) {
+                const prevGroupMember = (prevMsg.sender !== 'user' && typeof getGroupMemberForMessage === 'function') ? getGroupMemberForMessage(prevMsg.id) : null;
+                lastSenderRef.current = prevGroupMember ? ('group_' + prevGroupMember.name) : prevMsg.sender;
+            }
+            const newMsgFragment = createMessageFragment(message, prevMsg, null, lastSenderRef);
+            const spacer = container.querySelector('div[style*="flex: 1"]');
+            if (spacer && spacer === container.lastElementChild) {
+                spacer.before(newMsgFragment);
+            } else {
+                container.appendChild(newMsgFragment);
+            }
+        }
+        newMsgCountWhileBrowsing++;
+        if (typeof window._updateNewMsgIndicator === 'function') window._updateNewMsgIndicator();
+        if (typeof window._updateBackToLatestBtn === 'function') window._updateBackToLatestBtn();
+        throttledSaveData();
+        if (message.type === 'normal' && typeof window._onPartnerMessage === 'function') {
+            try { window._onPartnerMessage(message); } catch (e) { console.warn('[onPartnerMessage]', e); }
+        }
+        if (message.type === 'normal' && Array.isArray(window._partnerMessageListeners)) {
+            window._partnerMessageListeners.forEach(function (fn) {
+                try { fn(message); } catch (e) { console.warn('[onPartnerMessage:listener]', e); }
+            });
+        }
+        return;
+    }
+
+    // --- 正常情况：用户自己发消息、或对方发消息时用户本来就在底部 —— 追加消息并滚动到底 ---
     // --- Update previous message if needed ---
     const existingWrappers = container.querySelectorAll('.message-wrapper');
     const lastWrapper = existingWrappers.length > 0 ? existingWrappers[existingWrappers.length - 1] : null;
@@ -1377,8 +1618,15 @@ const addMessage = (message) => {
 
     // 钩子：通知陪伴模块"梦角刚说了一句话"，让陪伴页可以同步显示气泡
     // 只对梦角的普通消息触发（不是用户消息、不是 system call-event 等）
+    // 保留原有的单函数赋值方式（陪伴模块在用，不改动，避免影响它）
     if (message.sender !== 'user' && message.type === 'normal' && typeof window._onPartnerMessage === 'function') {
         try { window._onPartnerMessage(message); } catch (e) { console.warn('[onPartnerMessage]', e); }
+    }
+    // 新增：多监听通道，供电影院等新模块注册，跟上面那个单函数钩子并行、互不覆盖
+    if (message.sender !== 'user' && message.type === 'normal' && Array.isArray(window._partnerMessageListeners)) {
+        window._partnerMessageListeners.forEach(function (fn) {
+            try { fn(message); } catch (e) { console.warn('[onPartnerMessage:listener]', e); }
+        });
     }
     // 钩子：通知陪伴模块"用户刚发了一条消息"，让陪伴页气泡同步显示
     if (message.sender === 'user' && message.type === 'normal' && typeof window._onUserMessage === 'function') {
@@ -1748,7 +1996,7 @@ if (!isBatchMode && type === 'normal') {
                     const partnerImg = DOMElements.partner.avatar.querySelector('img');
                     tiAvatar.innerHTML = partnerImg ? `<img src="${partnerImg.src}">` : '<i class="fas fa-user"></i>';
                 }
-                if (DOMElements.chatContainer) DOMElements.chatContainer.scrollTop = DOMElements.chatContainer.scrollHeight;
+                if (_isCaughtUpToLatest() && DOMElements.chatContainer) DOMElements.chatContainer.scrollTop = DOMElements.chatContainer.scrollHeight;
             }
 
             // 排队回复
@@ -1776,7 +2024,11 @@ if (!isBatchMode && type === 'normal') {
                     const partnerImg = DOMElements.partner.avatar.querySelector('img');
                     tiAvatar.innerHTML = partnerImg ? `<img src="${partnerImg.src}">` : '<i class="fas fa-user"></i>';
                 }
-                DOMElements.chatContainer.scrollTop = DOMElements.chatContainer.scrollHeight;
+                // 判断标准不是"在不在历史浏览模式"，而是"用户现在实际有没有停在底部"——
+                // 哪怕没有搜索/跳转，正常聊天时手指往上划了一点，也一样不该被强行拽回去
+                if (_isCaughtUpToLatest()) {
+                    DOMElements.chatContainer.scrollTop = DOMElements.chatContainer.scrollHeight;
+                }
             }
 
             let changed = false;
@@ -1855,11 +2107,22 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                     const replyPool = replyPoolOnce;
                     // 被屏蔽或无效项直接换下一个，尽量保证每次都产出可用回复
                     let replyText = '';
-                    for (let t = 0; t < 6; t++) {
-                        const picked = replyPool[Math.floor(Math.random() * replyPool.length)];
-                        if (picked && String(picked).trim()) {
-                            replyText = String(picked).trim();
-                            break;
+                    if (settings.combineReplyCards) {
+                        // 拼接字卡：1 ~ combineReplyMaxCards 句随机拼接，句子间随机加标点断句
+                        const maxN = Math.max(1, Math.min(5, parseInt(settings.combineReplyMaxCards, 10) || 3));
+                        const n = 1 + Math.floor(Math.random() * maxN);
+                        for (let k = 0; k < n; k++) {
+                            const picked = replyPool[Math.floor(Math.random() * replyPool.length)];
+                            replyText += picked + (Math.random() < .2 ? '！' : Math.random() < .2 ? '……' : '。');
+                        }
+                    } else {
+                        // 开关关闭：老逻辑，只抽1句（保留原有的跳过空/无效项重试）
+                        for (let t = 0; t < 6; t++) {
+                            const picked = replyPool[Math.floor(Math.random() * replyPool.length)];
+                            if (picked && String(picked).trim()) {
+                                replyText = String(picked).trim();
+                                break;
+                            }
                         }
                     }
                     if (!replyText && i === replyCount - 1) {
@@ -1901,8 +2164,10 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                             : null,
                         type: 'normal'
                     });
-                    // 发送通知（PushBridge 统一处理所有环境）
-                    PushBridge.send(settings.partnerName || '对方', finalText);
+                    // 发送通知
+                    if (typeof window._sendPartnerNotification === 'function') {
+                        window._sendPartnerNotification(settings.partnerName || '对方', finalText);
+                    }
                     playSound('message');
 
                     if (shouldSendSticker) {
@@ -1920,7 +2185,9 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                                 type: 'normal'
                             });
                             playSound('message');
-                            PushBridge.send(settings.partnerName || '对方', '[表情]');
+                            if (typeof window._sendPartnerNotification === 'function') {
+                                window._sendPartnerNotification(settings.partnerName || '对方', '[表情]');
+                            }
                         }, 400 + Math.random() * 600);
                     }
 
@@ -2601,20 +2868,7 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e)
     document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
 });
 
-document.addEventListener('DOMContentLoaded', function() {
-    const chatArea = document.querySelector('.main-chat-area');
-    const historyLoader = document.getElementById('history-loader');
-    
-    if (chatArea && historyLoader && typeof IntersectionObserver !== 'undefined') {
-        const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting && messages.length > displayedMessageCount) {
-                loadMoreHistory();
-            }
-        }, {
-            root: chatArea,
-            rootMargin: '200px 0px 0px 0px',
-            threshold: 0.01
-        });
-        observer.observe(historyLoader);
-    }
-});
+// 注：往上/往下翻页加载更多消息的触发，只靠 listeners.js 里那个绑定在真正可滚动容器（chat-container）
+// 上的 scroll 事件监听（检查 scrollTop 实际位置）。这里原本还有一套用 IntersectionObserver 做的重复监听，
+// 但它绑定的参照容器（.main-chat-area）本身并不会滚动，导致这套监听只要"加载提示条一显示出来"就会误触发，
+// 跟用户有没有真的滑动到顶部/底部没有关系，会引发连环自动加载、把用户拽到意料之外的位置。已确认删除，不会影响功能。

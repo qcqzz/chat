@@ -81,6 +81,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateLoader('连接成功，欢迎回来。', '100%');
         setTimeout(hideWelcomeScreen, 3500);
 
+        // 自动检查更新（启动后延迟执行，避免影响启动性能）
+        setTimeout(function () {
+            if (typeof autoCheckUpdate === 'function') autoCheckUpdate();
+        }, 5000);
+
+        // 启动前台服务保活（更新通知昵称）
+        setTimeout(function () {
+            if (typeof ForegroundBridge !== 'undefined') {
+                ForegroundBridge.start();
+            }
+        }, 1000);
+
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
                 try {
@@ -116,6 +128,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } catch (e) {
                     console.warn('[visibilitychange] 恢复备份失败:', e);
                 }
+                // 回到前台时立即检查信封回信状态
+                try {
+                    if (typeof checkEnvelopeStatus === 'function') {
+                        checkEnvelopeStatus().catch(function(e) { console.warn('[visibilitychange] 信封检查失败:', e); });
+                    }
+                } catch(e) { console.warn('[visibilitychange] 信封检查异常:', e); }
             }
         });
 

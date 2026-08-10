@@ -8,11 +8,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
 
-    <title>传讯</title>
+    <title>✦𝓛᳐𝓸𝓿𝓮᳐᳐ ੭✦</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
     <link rel="icon" type="image/png" sizes="192x192" href="https://file.youtochat.com/images/20260216/1771224856844_qdqqd.jpeg">
     <link rel="apple-touch-icon" href="https://file.youtochat.com/images/20260216/1771224856844_qdqqd.jpeg">
     <meta name="apple-mobile-web-app-title" content="ʚ𝑳𝑶𝑽𝑬ɞ">
@@ -22,6 +23,7 @@
 
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/companion.css">
+    <link rel="stylesheet" href="css/cinema.css">
 
     <style id="css-live-preview-style"></style>
     <style>
@@ -32,7 +34,38 @@
             margin: 0;
         }
     </style>
-</head>
+<style id="cs-transition-styles">
+#cs-transition-overlay{position:fixed;inset:0;z-index:1600;display:none;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 36%,rgba(255,255,255,.95),rgba(255,250,246,.82) 30%,rgba(245,238,232,.96) 72%),#f4eee8;opacity:0;transition:opacity 0.5s ease;pointer-events:none;}
+#cs-transition-overlay.cs-trans-show{display:flex;pointer-events:all;}
+#cs-transition-overlay.cs-trans-visible{opacity:1;}
+#cs-transition-overlay .cs-trans-inner{width:min(480px,88vw);aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;}
+#cs-transition-overlay svg{width:82%;height:auto;overflow:visible;}
+#cs-transition-overlay .cs-lp{transform-origin:220px 240px;animation:csLeftMove 6s cubic-bezier(.2,.75,.2,1) infinite;}
+#cs-transition-overlay .cs-rp{transform-origin:580px 240px;animation:csRightMove 6s cubic-bezier(.2,.75,.2,1) infinite;}
+#cs-transition-overlay .cs-lf,#cs-transition-overlay .cs-rf{transform-box:fill-box;transform-origin:center;animation:csSquash 6s ease-in-out infinite;}
+#cs-transition-overlay .cs-heart{transform-box:fill-box;transform-origin:center;opacity:0;animation:csHeartPop 6s cubic-bezier(.2,.9,.25,1.25) infinite;}
+#cs-transition-overlay .cs-spark{transform-box:fill-box;transform-origin:center;opacity:0;animation:csSparkle 6s ease-out infinite;}
+#cs-transition-overlay .cs-spark.s2{animation-delay:.06s;}
+#cs-transition-overlay .cs-spark.s3{animation-delay:.12s;}
+#cs-transition-overlay .cs-spark.s4{animation-delay:.18s;}
+#cs-transition-overlay .cs-blush{opacity:0;animation:csBlush 6s ease-in-out infinite;}
+#cs-transition-overlay .cs-eyes{animation:csBlink 6s linear infinite;transform-origin:center;}
+#cs-transition-overlay .cs-halo{opacity:0;transform-box:fill-box;transform-origin:center;animation:csHalo 6s ease-out infinite;}
+@keyframes csLeftMove{0%,12%{transform:translateX(-190px);}38%{transform:translateX(-26px);}45%{transform:translateX(-10px) scaleX(1.06) scaleY(.95);}51%{transform:translateX(-25px);}62%,82%{transform:translateX(-18px);}100%{transform:translateX(-190px);}}
+@keyframes csRightMove{0%,12%{transform:translateX(190px);}38%{transform:translateX(26px);}45%{transform:translateX(10px) scaleX(1.06) scaleY(.95);}51%{transform:translateX(25px);}62%,82%{transform:translateX(18px);}100%{transform:translateX(190px);}}
+@keyframes csSquash{0%,38%,100%{transform:scale(1);}45%{transform:scaleX(1.08) scaleY(.94);}52%{transform:scaleX(.98) scaleY(1.03);}62%,82%{transform:scale(1);}}
+@keyframes csHeartPop{0%,39%{opacity:0;transform:scale(.1) translateY(18px) rotate(-7deg);}47%{opacity:1;transform:scale(1.28) translateY(-2px) rotate(3deg);}54%{transform:scale(.92) translateY(0) rotate(-1deg);}61%{transform:scale(1.08);}68%,82%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(.65) translateY(-22px);}}
+@keyframes csSparkle{0%,43%{opacity:0;transform:translate(0,8px) scale(.2) rotate(0deg);}53%{opacity:1;transform:translate(0,0) scale(1.2) rotate(18deg);}66%{opacity:.9;transform:translate(0,-6px) scale(.9) rotate(38deg);}78%,100%{opacity:0;transform:translate(0,-18px) scale(.35) rotate(70deg);}}
+@keyframes csBlush{0%,40%,100%{opacity:0;}51%,82%{opacity:.75;}}
+@keyframes csBlink{0%,27%,31%,72%,76%,100%{transform:scaleY(1);}29%,74%{transform:scaleY(.12);}}
+@keyframes csHalo{0%,40%{opacity:0;transform:scale(.4);}50%{opacity:.5;transform:scale(1);}67%,100%{opacity:0;transform:scale(1.55);}}
+.cs-trans-swatch{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0;transition:transform 0.12s,border-color 0.12s;}
+.cs-trans-swatch.sel{border-color:var(--accent-color,#c5a47e);transform:scale(1.18);}
+.cs-trans-custom-btn{width:22px;height:22px;border-radius:50%;border:1.5px dashed var(--border-color,#ddd);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-secondary);position:relative;flex-shrink:0;background:none;}
+.cs-trans-cur{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--border-color,#eee);flex-shrink:0;transition:background 0.2s;}
+@media(prefers-reduced-motion:reduce){#cs-transition-overlay *{animation-play-state:paused!important;}}
+html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle at 50% 36%,rgba(45,45,45,.95),rgba(30,30,30,.9) 30%,rgba(18,18,18,.98) 72%),#121212;}
+</style>
 <body>
 <div id="splash-declaration">
     <div class="splash-bg-stars" id="splash-stars"></div>
@@ -208,6 +241,10 @@
                 <button id="group-chat-btn" class="action-btn" title="群聊设置"><i class="fas fa-users"></i></button>
                 <button id="envelope-header-btn" class="action-btn" title="信箱"><i class="fas fa-envelope-open-text"></i></button>
                 <button id="companion-btn" class="action-btn" title="陪伴"><i class="fas fa-hand-holding-heart"></i></button>
+                <button id="moments-header-btn" class="action-btn" title="情侣空间" onclick="openMomentsWithTransition()" style="position:relative;">
+                    <i class="ti ti-home-heart" style="font-size:19px;"></i>
+                    <span id="moments-header-badge" style="display:none;position:absolute;top:3px;right:3px;width:7px;height:7px;background:var(--accent-color);border-radius:50%;border:1.5px solid var(--primary-bg);pointer-events:none;"></span>
+                </button>
                 <button id="daily-greeting-btn" class="action-btn" title="今日公告" onclick="reopenDailyGreeting()"><i class="fas fa-newspaper"></i></button>
                 <button id="settings-btn" class="action-btn" title="设置"><i class="fas fa-cog"></i></button>
             </div>
@@ -428,6 +465,328 @@
             </div>
         </div>
     </div>
+<div id="cs-transition-overlay">
+  <div class="cs-trans-inner">
+    <svg viewBox="0 0 800 480" role="img" aria-label="两个圆相遇并出现爱心">
+      <defs>
+        <linearGradient id="csGLeft" x1="0" y1="0" x2="1" y2="1"><stop id="csStopL1" offset="0" stop-color="#ffd9d2"/><stop id="csStopL2" offset="1" stop-color="#ff9f9d"/></linearGradient>
+        <linearGradient id="csGRight" x1="0" y1="0" x2="1" y2="1"><stop id="csStopR1" offset="0" stop-color="#d9e8ff"/><stop id="csStopR2" offset="1" stop-color="#a8c4ff"/></linearGradient>
+        <linearGradient id="csGHeart" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7e91"/><stop offset="1" stop-color="#ff4f72"/></linearGradient>
+        <filter id="csShadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="13" stdDeviation="13" flood-color="#8f6a62" flood-opacity=".18"/></filter>
+      </defs>
+      <ellipse cx="400" cy="364" rx="205" ry="28" fill="#c6aba2" opacity=".12"/>
+      <circle class="cs-halo" cx="400" cy="222" r="92" fill="none" stroke="#ff9aad" stroke-width="8" opacity="0"/>
+      <g class="cs-lp" filter="url(#csShadow)">
+        <g class="cs-lf">
+          <circle cx="300" cy="240" r="90" fill="url(#csGLeft)"/>
+          <circle cx="271" cy="230" r="8" fill="#624e4e" class="cs-eyes"/><circle cx="329" cy="230" r="8" fill="#624e4e" class="cs-eyes"/>
+          <path d="M285 265 Q300 278 315 265" fill="none" stroke="#624e4e" stroke-width="7" stroke-linecap="round"/>
+          <ellipse class="cs-blush" cx="253" cy="257" rx="18" ry="10" fill="#ff6f88" opacity="0"/><ellipse class="cs-blush" cx="347" cy="257" rx="18" ry="10" fill="#ff6f88" opacity="0"/>
+          <circle cx="267" cy="209" r="12" fill="#fff" opacity=".23"/>
+        </g>
+      </g>
+      <g class="cs-rp" filter="url(#csShadow)">
+        <g class="cs-rf">
+          <circle cx="500" cy="240" r="90" fill="url(#csGRight)"/>
+          <circle cx="471" cy="230" r="8" fill="#4e5870" class="cs-eyes"/><circle cx="529" cy="230" r="8" fill="#4e5870" class="cs-eyes"/>
+          <path d="M485 265 Q500 278 515 265" fill="none" stroke="#4e5870" stroke-width="7" stroke-linecap="round"/>
+          <ellipse class="cs-blush" cx="453" cy="257" rx="18" ry="10" fill="#ff7f9a" opacity="0"/><ellipse class="cs-blush" cx="547" cy="257" rx="18" ry="10" fill="#ff7f9a" opacity="0"/>
+          <circle cx="467" cy="209" r="12" fill="#fff" opacity=".28"/>
+        </g>
+      </g>
+      <g class="cs-heart" filter="url(#csShadow)">
+        <path d="M400 306 C370 283 344 258 344 224 C344 194 366 175 391 175 C408 175 421 184 430 198 C439 184 452 175 469 175 C494 175 516 194 516 224 C516 258 490 283 460 306 L430 332 Z" fill="url(#csGHeart)" transform="translate(-30,-4) scale(.7)"/>
+        <circle cx="385" cy="196" r="9" fill="#fff" opacity=".3"/>
+      </g>
+      <g fill="#ff8da1">
+        <path class="cs-spark s1" d="M400 115 l7 15 16 7-16 7-7 16-7-16-16-7 16-7z"/>
+        <path class="cs-spark s2" d="M310 150 l5 11 11 5-11 5-5 11-5-11-11-5 11-5z"/>
+        <path class="cs-spark s3" d="M490 150 l5 11 11 5-11 5-5 11-5-11-11-5 11-5z"/>
+        <path class="cs-spark s4" d="M400 360 l5 11 11 5-11 5-5 11-5-11-11-5 11-5z"/>
+      </g>
+    </svg>
+  </div>
+</div>
+<div id="couple-space-page">
+
+    <!-- 顶部操作栏 -->
+    <div class="cs-topbar" id="cs-topbar" style="position:relative;">
+        <button class="cs-icon-btn" onclick="closeCoupleSpace()"><i class="fas fa-chevron-left"></i></button>
+        <span class="cs-topbar-feed-title" id="cs-topbar-feed-title"></span>
+        <button class="cs-icon-btn" style="margin-left:auto;" onclick="window.openCsSettings&&window.openCsSettings()"><i class="fas fa-cog"></i></button>
+    </div>
+
+    <!-- 头像 + tab pills 可移动容器（feed tab 时搬入滚动区，其他 tab 时固定在此） -->
+    <div id="cs-outer-header">
+        <div class="cs-couple-section">
+            <div class="cs-couple-row">
+                <div class="cs-big-av" id="cs-bav-partner"><i class="fas fa-user" style="font-size:36px;color:var(--text-secondary,#aaa);"></i></div>
+                <div class="cs-hb-wrap">
+                    <svg viewBox="0 0 140 44" xmlns="http://www.w3.org/2000/svg" class="cs-hb-svg">
+                        <polyline points="0,22 18,22 26,8 34,36 42,12 50,30 58,22 80,22 88,8 96,36 104,14 112,28 120,22 140,22"
+                            fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="cs-big-av" id="cs-bav-me"><i class="fas fa-user" style="font-size:36px;color:var(--text-secondary,#aaa);"></i></div>
+            </div>
+            <div class="cs-days-text">相识 <span class="cs-days-num" id="cs-days-num">---</span> 天</div>
+        </div>
+        <div class="cs-pills-wrap">
+            <div class="cs-pills">
+                <button class="cs-pill cs-pill-on" id="csp-feed"    onclick="csSwitchTab('feed')"   title="动态"><span class="cs-pill-icon"></span></button>
+                <button class="cs-pill"             id="csp-album"   onclick="csSwitchTab('album')"  title="相册"><span class="cs-pill-icon"></span></button>
+                <button class="cs-pill"             id="csp-mood"    onclick="csSwitchTab('mood')"   title="心情手账"><span class="cs-pill-icon"></span></button>
+                <button class="cs-pill"             id="csp-ann"     onclick="csSwitchTab('ann')"    title="纪念日"><span class="cs-pill-icon"></span></button>
+                <button class="cs-pill"             id="csp-cinema"  onclick="csSwitchTab('cinema')" title="电影院"><span class="cs-pill-icon"></span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 内容区 -->
+    <div class="cs-content">
+
+        <div class="cs-panel cs-panel-active" id="cs-panel-feed">
+            <!-- 动态 section header -->
+            <div class="cs-feed-hd">
+                <span class="cs-feed-hd-title">动态</span>
+                <button class="cs-icon-btn cs-bell-btn" id="cs-bell-btn" onclick="window._mOpenBell()">
+                    <i class="fas fa-bell"></i>
+                    <span class="cs-bell-dot" id="cs-bell-dot" style="display:none;"></span>
+                </button>
+            </div>
+            <!-- 发帖输入行 -->
+            <div class="cs-compose-row" onclick="openCsCompose()">
+                <i class="fas fa-pencil-alt cs-compose-icon"></i>
+                <span class="cs-compose-ph">今天想记录什么？</span>
+                <div class="cs-compose-plus">+</div>
+            </div>
+            <!-- 帖子列表 -->
+            <div id="cs-feed-list"></div>
+            <div style="height:20px;"></div>
+        </div>
+
+        <div class="cs-panel" id="cs-panel-album">
+            <!-- 子tab -->
+            <div class="al-subtabs">
+                <button class="al-subtab on" id="al-st-albums" onclick="window._alBackToList()">相册</button>
+                <button class="al-subtab"    id="al-st-trash"  onclick="window._alOpenTrash()">回收站</button>
+            </div>
+            <!-- 视图：相册列表 -->
+            <div id="al-view-list" class="al-view" style="display:flex;">
+                <div id="al-list-grid" class="al-albums-grid"></div>
+            </div>
+            <!-- 视图：图片网格 -->
+            <div id="al-view-grid" class="al-view" style="display:none;">
+                <div class="al-grid-topbar">
+                    <button class="al-back-btn" onclick="window._alBackToList()"><i class="fas fa-chevron-left"></i></button>
+                    <span id="al-grid-title" class="al-grid-title"></span>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <button class="al-sel-btn" id="al-sel-btn" onclick="window._alToggleSelectMode()">选择</button>
+                        <button class="al-upload-btn" id="al-upload-btn" onclick="document.getElementById('al-upload-input').click()"><i class="fas fa-plus"></i></button>
+                    </div>
+                </div>
+                <div id="al-grid-body" class="al-grid-body"></div>
+                <!-- 批量选择操作栏 -->
+                <div id="al-select-bar" class="al-select-bar" style="display:none;">
+                    <span id="al-sel-count" class="al-sel-count">点击照片选择</span>
+                    <button id="al-sel-all" class="al-sel-all" onclick="window._alSelectAll()">全选</button>
+                    <button id="al-sel-del" class="al-sel-del" onclick="window._alDeleteSelected()" disabled>删除</button>
+                </div>
+                <input type="file" id="al-upload-input" multiple accept="image/*" style="display:none;" onchange="window._alUploadToAlbum(window._alCurrentAlbumId,this)">
+            </div>
+            <!-- 视图：回收站 -->
+            <div id="al-view-trash" class="al-view" style="display:none;">
+                <div id="al-trash-body" class="al-grid-body"></div>
+                <div id="al-trash-tip-bar" class="al-trash-tip" style="display:none;">照片将在删除后 30 天自动清除</div>
+            </div>
+        </div>
+        <div class="cs-panel" id="cs-panel-mood">
+            <!-- 标题栏 -->
+            <div class="cs-mood-hd">
+                <span class="cs-mood-hd-title">心情手账</span>
+                <button class="cs-icon-btn" id="cs-mood-trash-btn" title="回收站">
+                    <i class="fas fa-recycle"></i>
+                </button>
+            </div>
+            <!-- 日历卡片 -->
+            <div class="cs-mood-card" id="cs-mood-cal-card">
+                <div id="mood-calendar-view" class="mood-view-section">
+                    <div class="calendar-header">
+                        <button class="calendar-nav-btn" id="prev-month"><i class="fas fa-chevron-left"></i></button>
+                        <div class="current-month-label" id="calendar-month-label">--</div>
+                        <button class="calendar-nav-btn" id="next-month"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                    <div class="calendar-weekdays">
+                        <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+                    </div>
+                    <div class="calendar-grid" id="calendar-grid"></div>
+                </div>
+            </div>
+            <!-- 统计卡片 -->
+            <div class="cs-mood-card" style="margin-top:10px;">
+                <div id="mood-stats-container"></div>
+            </div>
+            <div style="height:20px;"></div>
+        </div>
+        <div class="cs-panel" id="cs-panel-ann">
+            <div class="cs-ann-hd">
+                <span class="cs-ann-hd-title">重要日</span>
+                <button class="cs-icon-btn" id="cs-ann-add-btn" title="添加纪念日">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            <div id="ann-list-container"></div>
+
+            <!-- 纪念日详情页（在 panel 内绝对定位覆盖） -->
+            <div class="ann-detail-page" id="ann-detail-page">
+                <div class="ann-detail-topbar">
+                    <button class="cs-icon-btn" onclick="window.closeAnnDetail()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="ann-detail-edit-btn" onclick="window._annEditFromDetail()">编辑</button>
+                </div>
+                <div class="ann-detail-body" id="ann-detail-body"></div>
+            </div>
+        </div>
+        <div class="cs-panel" id="cs-panel-cinema">
+            <!-- 内容由 cinema.js 动态填充 -->
+        </div>
+
+        <!-- 档案页（全屏覆盖，陪伴日记风格）
+             注意：故意放在 #cs-panel-cinema 外面（.cs-content 的直接子元素），
+             因为 cinema.js 每次渲染都会用 panel.innerHTML 整体重写面板内容，
+             如果这个档案页节点放在里面会被连带清空，导致按钮点了没反应 -->
+        <div class="cinema-archive-page" id="cinema-archive-page">
+            <div class="cinema-archive-tabs">
+                <button class="cs-icon-btn cinema-archive-back-btn" onclick="window._cinemaCloseArchive()">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <button class="cinema-archive-tab active" id="cinema-tab-history">影评</button>
+                <button class="cinema-archive-tab" id="cinema-tab-watchlist">心愿单</button>
+            </div>
+            <div class="cinema-archive-content" id="cinema-archive-content">
+                <div class="cinema-archive-empty">暂无记录</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 发帖悬浮按钮 FAB（动态 tab 专用） -->
+    <button id="cs-feed-fab" onclick="openCsCompose()" title="发动态">
+        <i class="fas fa-plus"></i>
+    </button>
+
+</div>
+
+<!-- 遮罩 -->
+<div id="cs-overlay" onclick="closeAllCsSheets()"></div>
+
+
+<!-- 发帖 bottom sheet -->
+<div id="cs-compose-sheet" class="cs-sheet">
+    <div class="cs-sheet-handle-bar"></div>
+    <div class="cs-sheet-header">
+        <button onclick="closeCsCompose()">取消</button>
+        <span>发动态</span>
+        <button id="cs-submit-btn" onclick="submitCsPost()" class="cs-submit-btn">发布</button>
+    </div>
+    <textarea id="cs-compose-text" class="cs-compose-ta" placeholder="想说点什么…"></textarea>
+    <div id="cs-compose-previews" class="cs-compose-previews"></div>
+    <div class="cs-sheet-toolbar">
+        <button id="cs-add-img-btn" onclick="document.getElementById('cs-image-input').click()"><i class="fas fa-image"></i> 图片</button>
+        <button id="cs-add-video-btn" onclick="onCsVideoClick()"><i class="fas fa-video"></i> 视频</button>
+        <span id="cs-image-count" style="font-size:12px;color:var(--text-secondary);margin-left:auto;"></span>
+    </div>
+    <input type="file" id="cs-image-input" multiple accept="image/*" style="display:none;" onchange="onCsImagesSelected(this)">
+    <input type="file" id="cs-video-input" accept="video/*" style="display:none;" onchange="onCsVideoSelected(this)">
+</div>
+
+<!-- 纪念日 添加/编辑 bottom sheet -->
+<div id="cs-ann-sheet" class="cs-sheet">
+    <div class="cs-sheet-handle-bar"></div>
+    <div class="cs-sheet-header">
+        <button onclick="window.closeAnnSheet()">取消</button>
+        <span id="cs-ann-sheet-title">添加纪念日</span>
+        <button onclick="window.saveAnnFromSheet()" class="cs-submit-btn">保存</button>
+    </div>
+    <div class="cs-ann-sheet-body">
+        <div class="cs-ann-form-row">
+            <label class="cs-ann-form-label">纪念日名称</label>
+            <input type="text" id="cs-ann-input-name" class="modal-input" placeholder="例如：恋爱纪念日、梦角生日" maxlength="16">
+            <div class="cs-ann-char-hint" id="cs-ann-char-count">0 / 8</div>
+        </div>
+        <div class="cs-ann-form-row">
+            <label class="cs-ann-form-label">选择日期</label>
+            <input type="date" id="cs-ann-input-date" class="modal-input">
+        </div>
+        <div class="cs-ann-form-row">
+            <label class="cs-ann-form-label">封面图片</label>
+            <div class="cs-ann-cover-row">
+                <button class="cs-ann-cover-add-btn" id="cs-ann-cover-add-btn" onclick="document.getElementById('cs-ann-cover-input').click()">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <div class="cs-ann-cover-thumb" id="cs-ann-cover-thumb" style="display:none;">
+                    <img id="cs-ann-cover-img" src="" alt="封面">
+                    <button class="cs-ann-cover-remove-btn" onclick="window._annRemoveCover()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <input type="file" id="cs-ann-cover-input" accept="image/*" style="display:none" onchange="window._annOnCoverSelected(this)">
+        </div>
+        <div class="cs-ann-form-row">
+            <label class="cs-ann-form-label">类型</label>
+            <div class="ann-type-selector">
+                <div class="ann-type-btn active" data-type="anniversary" onclick="switchAnnType('anniversary')">
+                    <i class="fas fa-heart"></i>
+                    <span>纪念日</span>
+                    <span class="ann-type-hint">过去 → 今天</span>
+                </div>
+                <div class="ann-type-btn" data-type="countdown" onclick="switchAnnType('countdown')">
+                    <i class="fas fa-hourglass-half"></i>
+                    <span>倒数日</span>
+                    <span class="ann-type-hint">今天 → 未来</span>
+                </div>
+            </div>
+            <div class="cs-ann-type-desc-wrap">
+                <span id="ann-type-desc">记录从某一天到今天已经走过了多少天，适合相识日、恋爱纪念日等。</span>
+            </div>
+        </div>
+        <div class="cs-ann-form-row">
+            <label class="cs-ann-form-label">备注</label>
+            <div class="cs-ann-remark-toolbar">
+                <button type="button" class="cs-ann-tb-btn" onclick="window._annExec('bold')" title="加粗"><b>B</b></button>
+                <button type="button" class="cs-ann-tb-btn" onclick="window._annExec('italic')" title="斜体"><i>I</i></button>
+                <div class="cs-ann-tb-sep"></div>
+                <button type="button" class="cs-ann-tb-btn" onclick="window._annExec('formatBlock', 'H3')" title="标题">标题</button>
+                <button type="button" class="cs-ann-tb-btn" onclick="window._annExec('formatBlock', 'H4')" title="小标题">小标题</button>
+                <button type="button" class="cs-ann-tb-btn" onclick="window._annExec('formatBlock', 'P')" title="正文">正文</button>
+            </div>
+            <div id="cs-ann-remark-editor" class="cs-ann-remark-editor" contenteditable="true" data-placeholder="写点什么…（可选）"></div>
+        </div>
+        <button id="cs-ann-sheet-delete" style="display:none;" onclick="window.deleteCurrentAnn()" class="cs-ann-delete-btn">
+            <i class="fas fa-trash-alt"></i> 删除这条纪念日
+        </button>
+    </div>
+</div>
+
+<!-- 帖子详情 bottom sheet -->
+<div id="cs-detail-sheet" class="cs-sheet cs-detail-sheet-size">
+    <div class="cs-sheet-handle-bar"></div>
+    <div class="cs-sheet-header">
+        <button onclick="closeCsDetail()"><i class="fas fa-times"></i></button>
+        <span>详情</span>
+        <span style="width:60px;"></span>
+    </div>
+    <div id="cs-detail-body" class="cs-detail-body"></div>
+    <div class="cs-comment-bar">
+        <input type="text" id="cs-comment-input" class="cs-comment-input" placeholder="写评论…"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();sendCsComment();}">
+        <button onclick="sendCsComment()"><i class="fas fa-paper-plane"></i></button>
+    </div>
+</div>
+
 <div class="modal" id="envelope-modal">
     <div class="modal-content" style="max-height:92vh; padding:0; overflow:hidden; background:transparent;">
     <div class="env-wrapper">
@@ -630,6 +989,154 @@
         </div>
     </div>
 </div>
+
+    <div class="modal" id="cs-settings-modal">
+        <div class="modal-content">
+            <div class="modal-title">
+                <i class="fas fa-cog"></i><span>空间设置</span>
+            </div>
+
+            <!-- 壁纸 -->
+            <div class="settings-section">
+                <div class="settings-section-title">
+                    <i class="fas fa-image"></i> 壁纸
+                    <input type="file" id="cs-bg-input" accept="image/*" style="display:none;">
+                </div>
+                <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;opacity:0.75;line-height:1.5;">
+                    支持图片及 GIF 动图。点击 <i class="fas fa-plus" style="font-size:10px;"></i> 添加，点击项目应用。
+                </div>
+                <div class="bg-gallery" id="cs-bg-gallery-list"></div>
+                <div style="text-align:center;margin-top:10px;">
+                    <button class="modal-btn modal-btn-secondary" id="cs-reset-bg" style="font-size:12px;padding:6px 12px;">
+                        <i class="fas fa-undo"></i> 恢复默认壁纸
+                    </button>
+                </div>
+            </div>
+
+            <!-- 互动速度 -->
+            <div class="settings-section">
+                <div class="settings-section-title"><i class="fas fa-clock"></i> 互动速度</div>
+                <div class="cs-settings-row">
+                    <span class="cs-settings-label">最短等待</span>
+                    <input type="range" class="font-size-slider" id="cs-dly-min-slider" min="1" max="120" step="1" value="5">
+                    <span class="cs-settings-val" id="cs-dly-min-val">5分钟</span>
+                </div>
+                <div class="cs-settings-row">
+                    <span class="cs-settings-label">最长等待</span>
+                    <input type="range" class="font-size-slider" id="cs-dly-max-slider" min="5" max="120" step="1" value="20">
+                    <span class="cs-settings-val" id="cs-dly-max-val">20分钟</span>
+                </div>
+                <div class="cs-settings-row cs-settings-toggle-row">
+                    <div>
+                        <div class="cs-settings-label">已读不回</div>
+                        <div class="cs-settings-desc">开启后，ta评论你的动态、回复你的评论时可能会已读不回</div>
+                    </div>
+                    <label class="cs-toggle-label">
+                        <input type="checkbox" id="cs-read-no-reply-toggle">
+                        <span class="notif-toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 其他开关 -->
+            <div class="settings-section">
+                <div class="settings-section-title"><i class="fas fa-sliders-h"></i> 其他</div>
+                <div class="cs-settings-row cs-settings-toggle-row">
+                    <div>
+                        <div class="cs-settings-label">保存 ta 发的图片</div>
+                        <div class="cs-settings-desc">开启后ta发的贴纸将存入相册</div>
+                        <div class="cs-settings-desc" id="cs-save-img-oss-hint" style="display:none;color:#e0a030;margin-top:4px;">未配置云端存储，相册功能不可用</div>
+                    </div>
+                    <label class="cs-toggle-label">
+                        <input type="checkbox" id="cs-save-img-toggle">
+                        <span class="notif-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="cs-settings-row cs-settings-toggle-row">
+                    <div>
+                        <div class="cs-settings-label">评论多句拼接</div>
+                        <div class="cs-settings-desc">开启后，ta的评论有概率拼接1~3句话</div>
+                    </div>
+                    <label class="cs-toggle-label">
+                        <input type="checkbox" id="cs-cmt-combine-toggle">
+                        <span class="notif-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="cs-settings-row cs-settings-toggle-row">
+                    <div>
+                        <div class="cs-settings-label">表情混入互动</div>
+                        <div class="cs-settings-desc">开启后，ta发动态、评论时有概率混入表情符号</div>
+                    </div>
+                    <label class="cs-toggle-label">
+                        <input type="checkbox" id="cs-emoji-mix-toggle">
+                        <span class="notif-toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 加载动效 -->
+            <div class="settings-section">
+                <div class="settings-section-title"><i class="fas fa-circle"></i> 加载动效</div>
+                <!-- 预览 -->
+                <div style="display:flex;justify-content:center;padding:14px 0 16px;">
+                    <svg id="cs-trans-preview" viewBox="0 0 160 90" width="160" height="90" overflow="visible" style="filter:drop-shadow(0 4px 10px rgba(143,106,98,.15));">
+                        <defs>
+                            <linearGradient id="prvGL" x1="0" y1="0" x2="1" y2="1"><stop id="prvStopL1" offset="0" stop-color="#ffd9d2"/><stop id="prvStopL2" offset="1" stop-color="#ff9f9d"/></linearGradient>
+                            <linearGradient id="prvGR" x1="0" y1="0" x2="1" y2="1"><stop id="prvStopR1" offset="0" stop-color="#d9e8ff"/><stop id="prvStopR2" offset="1" stop-color="#a8c4ff"/></linearGradient>
+                        </defs>
+                        <circle cx="52" cy="45" r="34" fill="url(#prvGL)"/>
+                        <circle cx="43" cy="40" r="3" fill="#624e4e"/><circle cx="61" cy="40" r="3" fill="#624e4e"/>
+                        <path d="M45 54 Q52 60 59 54" fill="none" stroke="#624e4e" stroke-width="2.5" stroke-linecap="round"/>
+                        <ellipse cx="34" cy="52" rx="6" ry="3.5" fill="#ff6f88" opacity=".5"/>
+                        <ellipse cx="70" cy="52" rx="6" ry="3.5" fill="#ff6f88" opacity=".5"/>
+                        <circle cx="40" cy="30" r="5" fill="#fff" opacity=".23"/>
+                        <text x="80" y="51" text-anchor="middle" font-size="16" fill="#ff6b7a">♡</text>
+                        <circle cx="108" cy="45" r="34" fill="url(#prvGR)"/>
+                        <circle cx="99" cy="40" r="3" fill="#4e5870"/><circle cx="117" cy="40" r="3" fill="#4e5870"/>
+                        <path d="M101 54 Q108 60 115 54" fill="none" stroke="#4e5870" stroke-width="2.5" stroke-linecap="round"/>
+                        <ellipse cx="90" cy="52" rx="6" ry="3.5" fill="#ff7f9a" opacity=".5"/>
+                        <ellipse cx="126" cy="52" rx="6" ry="3.5" fill="#ff7f9a" opacity=".5"/>
+                        <circle cx="96" cy="30" r="5" fill="#fff" opacity=".28"/>
+                    </svg>
+                </div>
+                <!-- 左侧颜色 -->
+                <div class="cs-settings-row" style="margin-bottom:10px;">
+                    <span class="cs-settings-label">左侧圆球</span>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <div class="cs-trans-swatch sel" data-color="#ff9f9d" data-side="L" style="background:#ff9f9d;"></div>
+                        <div class="cs-trans-swatch" data-color="#ffb36b" data-side="L" style="background:#ffb36b;"></div>
+                        <div class="cs-trans-swatch" data-color="#a8e6cf" data-side="L" style="background:#a8e6cf;"></div>
+                        <div class="cs-trans-swatch" data-color="#c5b8e6" data-side="L" style="background:#c5b8e6;"></div>
+                        <div class="cs-trans-swatch" data-color="#f9c6d0" data-side="L" style="background:#f9c6d0;"></div>
+                        <label class="cs-trans-custom-btn" title="自定义"><i class="fas fa-plus" style="font-size:10px;pointer-events:none;"></i><input type="color" id="cs-trans-custom-L" style="position:absolute;opacity:0;width:0;height:0;"></label>
+                        <div class="cs-trans-cur" id="cs-trans-cur-L" style="background:#ff9f9d;"></div>
+                    </div>
+                </div>
+                <!-- 右侧颜色 -->
+                <div class="cs-settings-row">
+                    <span class="cs-settings-label">右侧圆球</span>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <div class="cs-trans-swatch" data-color="#ff9f9d" data-side="R" style="background:#ff9f9d;"></div>
+                        <div class="cs-trans-swatch" data-color="#ffb36b" data-side="R" style="background:#ffb36b;"></div>
+                        <div class="cs-trans-swatch" data-color="#a8e6cf" data-side="R" style="background:#a8e6cf;"></div>
+                        <div class="cs-trans-swatch" data-color="#c5b8e6" data-side="R" style="background:#c5b8e6;"></div>
+                        <div class="cs-trans-swatch sel" data-color="#a8c4ff" data-side="R" style="background:#a8c4ff;"></div>
+                        <label class="cs-trans-custom-btn" title="自定义"><i class="fas fa-plus" style="font-size:10px;pointer-events:none;"></i><input type="color" id="cs-trans-custom-R" style="position:absolute;opacity:0;width:0;height:0;"></label>
+                        <div class="cs-trans-cur" id="cs-trans-cur-R" style="background:#a8c4ff;"></div>
+                    </div>
+                </div>
+                <!-- 恢复默认 -->
+                <div style="text-align:center;margin-top:12px;">
+                    <button class="modal-btn modal-btn-secondary" id="cs-trans-reset-btn" style="font-size:12px;padding:6px 14px;"><i class="fas fa-undo"></i> 恢复默认颜色</button>
+                </div>
+            </div>
+
+            <div class="modal-buttons" style="padding-bottom:12px;">
+                <span></span>
+                <button class="modal-btn modal-btn-secondary" onclick="hideModal(document.getElementById('cs-settings-modal'))">关闭</button>
+            </div>
+        </div>
+    </div>
 
     <div class="modal" id="settings-modal">
         <div class="modal-content">
@@ -1487,6 +1994,18 @@
                             <span class="setting-pill-label">表情混入消息 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">开启后表情与文字同条发送</span></span>
                             <div class="setting-pill-switch"><div class="setting-pill-knob"></div></div>
                         </div>
+                        <div class="setting-pill-row" id="combine-cards-toggle" style="border-top:1px solid var(--border-color);">
+                            <span class="setting-pill-icon"><i class="fas fa-layer-group"></i></span>
+                            <span class="setting-pill-label">回复拼接字卡 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">开启后单条消息有概率拼接多张字卡</span></span>
+                            <div class="setting-pill-switch"><div class="setting-pill-knob"></div></div>
+                        </div>
+                        <div id="combine-cards-control">
+                            <div class="cs-slider-row">
+                                <span class="cs-slider-label">最多拼接</span>
+                                <input type="range" min="1" max="5" step="1" value="3" class="font-size-slider" id="combine-cards-slider">
+                                <span class="cs-slider-val" id="combine-cards-value">3句</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div style="display:none;">
@@ -1801,8 +2320,8 @@
                     <div class="settings-item" id="companion-diary-function">
                         <i class="fas fa-book"></i><span>陪伴日记</span>
                     </div>
-                    <div class="settings-item settings-item-disabled" id="coming-soon-placeholder">
-                        <i class="fas fa-hourglass-half"></i><span>敬请期待</span>
+                    <div class="settings-item" id="menstrual-function" onclick="openMenstrualModal()">
+                        <i class="fas fa-female"></i><span>敬请期待</span>
                     </div>
                     <div class="settings-item" id="music-player-toggle" style="display:none;">
                         <i class="fas fa-music"></i><span>悬浮音乐播放器</span>
@@ -2832,6 +3351,22 @@
     </div>
 </div>
 
+    <!-- 版本更新弹窗 -->
+<div class="modal" id="update-available-modal" style="z-index:3000;">
+    <div class="modal-content" style="padding-bottom:24px;">
+        <div class="modal-title"><i class="fas fa-cloud-download-alt"></i> 发现新版本</div>
+        <div style="margin-bottom:8px;line-height:1.6;">
+            <p style="margin:0 0 8px;font-size:15px;" id="update-version-text">新版本 <strong id="update-new-version"></strong> 已发布</p>
+            <p style="margin:0;font-size:13px;color:var(--text-secondary);">当前版本: v<span id="update-current-version"></span></p>
+            <p style="margin:8px 0 0;font-size:13px;color:var(--text-secondary);">建议更新到最新版本以获得更好的体验和修复</p>
+        </div>
+        <div class="modal-buttons">
+            <button class="modal-btn modal-btn-secondary" id="update-ignore-btn">暂时忽略</button>
+            <button class="modal-btn modal-btn-primary" id="update-download-btn">立即更新</button>
+        </div>
+    </div>
+</div>
+
     <!-- == 核心层 == -->
     <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
@@ -2850,6 +3385,8 @@
     <!-- == 合并模块 == -->
     <script src="js/games.js"></script> 
     <script src="js/features.js"></script> 
+    <script src="js/push-notification-bridge.js"></script>
+    <script src="js/foreground-bridge.js"></script>
     <script src="js/data.js"></script>
     <script src="js/onboarding.js"></script> 
     <script src="js/listeners.js"></script>
@@ -2865,5 +3402,9 @@
     <script src="js/cloud-media-migration.js"></script>
     <script src="js/cloud-sync-ui.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/features/moments.js"></script>
+    <script src="js/features/album.js"></script>
+    <script src="js/features/anniversary.js"></script>
+    <script src="js/features/cinema.js"></script>
 </body>
 </html>

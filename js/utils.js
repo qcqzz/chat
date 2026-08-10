@@ -66,10 +66,19 @@ function deduplicateContentArray(arr, baseSystemArray = []) {
             });
         }
 
+        function _isCapacitorEnv() {
+            return !!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share);
+        }
+
         function exportDataToMobileOrPC(dataString, fileName) {
+            const blob = new Blob([dataString], { type: 'application/json' });
+            // Capacitor 环境优先使用原生分享
+            if (_isCapacitorEnv()) {
+                downloadFileFallback(blob, fileName);
+                return;
+            }
             if (navigator.share && navigator.canShare) {
                 try {
-                    const blob = new Blob([dataString], { type: 'application/json' });
                     const file = new File([blob], fileName, { type: 'application/json' });
                     if (navigator.canShare({ files: [file] })) {
                         navigator.share({ files: [file], title: '传讯数据备份', text: '请选择"保存到文件"' })
@@ -78,16 +87,177 @@ function deduplicateContentArray(arr, baseSystemArray = []) {
                     }
                 } catch (e) {}
             }
-            const blob = new Blob([dataString], { type: 'application/json' });
             downloadFileFallback(blob, fileName);
         }
 
         function downloadFileFallback(blob, fileName) {
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
+            // Capacitor 环境：使用原生分享
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
+                _capacitorShareFile(blob, fileName);
+                return;
+            }
+            // 检测是否在 Android WebView 中运行
+            var isAndroidWebView = /Android/.test(navigator.userAgent) && /wv/.test(navigator.userAgent);
+
+            if (isAndroidWebView) {
+                // 方案1: 尝试通过 navigator.share 分享（需要 WebView 启用 WebShare）
+                if (navigator.share && navigator.canShare) {
+                    var file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
+                    if (navigator.canShare({ files: [file] })) {
+                        navigator.share({ files: [file], title: '传讯 - 保存备份' }).catch(function () {
+                            _webViewDataUrlFallback(blob, fileName);
+                        });
+                        return;
+                    }
+                }
+                // 方案2: 尝试通过原生 Android 接口下载
+                if (window.Android && typeof window.Android.downloadFile === 'function') {
+                    var reader = new FileReader();
+                    reader.onload = function () {
+                        window.Android.downloadFile(reader.result, fileName, blob.type);
+                    };
+                    reader.readAsDataURL(reader.result);
+                    // FileReader 不支持直接读 blob 为 dataURL，改用下面的方式
+                    _webViewDataUrlFallback(blob, fileName);
+                    return;
+                }
+                // 方案3: 用 data URL 在新窗口打开（部分 WebView 会触发下载）
+                _webViewDataUrlFallback(blob, fileName);
+                return;
+            }
+
+            // 标准浏览器环境
+            var url = URL.createObjectURL(blob);
+            var link = document.createElement('a');
             link.href = url; link.download = fileName; link.style.display = 'none';
             document.body.appendChild(link); link.click(); document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(url), 2000);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+        }
+
+        // WebView 备用方案：将 blob 转为 data URL 并尝试在新窗口打开
+        function _webViewDataUrlFallback(blob, fileName) {
+            var reader = new FileReader();
+            reader.onload = function () {
+                var dataUrl = reader.result;
+                // 尝试通过原生 Android 接口下载
+                if (window.Android && typeof window.Android.downloadFile === 'function') {
+                    window.Android.downloadFile(dataUrl, fileName, blob.type);
+                    return;
+                }
+                // 尝试在新窗口打开 data URL（部分 WebView 会触发下载）
+                var w = window.open(dataUrl, '_blank');
+                if (!w) {
+                    // 最后尝试：直接修改 location（会离开当前页面）
+                    if (typeof showNotification === 'function') {
+                        showNotification('无法下载文件，请尝试在浏览器中打开', 'warning', 3000);
+                    }
+                }
+            };
+            reader.readAsDataURL(blob);
+        }
+
+        // Capacitor 原生分享（使用 Filesystem 写入文件）
+        function _capacitorShareFile(blob, fileName) {
+            // 优先使用 Filesystem 写入文件（真正保存到设备）
+            if (_getCapFilesystem()) {
+                _capacitorSaveAndShare(blob, fileName);
+                return;
+            }
+
+            // 回退：Web Share API
+            var file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                navigator.share({
+                    files: [file],
+                    title: '传讯 - 保存备份',
+                    text: '备份文件：' + fileName
+                }).then(function () {
+                    if (typeof showNotification === 'function') showNotification('备份已导出', 'success');
+                }).catch(function (e) {
+                    console.warn('[utils] Web Share 失败，尝试其他方式', e);
+                    _capacitorShareFallback(blob, fileName);
+                });
+                return;
+            }
+            _capacitorShareFallback(blob, fileName);
+        }
+
+        function _getCapFilesystem() {
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem) {
+                return window.Capacitor.Plugins.Filesystem;
+            }
+            return null;
+        }
+
+        function _capacitorSaveAndShare(blob, fileName) {
+            var fs = _getCapFilesystem();
+            if (!fs) {
+                _capacitorShareFallback(blob, fileName);
+                return;
+            }
+
+            var reader = new FileReader();
+            reader.onload = function () {
+                var base64Data = reader.result.split(',')[1];
+                var filePath = 'backups/' + fileName;
+
+                fs.writeFile({
+                    path: filePath,
+                    data: base64Data,
+                    directory: 'CACHE',
+                    recursive: true
+                }).then(function (writeResult) {
+                    console.log('[utils] 文件已写入:', writeResult.uri);
+                    return fs.getUri({ path: filePath, directory: 'CACHE' });
+                }).then(function (uriResult) {
+                    console.log('[utils] 文件 URI:', uriResult.uri);
+                    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
+                        return window.Capacitor.Plugins.Share.share({
+                            title: '传讯 - 保存备份',
+                            text: '备份文件：' + fileName,
+                            url: uriResult.uri,
+                            dialogTitle: '保存备份文件'
+                        });
+                    }
+                    var file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
+                    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                        return navigator.share({ files: [file], title: '传讯 - 保存备份', text: '备份文件：' + fileName });
+                    }
+                    throw new Error('无可用分享方式');
+                }).then(function () {
+                    if (typeof showNotification === 'function') showNotification('备份已导出，请选择保存位置', 'success', 4000);
+                }).catch(function (e) {
+                    console.warn('[utils] 保存分享失败:', e);
+                    _capacitorShareFallback(blob, fileName);
+                });
+            };
+            reader.onerror = function () {
+                _capacitorShareFallback(blob, fileName);
+            };
+            reader.readAsDataURL(blob);
+        }
+
+        function _capacitorShareFallback(blob, fileName) {
+            // 回退：Capacitor Share 插件
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
+                var reader = new FileReader();
+                reader.onload = function () {
+                    window.Capacitor.Plugins.Share.share({
+                        title: '传讯 - 保存备份',
+                        text: '备份文件：' + fileName,
+                        url: 'data:' + (blob.type || 'application/octet-stream') + ';base64,' + reader.result.split(',')[1],
+                        dialogTitle: '保存备份文件'
+                    }).then(function () {
+                        if (typeof showNotification === 'function') showNotification('备份已导出', 'success');
+                    }).catch(function (e) {
+                        console.warn('[utils] Capacitor Share 失败', e);
+                        _webViewDataUrlFallback(blob, fileName);
+                    });
+                };
+                reader.readAsDataURL(blob);
+                return;
+            }
+            _webViewDataUrlFallback(blob, fileName);
         }
 
         if (typeof localforage !== 'undefined') {
@@ -435,6 +605,23 @@ async function exportAllData() {
             const dateStr = new Date().toISOString().slice(0, 10);
             const fileName = `chatapp-backup-${dateStr}.json`;
             const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
+            // Capacitor 环境优先使用原生分享
+            if (_isCapacitorEnv()) {
+                downloadFileFallback(blob, fileName);
+                if (typeof showNotification === 'function') showNotification('已导出 JSON 备份', 'success');
+                return;
+            }
+            // 移动端 / WebView 优先尝试系统分享（保存到文件）
+            if (navigator.share && navigator.canShare && /Mobile|Android|iPhone|iPad/.test(navigator.userAgent)) {
+                try {
+                    var file = new File([blob], fileName, { type: 'application/json' });
+                    if (navigator.canShare({ files: [file] })) {
+                        await navigator.share({ files: [file], title: '传讯全量备份', text: '备份日期：' + dateStr });
+                        if (typeof showNotification === 'function') showNotification('备份导出成功', 'success');
+                        return;
+                    }
+                } catch (e) { /* 用户取消或不支持，回退到下载 */ }
+            }
             downloadFileFallback(blob, fileName);
             if (typeof showNotification === 'function') showNotification('已导出 JSON 备份', 'success');
         } else {
@@ -592,3 +779,232 @@ async function importAllData(file) {
         showNotification('导入失败：' + msg, 'error', 5000);
     }
 }
+
+// ====== 软件更新检查 ======
+var APP_VERSION = '1.4.0';
+var GITHUB_REPO = 'qcqzz/chat';
+var GITHUB_RELEASES_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest';
+var GITHUB_API_URL = 'https://api.github.com/repos/' + GITHUB_REPO + '/releases/latest';
+var GITHUB_DOWNLOAD_LATEST_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest/download/app-debug.apk';
+var _updatePendingInfo = null; // 待处理的更新信息，供弹窗按钮使用
+
+// 比较两个版本号，返回 1（a>b）、-1（a<b）、0（相等）
+function _compareVersions(a, b) {
+    var pa = (a || '0').split('.').map(Number);
+    var pb = (b || '0').split('.').map(Number);
+    for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
+        var na = pa[i] || 0;
+        var nb = pb[i] || 0;
+        if (na > nb) return 1;
+        if (na < nb) return -1;
+    }
+    return 0;
+}
+
+// 自动检查更新（启动时静默检查，有更新则弹窗）
+function autoCheckUpdate() {
+    var ignoredKey = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_') + 'ignored_update_version';
+
+    // 先清理：如果当前 APP 版本变了，清除旧的忽略记录
+    var savedAppVerKey = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_') + 'saved_app_version';
+    localforage.getItem(savedAppVerKey).then(function (savedVer) {
+        if (savedVer && savedVer !== APP_VERSION) {
+            // 用户已经升级过了，清除旧的忽略记录
+            localforage.removeItem(ignoredKey).catch(function () {});
+        }
+        localforage.setItem(savedAppVerKey, APP_VERSION).catch(function () {});
+    }).catch(function () {});
+
+    fetch(GITHUB_API_URL, { headers: { 'Accept': 'application/vnd.github.v3+json' } })
+        .then(function (res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        })
+        .then(function (data) {
+            var latestTag = (data.tag_name || '').replace(/^v/, '');
+            var currentVer = APP_VERSION.replace(/^v/, '');
+
+            if (!latestTag) return;
+            // 只有远程版本比当前版本更高时才弹窗
+            if (_compareVersions(latestTag, currentVer) <= 0) {
+                console.log('[update] 当前已是最新版本 v' + currentVer + '（远程 v' + latestTag + '）');
+                return;
+            }
+
+            var downloadUrl = GITHUB_DOWNLOAD_LATEST_URL;
+            if (data.assets && data.assets.length > 0) {
+                for (var i = 0; i < data.assets.length; i++) {
+                    if (data.assets[i].name && data.assets[i].name.endsWith('.apk')) {
+                        downloadUrl = data.assets[i].browser_download_url;
+                        break;
+                    }
+                }
+            }
+
+            // 检查是否已经忽略过此版本
+            localforage.getItem(ignoredKey).then(function (ignoredVer) {
+                if (ignoredVer === latestTag) {
+                    console.log('[update] 版本 v' + latestTag + ' 已被用户忽略，跳过弹窗');
+                    return;
+                }
+                // 显示更新弹窗
+                _showUpdateModal(latestTag, currentVer, downloadUrl);
+            }).catch(function () {
+                // localforage 不可用时直接弹窗
+                _showUpdateModal(latestTag, currentVer, downloadUrl);
+            });
+        })
+        .catch(function (err) {
+            console.warn('[update] 自动检查更新失败:', err.message || err);
+        });
+}
+
+// 显示版本更新弹窗
+function _showUpdateModal(latestTag, currentVer, downloadUrl) {
+    var modal = document.getElementById('update-available-modal');
+    if (!modal) {
+        // 回退到 confirm
+        if (confirm('发现新版本 v' + latestTag + '！\n当前版本: v' + currentVer + '\n\n是否立即下载更新？')) {
+            _downloadAndInstallApk(downloadUrl, latestTag);
+        }
+        return;
+    }
+
+    // 更新弹窗内容
+    var newVerEl = document.getElementById('update-new-version');
+    var curVerEl = document.getElementById('update-current-version');
+    if (newVerEl) newVerEl.textContent = 'v' + latestTag;
+    if (curVerEl) curVerEl.textContent = currentVer;
+
+    // 保存待处理信息
+    _updatePendingInfo = { latestTag: latestTag, downloadUrl: downloadUrl };
+
+    // 绑定按钮事件（只绑定一次）
+    var ignoreBtn = document.getElementById('update-ignore-btn');
+    var downloadBtn = document.getElementById('update-download-btn');
+
+    if (ignoreBtn && !ignoreBtn._updateBound) {
+        ignoreBtn._updateBound = true;
+        ignoreBtn.addEventListener('click', function () {
+            var ignoredKey = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_') + 'ignored_update_version';
+            localforage.setItem(ignoredKey, _updatePendingInfo.latestTag).catch(function () {});
+            if (typeof hideModal === 'function') hideModal(modal);
+            _updatePendingInfo = null;
+        });
+    }
+
+    if (downloadBtn && !downloadBtn._updateBound) {
+        downloadBtn._updateBound = true;
+        downloadBtn.addEventListener('click', function () {
+            if (typeof hideModal === 'function') hideModal(modal);
+            if (_updatePendingInfo) {
+                _downloadAndInstallApk(_updatePendingInfo.downloadUrl, _updatePendingInfo.latestTag);
+                _updatePendingInfo = null;
+            }
+        });
+    }
+
+    if (typeof showModal === 'function') showModal(modal);
+}
+
+// 手动检查更新（设置页面调用，忽略已忽略的版本，直接弹出）
+function checkAppUpdateDM() {
+    var statusEl = document.getElementById('dm-update-status');
+    if (statusEl) {
+        statusEl.textContent = '正在检查更新...';
+        statusEl.style.color = 'var(--text-secondary)';
+    }
+
+    fetch(GITHUB_API_URL, { headers: { 'Accept': 'application/vnd.github.v3+json' } })
+        .then(function (res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        })
+        .then(function (data) {
+            var latestTag = (data.tag_name || '').replace(/^v/, '');
+            var currentVer = APP_VERSION.replace(/^v/, '');
+            var downloadUrl = GITHUB_DOWNLOAD_LATEST_URL;
+
+            if (data.assets && data.assets.length > 0) {
+                for (var i = 0; i < data.assets.length; i++) {
+                    if (data.assets[i].name && data.assets[i].name.endsWith('.apk')) {
+                        downloadUrl = data.assets[i].browser_download_url;
+                        break;
+                    }
+                }
+            }
+
+            if (!latestTag || _compareVersions(latestTag, currentVer) <= 0) {
+                if (statusEl) {
+                    statusEl.textContent = '已是最新版本 v' + currentVer;
+                    statusEl.style.color = '#4caf50';
+                }
+                if (typeof showNotification === 'function') showNotification('已是最新版本 v' + currentVer, 'success');
+            } else {
+                if (statusEl) {
+                    statusEl.textContent = '发现新版本 v' + latestTag + '，点击下载';
+                    statusEl.style.color = '#e53935';
+                }
+                // 手动检查时清除忽略记录，强制弹窗
+                var ignoredKey = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_') + 'ignored_update_version';
+                localforage.removeItem(ignoredKey).catch(function () {});
+                _showUpdateModal(latestTag, currentVer, downloadUrl);
+            }
+        })
+        .catch(function (err) {
+            console.warn('[update] API 检查失败:', err.message || err);
+            if (statusEl) {
+                statusEl.textContent = '网络错误，点击打开下载页';
+                statusEl.style.color = 'var(--text-secondary)';
+            }
+            // 点击状态文字时打开下载页
+            if (statusEl && !statusEl._clickBound) {
+                statusEl._clickBound = true;
+                statusEl.style.cursor = 'pointer';
+                statusEl.addEventListener('click', function () {
+                    window.open(GITHUB_RELEASES_URL, '_blank');
+                });
+            }
+        });
+}
+
+// 下载 APK 并触发安装
+// 优先使用原生 NotificationPlugin.downloadApk，回退到浏览器下载
+function _downloadAndInstallApk(downloadUrl, version) {
+    // 原生环境：通过 NotificationPlugin 下载并触发安装
+    if (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web') {
+        var notifPlugin = window.Capacitor.Plugins && window.Capacitor.Plugins.NotificationPlugin;
+        if (notifPlugin && typeof notifPlugin.downloadApk === 'function') {
+            if (typeof showNotification === 'function') showNotification('正在下载更新...', 'info', 3000);
+            var statusEl = document.getElementById('dm-update-status');
+            notifPlugin.downloadApk({ url: downloadUrl, version: version }).then(function (result) {
+                if (result && result.success) {
+                    if (statusEl) statusEl.textContent = '下载完成，正在安装...';
+                    if (typeof showNotification === 'function') showNotification('下载完成，即将安装更新', 'success', 3000);
+                } else {
+                    if (statusEl) statusEl.textContent = '下载失败，点击重试';
+                    window.open(downloadUrl, '_blank');
+                }
+            }).catch(function (err) {
+                console.warn('[update] 原生下载失败，回退浏览器:', err);
+                window.open(downloadUrl, '_blank');
+            });
+            return;
+        }
+    }
+    // 回退：浏览器下载
+    window.open(downloadUrl, '_blank');
+}
+
+// 兼容旧版 disclaimer modal 中的按钮
+function checkAppUpdate() {
+    checkAppUpdateDM();
+}
+
+// 初始化版本号显示
+(function () {
+    var el = document.getElementById('app-version-info');
+    if (el) el.textContent = '当前版本: v' + APP_VERSION;
+    var dmEl = document.getElementById('dm-update-status');
+    if (dmEl) dmEl.textContent = '当前版本 v' + APP_VERSION;
+})();

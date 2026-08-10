@@ -22,6 +22,13 @@
         let displayedMessageCount = 20;
         const HISTORY_BATCH_SIZE = 20;
         let isLoadingHistory = false;
+        // ── 聊天记录"定位到某条消息+双向翻页浏览"模式用到的状态 ──
+        // msgViewMode: 'latest'（正常模式，永远显示到最新消息） / 'window'（历史浏览模式，停在中间某个区间）
+        let msgViewMode = 'latest';
+        let msgWinStart = 0;   // window模式下，当前渲染区间的起始下标（对应 messages 数组）
+        let msgWinEnd = 0;     // window模式下，当前渲染区间的结束下标（不含）
+        let isLoadingFuture = false; // 防止"往下翻加载更晚消息"重复触发，跟 isLoadingHistory 是对称的
+        let newMsgCountWhileBrowsing = 0; // window模式下，浏览历史期间又收到了几条新消息（用于"有N条新消息"提示）
         let isBatchFavoriteMode = false;
         let selectedMessages = [];
         let customReplies = [];

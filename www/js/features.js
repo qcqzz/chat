@@ -355,15 +355,42 @@
         out.innerHTML = html;
     };
 
+    // 选日期直接跳转——不看聊天内容，只看这一天有没有消息，有就跳到当天第一条
+    window._jumpToDate = function() {
+        var inp = document.getElementById('msg-jump-date');
+        if (!inp || !inp.value) {
+            if (typeof showNotification === 'function') showNotification('请先选择日期', 'info');
+            return;
+        }
+        if (typeof messages === 'undefined' || !messages || !messages.length) {
+            if (typeof showNotification === 'function') showNotification('暂无聊天记录', 'info');
+            return;
+        }
+        var targetDateStr = new Date(inp.value + 'T00:00:00').toDateString();
+        var found = messages.find(function(m) { return new Date(m.timestamp).toDateString() === targetDateStr; });
+        if (!found) {
+            if (typeof showNotification === 'function') showNotification('这天没有聊天记录', 'info');
+            return;
+        }
+        window._scrollToMsg(found.id);
+    };
+
     window._scrollToMsg = function(id) {
-        var el = document.querySelector('[data-id="'+id+'"]') || document.querySelector('[data-message-id="'+id+'"]');
+        var el = document.querySelector('[data-id="'+id+'"]') || document.querySelector('[data-message-id="'+id+'"]') || document.querySelector('[data-msg-id="'+id+'"]');
+        function closeStatsModal() {
+            var m = document.getElementById('stats-modal');
+            if (m && typeof hideModal==='function') setTimeout(function(){ hideModal(m); }, 350);
+        }
         if (el) {
             el.scrollIntoView({behavior:'smooth',block:'center'});
             el.style.transition='background .3s ease';
             el.style.background='rgba(var(--accent-color-rgb),.14)';
             setTimeout(function(){ el.style.background=''; }, 1800);
-            var m = document.getElementById('stats-modal');
-            if (m && typeof hideModal==='function') setTimeout(function(){ hideModal(m); }, 350);
+            closeStatsModal();
+        } else if (typeof window._jumpToMessage==='function' && window._jumpToMessage(id)) {
+            // 消息不在当前渲染范围内（可能是很久以前的），走"定位到某条消息"这条路，
+            // 只渲染目标消息附近一小段，不会因为聊天记录长就卡顿
+            closeStatsModal();
         } else {
             if (typeof showNotification==='function') showNotification('消息不在当前视图中','info',2000);
         }

@@ -309,7 +309,7 @@ let isTourActive = false;
 const tourSteps = [
     {
         title: "✨ 欢迎来到「传讯」",
-        content: "这里是你们专属的私密空间。<br><br>这个教程共 <b>19 步</b>，带你从头到尾认识每一个功能，建议完整看完哦 🥺<br><br>点击「下一步」开始吧！",
+        content: "这里是你们专属的私密空间。<br><br>这个教程共 <b>20 步</b>，带你从头到尾认识每一个功能，建议完整看完哦 🥺<br><br>点击「下一步」开始吧！",
         position: 'center'
     },
     {
@@ -384,6 +384,12 @@ const tourSteps = [
         position: 'bottom'
     },
     {
+        element: '#moments-header-btn',
+        title: "🏠 你们的空间",
+        content: "点击进入你们的专属空间，里面有：<br>• <b>动态</b>：一起分享日常和照片<br>• <b>心情手账</b>：一起记录每天的心情<br>• <b>纪念日</b>：一起倒数重要的日子<br>• <b>电影院</b>：约定时间一起看电影 🎬",
+        position: 'bottom'
+    },
+    {
         element: '#settings-btn',
         title: "⚙️ 设置中心",
         content: "所有个性化配置都在这个设置按钮里，我们点进去看一下！",
@@ -406,7 +412,7 @@ const tourSteps = [
     {
         element: '#advanced-settings',
         title: "🚀 高级功能 — 必看！",
-        content: "高级功能是整个 app 最丰富的板块，里面有：<br>• <b>自定义回复</b>：让对方说你想听的话<br>• <b>消息统计</b>：查看你们的聊天数据<br>• <b>心情手账</b>：记录每天的心情日历<br>• <b>重要日</b>：纪念日和倒计时<br>• <b>运势·占卜</b>：每日运势<br>• <b>抉择</b>：转盘 / 硬币帮你做决定",
+        content: "高级功能是整个 app 最丰富的板块，里面有：<br>• <b>自定义回复</b>：让对方说你想听的话<br>• <b>消息统计</b>：查看你们的聊天数据<br>• <b>陪伴日记</b>：记录每次陪伴的时光<br>• <b>悬浮音乐播放器</b>：与 Ta 一起听喜欢的音乐<br>• <b>运势·占卜</b>：每日运势<br>• <b>抉择</b>：转盘 / 硬币帮你做决定",
         position: 'bottom'
     },
     {

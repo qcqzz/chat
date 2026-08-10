@@ -844,7 +844,7 @@ function _renderEmojiTab(list, itemsToRender) {
         div.textContent = item;
         list.appendChild(div);
     });
-    if (customEmojis.length > 0) {
+    if (Array.isArray(customEmojis) && customEmojis.length > 0) {
         const sep = document.createElement('div');
         sep.style.cssText = 'grid-column:1/-1;font-size:11px;color:var(--text-secondary);padding:4px 2px 2px;border-top:1px dashed var(--border-color);margin-top:4px;';
         sep.textContent = '— 自定义 —';

@@ -144,6 +144,7 @@
 
     function _timeAgo(date) {
         if (!(date instanceof Date)) date = new Date(date);
+        if (isNaN(date.getTime())) return '未知';
         var diff = Math.floor((Date.now() - date.getTime()) / 1000);
         if (diff < 10) return '刚刚';
         if (diff < 60) return diff + ' 秒前';
@@ -575,10 +576,12 @@
         });
         m.querySelector('#cs-picker-cancel').addEventListener('click', _closePicker);
 
+        var _restoring = false;
         var items = m.querySelectorAll('.cs-session-item');
         for (var i = 0; i < items.length; i++) {
             (function (item) {
                 item.addEventListener('click', async function () {
+                    if (_restoring) return;
                     var idx = parseInt(item.getAttribute('data-idx'), 10);
                     var s = list[idx];
                     var name = s.name || '未命名梦角';
@@ -595,7 +598,12 @@
                     }
                     if (!confirm(confirmMsg)) return;
 
-                    item.style.opacity = '0.5';
+                    _restoring = true;
+                    // 禁用所有项
+                    for (var j = 0; j < items.length; j++) {
+                        items[j].style.opacity = '0.4';
+                        items[j].style.pointerEvents = 'none';
+                    }
                     item.textContent = '正在恢复…';
                     try {
                         var result = await window.CloudSyncEngine.restoreSession(s.sessionId);
@@ -608,8 +616,12 @@
                         } catch (e) {}
                         location.reload();
                     } catch (e) {
+                        _restoring = false;
                         alert('恢复失败：' + (e && e.message || e));
-                        item.style.opacity = '1';
+                        for (var j = 0; j < items.length; j++) {
+                            items[j].style.opacity = '1';
+                            items[j].style.pointerEvents = '';
+                        }
                     }
                 });
             })(items[i]);
