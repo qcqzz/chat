@@ -140,10 +140,44 @@ public class NotificationPlugin extends Plugin {
         call.resolve();
     }
 
+    // 下载状态跟踪（供 JS 轮询进度）
+    private static volatile DownloadState sDownloadState = null;
+
+    private static class DownloadState {
+        volatile boolean active = false;
+        volatile long totalBytes = 0;
+        volatile long downloadedBytes = 0;
+        volatile int progress = 0;
+        volatile String error = null;
+        volatile boolean complete = false;
+    }
+
+    /**
+     * 获取当前下载进度（JS 轮询调用）
+     */
+    @PluginMethod
+    public void getDownloadProgress(PluginCall call) {
+        DownloadState state = sDownloadState;
+        if (state == null || !state.active) {
+            call.resolve(new JSObject().put("active", false));
+            return;
+        }
+        JSObject result = new JSObject();
+        result.put("active", state.active);
+        result.put("totalBytes", state.totalBytes);
+        result.put("downloadedBytes", state.downloadedBytes);
+        result.put("progress", state.progress);
+        result.put("complete", state.complete);
+        if (state.error != null) {
+            result.put("error", state.error);
+        }
+        call.resolve(result);
+    }
+
     /**
      * 下载 APK 并触发系统安装
-     * 在后台线程中下载，完成后通过 FileProvider + Intent 触发安装。
-     * 重要：仅在下载完成并触发安装后才 resolve，不会提前 resolve。
+     * 下载过程中更新 DownloadState，JS 可通过 getDownloadProgress 轮询进度。
+     * 仅在下载完成并触发安装后才 resolve。
      */
     @PluginMethod
     public void downloadApk(PluginCall call) {
@@ -154,6 +188,11 @@ public class NotificationPlugin extends Plugin {
             call.reject("URL is required");
             return;
         }
+
+        // 初始化下载状态
+        final DownloadState state = new DownloadState();
+        state.active = true;
+        sDownloadState = state;
 
         new Thread(() -> {
             try {
@@ -174,11 +213,16 @@ public class NotificationPlugin extends Plugin {
 
                 if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
                     Log.e(TAG, "Download failed: HTTP " + conn.getResponseCode());
+                    state.error = "HTTP " + conn.getResponseCode();
+                    state.active = false;
                     getBridge().executeOnMainThread(() -> {
                         call.reject("Download failed: HTTP " + conn.getResponseCode());
                     });
                     return;
                 }
+
+                state.totalBytes = conn.getContentLengthLong();
+                Log.i(TAG, "Content-Length: " + state.totalBytes + " bytes");
 
                 // 删除旧文件
                 if (apkFile.exists()) {
@@ -191,11 +235,18 @@ public class NotificationPlugin extends Plugin {
                     int bytesRead;
                     while ((bytesRead = in.read(buffer)) != -1) {
                         out.write(buffer, 0, bytesRead);
+                        state.downloadedBytes += bytesRead;
+                        if (state.totalBytes > 0) {
+                            state.progress = (int) ((state.downloadedBytes * 100) / state.totalBytes);
+                        }
                     }
                     out.flush();
                 }
 
                 conn.disconnect();
+                state.progress = 100;
+                state.complete = true;
+                state.active = false;
                 Log.i(TAG, "APK downloaded: " + apkFile.getAbsolutePath() + " size=" + apkFile.length());
 
                 // 通过 FileProvider 获取 URI 并触发安装
@@ -209,13 +260,14 @@ public class NotificationPlugin extends Plugin {
                 ctx.startActivity(installIntent);
                 Log.i(TAG, "Install intent launched for: " + apkUri);
 
-                // 下载完成 + 安装已触发，通知 JS 层
                 getBridge().executeOnMainThread(() -> {
                     call.resolve(new JSObject().put("success", true).put("message", "Download complete, installing"));
                 });
 
             } catch (Exception e) {
                 Log.e(TAG, "APK download/install failed: " + e.getMessage());
+                state.error = e.getMessage();
+                state.active = false;
                 getBridge().executeOnMainThread(() -> {
                     call.reject("Download failed: " + e.getMessage());
                 });

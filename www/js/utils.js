@@ -979,7 +979,8 @@ function checkAppUpdateDM() {
 }
 
 // 下载 APK 并触发安装
-// 使用 XMLHttpRequest 下载以跟踪进度，完成后通过原生插件触发安装
+// 优先使用原生 NotificationPlugin.downloadApk（下载+安装），JS 轮询 getDownloadProgress 获取进度
+// 原生不可用时回退到浏览器下载
 function _downloadAndInstallApk(downloadUrl, version) {
     var progressBar = document.getElementById('update-progress-bar');
     var progressPercent = document.getElementById('update-progress-percent');
@@ -993,10 +994,14 @@ function _downloadAndInstallApk(downloadUrl, version) {
         if (progressBar) progressBar.style.width = pct + '%';
         if (progressPercent) progressPercent.textContent = pct + '%';
         if (progressText) progressText.textContent = '正在下载更新...';
-        if (progressStatus && total > 0) {
-            var downloadedMB = (downloaded / 1048576).toFixed(1);
-            var totalMB = (total / 1048576).toFixed(1);
-            progressStatus.textContent = downloadedMB + ' MB / ' + totalMB + ' MB';
+        if (progressStatus) {
+            if (total > 0) {
+                var downloadedMB = (downloaded / 1048576).toFixed(1);
+                var totalMB = (total / 1048576).toFixed(1);
+                progressStatus.textContent = downloadedMB + ' MB / ' + totalMB + ' MB';
+            } else {
+                progressStatus.textContent = '正在连接...';
+            }
         }
     }
 
@@ -1028,96 +1033,46 @@ function _downloadAndInstallApk(downloadUrl, version) {
         }
     }
 
-    // 方案1：使用 XMLHttpRequest 下载（支持进度跟踪），然后通过原生插件安装
-    try {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', downloadUrl, true);
-        xhr.responseType = 'arraybuffer';
+    // 方案1：原生环境使用 NotificationPlugin（下载+进度轮询+安装）
+    var isNative = window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web';
+    var notifPlugin = isNative && window.Capacitor.Plugins && window.Capacitor.Plugins.NotificationPlugin;
 
-        xhr.onprogress = function (e) {
-            if (e.lengthComputable) {
-                var pct = Math.round((e.loaded / e.total) * 100);
-                updateProgress(pct, e.loaded, e.total);
-            }
-        };
+    if (notifPlugin && typeof notifPlugin.downloadApk === 'function' && typeof notifPlugin.getDownloadProgress === 'function') {
+        if (progressText) progressText.textContent = '正在下载更新...';
+        if (progressStatus) progressStatus.textContent = '正在连接...';
 
-        xhr.onload = function () {
-            if (xhr.status === 200) {
-                var isNative = window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web';
-                var notifPlugin = isNative && window.Capacitor.Plugins && window.Capacitor.Plugins.NotificationPlugin;
+        // 启动原生下载
+        var downloadPromise = notifPlugin.downloadApk({ url: downloadUrl, version: version });
 
-                if (notifPlugin && typeof notifPlugin.installApk === 'function') {
-                    // 原生环境：将下载的数据转为 base64，调用原生 installApk
-                    updateProgress(100, xhr.response.byteLength, xhr.response.byteLength);
-                    if (progressText) progressText.textContent = '正在准备安装...';
-                    if (progressStatus) progressStatus.textContent = '';
-
-                    var bytes = new Uint8Array(xhr.response);
-                    var binary = '';
-                    var chunkSize = 8192;
-                    for (var i = 0; i < bytes.length; i += chunkSize) {
-                        binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + chunkSize, bytes.length)));
-                    }
-                    var base64 = btoa(binary);
-
-                    notifPlugin.installApk({ data: base64, version: version }).then(function (result) {
-                        if (result && result.success) {
-                            onComplete();
-                        }
-                    }).catch(function (err) {
-                        onError('安装失败: ' + (err.message || err));
-                    });
-                } else {
-                    // 回退：浏览器环境，直接下载文件
-                    onComplete();
-                    var blob = new Blob([xhr.response], { type: 'application/vnd.android.package-archive' });
-                    var url = URL.createObjectURL(blob);
-                    var a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'app-update-v' + version + '.apk';
-                    a.click();
-                    setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+        // 轮询进度（每 500ms）
+        var pollTimer = setInterval(function () {
+            notifPlugin.getDownloadProgress().then(function (state) {
+                if (!state || !state.active) {
+                    // 下载已结束（可能已完成或已失败）
+                    clearInterval(pollTimer);
+                    return;
                 }
-            } else {
-                onError('HTTP ' + xhr.status);
-            }
-        };
-
-        xhr.onerror = function () {
-            onError('网络连接失败');
-        };
-
-        xhr.ontimeout = function () {
-            onError('下载超时');
-        };
-
-        xhr.timeout = 300000; // 5分钟超时
-        xhr.send();
-        return;
-    } catch (e) {
-        console.warn('[update] XHR 下载失败，尝试原生下载:', e);
-    }
-
-    // 方案2：回退到原生 NotificationPlugin.downloadApk
-    if (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web') {
-        var notifPlugin = window.Capacitor.Plugins && window.Capacitor.Plugins.NotificationPlugin;
-        if (notifPlugin && typeof notifPlugin.downloadApk === 'function') {
-            if (progressText) progressText.textContent = '正在下载更新...';
-            if (progressStatus) progressStatus.textContent = '（后台下载中）';
-            if (typeof showNotification === 'function') showNotification('正在下载更新...', 'info', 3000);
-
-            notifPlugin.downloadApk({ url: downloadUrl, version: version }).then(function (result) {
-                if (result && result.success) {
-                    onComplete();
-                }
-            }).catch(function (err) {
-                onError('下载失败');
+                updateProgress(state.progress || 0, state.downloadedBytes || 0, state.totalBytes || 0);
+            }).catch(function () {
+                // 轮询失败，忽略
             });
-            return;
-        }
+        }, 500);
+
+        // 处理下载结果
+        downloadPromise.then(function (result) {
+            clearInterval(pollTimer);
+            if (result && result.success) {
+                onComplete();
+            }
+        }).catch(function (err) {
+            clearInterval(pollTimer);
+            onError('下载失败: ' + (err.message || err));
+        });
+        return;
     }
 
-    // 方案3：浏览器下载
+    // 方案2：回退 — 浏览器直接下载
+    if (typeof showNotification === 'function') showNotification('正在跳转下载...', 'info', 2000);
     window.open(downloadUrl, '_blank');
 }
 
