@@ -863,7 +863,6 @@ function autoCheckUpdate() {
 function _showUpdateModal(latestTag, currentVer, downloadUrl) {
     var modal = document.getElementById('update-available-modal');
     if (!modal) {
-        // 回退到 confirm
         if (confirm('发现新版本 v' + latestTag + '！\n当前版本: v' + currentVer + '\n\n是否立即下载更新？')) {
             _downloadAndInstallApk(downloadUrl, latestTag);
         }
@@ -875,6 +874,14 @@ function _showUpdateModal(latestTag, currentVer, downloadUrl) {
     var curVerEl = document.getElementById('update-current-version');
     if (newVerEl) newVerEl.textContent = 'v' + latestTag;
     if (curVerEl) curVerEl.textContent = currentVer;
+
+    // 重置进度区域为隐藏
+    var progressSection = document.getElementById('update-progress-section');
+    var infoSection = document.getElementById('update-info-section');
+    var buttonsSection = document.getElementById('update-buttons-section');
+    if (progressSection) progressSection.style.display = 'none';
+    if (infoSection) infoSection.style.display = '';
+    if (buttonsSection) buttonsSection.style.display = '';
 
     // 保存待处理信息
     _updatePendingInfo = { latestTag: latestTag, downloadUrl: downloadUrl };
@@ -896,8 +903,11 @@ function _showUpdateModal(latestTag, currentVer, downloadUrl) {
     if (downloadBtn && !downloadBtn._updateBound) {
         downloadBtn._updateBound = true;
         downloadBtn.addEventListener('click', function () {
-            if (typeof hideModal === 'function') hideModal(modal);
             if (_updatePendingInfo) {
+                // 隐藏信息区，显示进度区
+                if (infoSection) infoSection.style.display = 'none';
+                if (buttonsSection) buttonsSection.style.display = 'none';
+                if (progressSection) progressSection.style.display = '';
                 _downloadAndInstallApk(_updatePendingInfo.downloadUrl, _updatePendingInfo.latestTag);
                 _updatePendingInfo = null;
             }
@@ -969,25 +979,92 @@ function checkAppUpdateDM() {
 }
 
 // 下载 APK 并触发安装
-// 优先使用原生 NotificationPlugin.downloadApk，回退到浏览器下载
+// 优先使用原生 NotificationPlugin.downloadApk（带进度回调），回退到浏览器下载
+var _downloadProgressListener = null;
+
 function _downloadAndInstallApk(downloadUrl, version) {
+    var progressBar = document.getElementById('update-progress-bar');
+    var progressPercent = document.getElementById('update-progress-percent');
+    var progressText = document.getElementById('update-progress-text');
+    var progressStatus = document.getElementById('update-progress-status');
+    var buttonsSection = document.getElementById('update-buttons-section');
+    var progressSection = document.getElementById('update-progress-section');
+
     // 原生环境：通过 NotificationPlugin 下载并触发安装
     if (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web') {
         var notifPlugin = window.Capacitor.Plugins && window.Capacitor.Plugins.NotificationPlugin;
         if (notifPlugin && typeof notifPlugin.downloadApk === 'function') {
-            if (typeof showNotification === 'function') showNotification('正在下载更新...', 'info', 3000);
-            var statusEl = document.getElementById('dm-update-status');
+            // 清理旧的进度监听器
+            if (_downloadProgressListener && typeof _downloadProgressListener.remove === 'function') {
+                _downloadProgressListener.remove();
+            }
+            _downloadProgressListener = null;
+
+            // 注册进度监听器
+            if (typeof notifPlugin.addListener === 'function') {
+                _downloadProgressListener = notifPlugin.addListener('downloadProgress', function (data) {
+                    if (progressBar && data.progress >= 0) {
+                        progressBar.style.width = data.progress + '%';
+                    }
+                    if (progressPercent) {
+                        progressPercent.textContent = data.progress >= 0 ? data.progress + '%' : '...';
+                    }
+                    if (progressText) {
+                        progressText.textContent = '正在下载更新...';
+                    }
+                    if (progressStatus && data.total > 0) {
+                        var downloadedMB = (data.downloaded / 1048576).toFixed(1);
+                        var totalMB = (data.total / 1048576).toFixed(1);
+                        progressStatus.textContent = downloadedMB + ' MB / ' + totalMB + ' MB';
+                    }
+                });
+            }
+
             notifPlugin.downloadApk({ url: downloadUrl, version: version }).then(function (result) {
+                // 清理进度监听器
+                if (_downloadProgressListener && typeof _downloadProgressListener.remove === 'function') {
+                    _downloadProgressListener.remove();
+                }
+                _downloadProgressListener = null;
+
                 if (result && result.success) {
+                    // 下载完成，更新进度条到 100%
+                    if (progressBar) progressBar.style.width = '100%';
+                    if (progressPercent) progressPercent.textContent = '100%';
+                    if (progressText) progressText.textContent = '下载完成';
+                    if (progressStatus) progressStatus.textContent = '即将安装更新...';
+
+                    var statusEl = document.getElementById('dm-update-status');
                     if (statusEl) statusEl.textContent = '下载完成，正在安装...';
                     if (typeof showNotification === 'function') showNotification('下载完成，即将安装更新', 'success', 3000);
-                } else {
-                    if (statusEl) statusEl.textContent = '下载失败，点击重试';
-                    window.open(downloadUrl, '_blank');
                 }
             }).catch(function (err) {
-                console.warn('[update] 原生下载失败，回退浏览器:', err);
-                window.open(downloadUrl, '_blank');
+                // 清理进度监听器
+                if (_downloadProgressListener && typeof _downloadProgressListener.remove === 'function') {
+                    _downloadProgressListener.remove();
+                }
+                _downloadProgressListener = null;
+
+                console.warn('[update] 原生下载失败:', err);
+                if (progressText) progressText.textContent = '下载失败';
+                if (progressStatus) progressStatus.textContent = '请检查网络后重试';
+                if (typeof showNotification === 'function') showNotification('下载失败，请重试', 'error', 3000);
+
+                // 下载失败时恢复按钮区域，允许用户重试
+                if (buttonsSection) buttonsSection.style.display = '';
+                if (progressSection) progressSection.style.display = 'none';
+
+                // 重新绑定下载按钮事件（因为 _updatePendingInfo 已被清空）
+                var downloadBtn = document.getElementById('update-download-btn');
+                if (downloadBtn) {
+                    downloadBtn.textContent = '重试更新';
+                    var oldClick = downloadBtn.onclick;
+                    downloadBtn.onclick = function () {
+                        if (buttonsSection) buttonsSection.style.display = 'none';
+                        if (progressSection) progressSection.style.display = '';
+                        _downloadAndInstallApk(downloadUrl, version);
+                    };
+                }
             });
             return;
         }
