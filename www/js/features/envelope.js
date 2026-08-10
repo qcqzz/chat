@@ -25,90 +25,64 @@ async function loadEnvelopeData() {
     if (typeof renderEnvelopeLists === 'function') { try { renderEnvelopeLists(); } catch(e) {} }
 }
 
-async function saveEnvelopeData() {
+function saveEnvelopeData() {
     if (!_envelopeDataLoaded) {
         console.warn('[envelope] 本次会话还没有确认加载成功过信箱数据，为了避免覆盖历史记录，跳过这次保存');
         return;
     }
-    return localforage.setItem(getStorageKey('envelopeData'), envelopeData);
+    localforage.setItem(getStorageKey('envelopeData'), envelopeData);
 }
-
-var _checkingEnvelope = false;
 
 async function checkEnvelopeStatus() {
-    // 防重入：如果正在检查中，跳过本次调用
-    if (_checkingEnvelope) return;
-    _checkingEnvelope = true;
-    try {
-        await loadEnvelopeData();
-        const now = Date.now();
-        let changed = false;
-        let newReplyLetter = null;
-        envelopeData.outbox.forEach(letter => {
-            if (letter.status === 'sent' && letter.deliveredTime && now >= letter.deliveredTime) {
-                letter.status = 'received';
-                changed = true;
-            }
-            if (letter.willReply && letter.status === 'received' && letter.replyTime && now >= letter.replyTime) {
-                letter.status = 'replied';
-                const replyContent = generateEnvelopeReplyText();
-                const replyId = 'reply_' + Date.now() + '_' + Math.random().toString(36).substr(2,4);
-                const inboxLetter = {
-                    id: replyId,
-                    refId: letter.id,
-                    originalContent: letter.content,
-                    content: replyContent,
-                    receivedTime: Date.now(),
-                    isNew: true
-                };
-                envelopeData.inbox.push(inboxLetter);
-                newReplyLetter = inboxLetter;
-                changed = true;
-                playSound('message');
-            }
-        });
-        if (changed) {
-            await saveEnvelopeData();
-            if (newReplyLetter) {
-                showEnvelopeReplyPopup(newReplyLetter);
-                var partnerName = (typeof settings !== 'undefined' && settings.partnerName) || '梦角';
-                var preview = newReplyLetter.content.length > 60 ? newReplyLetter.content.substring(0, 60) + '…' : newReplyLetter.content;
-                if (typeof window._sendPartnerNotification === 'function') {
-                    window._sendPartnerNotification(partnerName + ' 给你回信了', preview);
-                }
-            }
+    await loadEnvelopeData();
+    const now = Date.now();
+    let changed = false;
+    let newReplyLetter = null;
+    envelopeData.outbox.forEach(letter => {
+        if (letter.status === 'sent' && letter.deliveredTime && now >= letter.deliveredTime) {
+            letter.status = 'received';
+            changed = true;
         }
-
-        // 梦角主动来信检查
-        await checkPartnerInitiatedLetter();
-    } finally {
-        _checkingEnvelope = false;
+        if (letter.willReply && letter.status === 'received' && letter.replyTime && now >= letter.replyTime) {
+            letter.status = 'replied';
+            const replyContent = generateEnvelopeReplyText();
+            const replyId = 'reply_' + Date.now() + '_' + Math.random().toString(36).substr(2,4);
+            const inboxLetter = {
+                id: replyId,
+                refId: letter.id,
+                originalContent: letter.content,
+                content: replyContent,
+                receivedTime: Date.now(),
+                isNew: true
+            };
+            envelopeData.inbox.push(inboxLetter);
+            newReplyLetter = inboxLetter;
+            changed = true;
+            playSound('message');
+        }
+    });
+    if (changed) {
+        saveEnvelopeData();
+        if (newReplyLetter) showEnvelopeReplyPopup(newReplyLetter);
+        if (typeof renderEnvelopeLists === 'function') { try { renderEnvelopeLists(); } catch(e) {} }
     }
+
+    // 梦角主动来信检查已移至 moments.js 的共享触发器（_checkPartnerInitiatedAction）
 }
 
-async function checkPartnerInitiatedLetter() {
-    const COOLDOWN_MIN = 24 * 60 * 60 * 1000;
-    const COOLDOWN_MAX = 48 * 60 * 60 * 1000;
-    const PROB = 0.40;
-    const KEY = getStorageKey('partnerLetterNextTime');
-
-    const nextTimeRaw = await localforage.getItem(KEY);
-    const now = Date.now();
-
-    if (nextTimeRaw !== null && now < nextTimeRaw) return;
-
-    if (Math.random() >= PROB) {
-        // 未触发，设下次检查窗口（下次启动时重新随机）
-        const cooldown = COOLDOWN_MIN + Math.random() * (COOLDOWN_MAX - COOLDOWN_MIN);
-        await localforage.setItem(KEY, now + cooldown);
+// 生成梦角主动来信（由 moments.js 的共享触发器调用，不含冷却逻辑）
+window._generatePartnerLetter = function() {
+    // 字卡池是空的（一条有效字卡都没有），生成不出正常内容，会拼出一堆undefined——
+    // 这种情况下直接不发这封信，等用户配好字卡之后自然会恢复正常
+    const hasUsableReplies = Array.isArray(customReplies) && customReplies.some(function(r) { return typeof r === 'string' && r.trim(); });
+    if (!hasUsableReplies) {
+        console.warn('[envelope] 字卡池为空，跳过本次梦角主动来信');
         return;
     }
-
-    // 触发：生成梦角主动来信（与回信逻辑相同，从字卡池随机抽取）
     const content = generateEnvelopeReplyText();
-    const letterId = 'partner_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+    const now = Date.now();
     const inboxLetter = {
-        id: letterId,
+        id: 'partner_' + now + '_' + Math.random().toString(36).substr(2, 4),
         refId: null,
         originalContent: null,
         content,
@@ -118,19 +92,9 @@ async function checkPartnerInitiatedLetter() {
     };
     envelopeData.inbox.push(inboxLetter);
     saveEnvelopeData();
-
-    // 设冷却，下次最早 48~72 小时后再触发
-    const cooldown = COOLDOWN_MIN + Math.random() * (COOLDOWN_MAX - COOLDOWN_MIN);
-    await localforage.setItem(KEY, now + cooldown);
-
     showEnvelopeReplyPopup(inboxLetter);
-    // 发送系统通知
-    var partnerName = (typeof settings !== 'undefined' && settings.partnerName) || '梦角';
-    var preview = content.length > 60 ? content.substring(0, 60) + '…' : content;
-    if (typeof window._sendPartnerNotification === 'function') {
-        window._sendPartnerNotification(partnerName + ' 给你写了一封信', preview);
-    }
-}
+    if (typeof renderEnvelopeLists === 'function') { try { renderEnvelopeLists(); } catch(e) {} }
+};
 
 function showEnvelopeReplyPopup(letter) {
     const existing = document.getElementById('envelope-reply-popup');

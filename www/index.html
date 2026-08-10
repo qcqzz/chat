@@ -66,6 +66,7 @@
 @media(prefers-reduced-motion:reduce){#cs-transition-overlay *{animation-play-state:paused!important;}}
 html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle at 50% 36%,rgba(45,45,45,.95),rgba(30,30,30,.9) 30%,rgba(18,18,18,.98) 72%),#121212;}
 </style>
+</head>
 <body>
 <div id="splash-declaration">
     <div class="splash-bg-stars" id="splash-stars"></div>
@@ -239,7 +240,10 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
             <div class="header-actions">
                 <button id="session-manager-btn" class="action-btn" title="会话管理"><i class="fas fa-comments"></i></button>
                 <button id="group-chat-btn" class="action-btn" title="群聊设置"><i class="fas fa-users"></i></button>
-                <button id="envelope-header-btn" class="action-btn" title="信箱"><i class="fas fa-envelope-open-text"></i></button>
+                <button id="envelope-header-btn" class="action-btn" title="信箱" style="position:relative;">
+                    <i class="fas fa-envelope-open-text"></i>
+                    <span id="env-entry-badge" style="display:none;position:absolute;top:3px;right:3px;width:7px;height:7px;background:var(--accent-color);border-radius:50%;border:1.5px solid var(--primary-bg);pointer-events:none;"></span>
+                </button>
                 <button id="companion-btn" class="action-btn" title="陪伴"><i class="fas fa-hand-holding-heart"></i></button>
                 <button id="moments-header-btn" class="action-btn" title="情侣空间" onclick="openMomentsWithTransition()" style="position:relative;">
                     <i class="ti ti-home-heart" style="font-size:19px;"></i>
@@ -274,6 +278,12 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
 
         <div class="chat-container" id="chat-container">
     </div>
+    <div class="future-loader" id="future-loader" style="display:none;">
+        <div class="history-spinner"></div>
+    </div>
+    <button id="back-to-latest-btn" onclick="window._backToLatestMessages&&window._backToLatestMessages()">
+        <i class="fas fa-arrow-down"></i><span id="back-to-latest-label"></span>
+    </button>
     <div class="empty-state" id="empty-state" style="display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;width:100%;pointer-events:none;z-index:1;">
             <div style="position:relative;margin-bottom:20px;">
                 <i class="fas fa-heart" style="font-size:52px;opacity:0.55;color:var(--accent-color);"></i>
@@ -2304,10 +2314,10 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
                     <div class="settings-item" id="stats-function">
                         <i class="fas fa-chart-bar"></i><span>消息统计</span>
                     </div>
-                    <div class="settings-item" id="mood-function">
+                    <div class="settings-item" id="mood-function" style="display:none;">
                         <i class="fas fa-calendar-day"></i><span>心情手账</span>
                     </div>
-                    <div class="settings-item" id="anniversary-function">
+                    <div class="settings-item" id="anniversary-function" style="display:none;">
                         <i class="fas fa-heart"></i><span>重要日</span>
                     </div>
                     <div class="settings-item" id="fortune-lenormand-function" style="position:relative;">
@@ -2323,7 +2333,7 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
                     <div class="settings-item" id="menstrual-function" onclick="openMenstrualModal()">
                         <i class="fas fa-female"></i><span>敬请期待</span>
                     </div>
-                    <div class="settings-item" id="music-player-toggle" style="display:none;">
+                    <div class="settings-item" id="music-player-toggle">
                         <i class="fas fa-music"></i><span>悬浮音乐播放器</span>
                     </div>
                     <div class="settings-item" id="envelope-function" style="display:none;">
@@ -2462,6 +2472,11 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
                         <input type="date" id="msg-search-date-to" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:8px;font-size:12px;background:var(--primary-bg);color:var(--text-primary);outline:none;" oninput="window._runMsgSearch && window._runMsgSearch()">
                         <button onclick="document.getElementById('msg-search-input').value='';document.getElementById('msg-search-date-from').value='';document.getElementById('msg-search-date-to').value='';window._runMsgSearch&&window._runMsgSearch();" style="padding:5px 10px;border:1px solid var(--border-color);border-radius:8px;font-size:12px;background:var(--secondary-bg);color:var(--text-secondary);cursor:pointer;font-family:var(--font-family);">重置</button>
                     </div>
+                    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-color);">
+                        <span style="font-size:11px;color:var(--text-secondary);">跳转到：</span>
+                        <input type="date" id="msg-jump-date" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:8px;font-size:12px;background:var(--primary-bg);color:var(--text-primary);outline:none;">
+                        <button onclick="window._jumpToDate && window._jumpToDate()" class="modal-btn modal-btn-primary" style="padding:5px 12px;font-size:12px;">跳转</button>
+                    </div>
                 </div>
                 <div id="msg-search-results" style="max-height:52vh;overflow-y:auto;margin-top:10px;margin-left:-4px;margin-right:-4px;"></div>
             </div>
@@ -2582,142 +2597,93 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
     <div id="lenormand-modal" style="display:none;"></div>
 
 
-    <div class="modal" id="mood-modal">
-       <div class="modal-content">
-        <div class="mood-header-actions">
-            <div class="modal-title" style="margin-bottom:0; border:none; padding:0;">
-                <i class="fas fa-book-open"></i><span>心晴手帐</span>
-            </div>
-            <div style="display:flex; gap:8px;">
-                <button class="view-switch-btn active" id="btn-view-calendar">
-                    <i class="fas fa-calendar-alt"></i> 日历
-                </button>
-                <button class="view-switch-btn" id="btn-view-stats">
-                    <i class="fas fa-chart-pie"></i> 统计
-                </button>
-                <button class="view-switch-btn" id="btn-view-trash">
-                    <i class="fas fa-recycle"></i> 回收站
-                </button>
-            </div>
-        </div>
-        <div id="mood-calendar-view" class="mood-view-section">
-            <div class="calendar-header">
-                <button class="calendar-nav-btn" id="prev-month"><i class="fas fa-chevron-left"></i></button>
-                <div class="current-month-label" id="calendar-month-label">--</div>
-                <button class="calendar-nav-btn" id="next-month"><i class="fas fa-chevron-right"></i></button>
-            </div>
-            <div class="calendar-weekdays">
-                <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
-            </div>
-            <div class="calendar-grid" id="calendar-grid"></div>
-        </div>
-    
-        <div id="mood-stats-view" class="mood-view-section hidden-view">
-            <div id="mood-stats-container" class="mood-stats-card" style="border:none; box-shadow:none; padding:0; background:transparent;">
-            </div>
-        </div>
+    <!-- mood-modal 已移入情侣空间 #cs-panel-mood，此处保留导入导出的隐藏元素 -->
+    <input type="file" id="mood-import-file-input" accept="application/json" style="display:none;">
 
-        <div id="mood-trash-view" class="mood-view-section hidden-view">
-            <div id="mood-trash-list" style="padding:0 14px;"></div>
+    <!-- 心情手账回收站 overlay -->
+    <div class="cs-mood-trash-overlay" id="cs-mood-trash-overlay" style="display:none;">
+        <div class="cs-mood-trash-card">
+            <div class="cs-mood-trash-header">
+                <span>回收站</span>
+                <button class="cs-icon-btn" id="cs-mood-trash-close"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="mood-trash-list" style="padding:0 14px; overflow-y:auto; flex:1;"></div>
         </div>
-    
-        <div class="modal-buttons">
-            <button class="modal-btn modal-btn-secondary" id="mood-export-btn" style="flex:1;">导出</button>
-            <button class="modal-btn modal-btn-secondary" id="mood-import-btn" style="flex:1;">导入</button>
-            <input type="file" id="mood-import-file-input" accept="application/json" style="display:none;">
-            <button class="modal-btn modal-btn-secondary" id="close-mood">关闭</button>
-        </div>
-       </div>
     </div>
 
     <div class="mood-selector-overlay" id="mood-selector-overlay">
         <div class="mood-selector-card" id="mood-editor-view">
-            <h3 id="mood-selector-date">--月--日</h3>
-            
-            <div id="mood-edit-target-tabs" style="display:flex; gap:6px; justify-content:center; margin:8px 0 4px;">
-                <button class="mood-tab-btn active" id="mood-tab-me" onclick="switchMoodEditTarget('me')" data-name-me>我的记录</button>
-                <button class="mood-tab-btn" id="mood-tab-partner" onclick="switchMoodEditTarget('partner')" data-name-partner>梦角的记录</button>
+            <div class="mde-header">
+                <h3 id="mood-selector-date" style="margin:0; font-size:16px; font-weight:600;">--月--日</h3>
+                <button class="mde-close-btn" onclick="closeMoodOverlay()"><i class="fas fa-times"></i></button>
             </div>
-
-            <div style="display:flex; align-items:center; justify-content:space-between; margin:8px 0 4px;">
-                <button class="mood-page-btn" id="mood-page-prev" onclick="switchMoodPage(-1)">&#8249;</button>
-                <span id="mood-page-indicator" style="font-size:12px; opacity:0.7;">第 1 页 · 心情</span>
-                <button class="mood-page-btn" id="mood-page-next" onclick="switchMoodPage(1)">&#8250;</button>
+            <div class="mood-options-slider-wrapper" style="max-height:180px;">
+                <div class="mood-options-grid" id="mood-options-grid"></div>
             </div>
-
-            <div id="mood-page-1">
-                <div class="mood-options-slider-wrapper">
-                    <div class="mood-options-grid" id="mood-options-grid"></div>
-                </div>
-                <button class="mood-custom-add-btn" id="mood-custom-add" onclick="openCustomMoodDialog()">
-                    <i class="fas fa-plus"></i> 自定义心情
-                </button>
+            <button class="mood-custom-add-btn" id="mood-custom-add" onclick="openCustomMoodDialog()">
+                <i class="fas fa-plus"></i> 自定义心情
+            </button>
+            <div style="margin-top:10px;">
+                <textarea id="mood-note-input" class="mood-note-input" rows="3" placeholder="开始今天的记录吧..."></textarea>
             </div>
-
-            <div id="mood-page-2" style="display:none;">
-                <div class="mood-input-wrapper">
-                    <label style="font-size:12px; font-weight:500;" id="mood-note-label">随记:</label>
-                    <textarea id="mood-note-input" class="mood-note-input" rows="3" placeholder="记录下今天发生的小事..."></textarea>
-                </div>
-                <div style="margin-top:10px;">
-                    <label style="font-size:12px; font-weight:500; display:flex; align-items:center; gap:5px; margin-bottom:6px;" id="mood-weather-label">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent-color)" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg>
-                        今日天气&nbsp;
-                    </label>
-                    <input type="text" id="mood-weather-input" maxlength="20" placeholder="例如：晴朗 / 阴天 / 小雨..." style="width:100%; padding:9px 14px; border:1px solid var(--border-color); border-radius:10px; font-size:13px; background:var(--primary-bg); color:var(--text-primary); outline:none; font-family:var(--font-family);">
-                </div>
-            </div>
-    
-            <div style="display:flex; gap:10px; margin-top:15px;">
+            <div style="display:flex; gap:10px; margin-top:12px;">
                 <button class="modal-btn modal-btn-secondary" id="cancel-mood-edit" style="flex:1;">取消</button>
-                <button class="modal-btn modal-btn-secondary" id="view-mood-detail-btn" onclick="viewMoodDetailFromEditor()" style="flex:1;">查看详情</button>
                 <button class="modal-btn modal-btn-primary" id="confirm-mood-save" style="flex:1;">保存</button>
             </div>
         </div>
 
         <div id="custom-mood-dialog" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--secondary-bg); padding:20px; border-radius:16px; width:80%; max-width:280px; z-index:2200; box-shadow:0 10px 30px rgba(0,0,0,0.3); text-align:center;">
-            <h4 style="margin-bottom:12px; font-size:14px;">自定义心情</h4>
-            <div style="display:flex; gap:8px; margin-bottom:10px;">
-                <input id="custom-mood-emoji" type="text" maxlength="2" placeholder="表情" style="width:60px; text-align:center; border:1px solid var(--border-color); border-radius:8px; padding:8px; font-size:20px; background:var(--primary-bg); color:var(--text-primary);">
-                <input id="custom-mood-label" type="text" maxlength="6" placeholder="名称（最多6字）" style="flex:1; border:1px solid var(--border-color); border-radius:8px; padding:8px; font-size:13px; background:var(--primary-bg); color:var(--text-primary);">
+            <h4 style="margin-bottom:12px; font-size:14px; font-weight:600;">自定义心情</h4>
+            <div style="display:flex; gap:8px; margin-bottom:12px; overflow:hidden;">
+                <input id="custom-mood-emoji" type="text" maxlength="2" placeholder="表情" style="width:52px; flex-shrink:0; text-align:center; border:1px solid var(--border-color); border-radius:8px; padding:8px 4px; font-size:13px; background:var(--primary-bg); color:var(--text-primary);">
+                <input id="custom-mood-label" type="text" maxlength="6" placeholder="名称（最多6字）" style="flex:1; min-width:0; border:1px solid var(--border-color); border-radius:8px; padding:8px 10px; font-size:13px; background:var(--primary-bg); color:var(--text-primary); font-family:var(--font-family);">
             </div>
-            <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin-bottom:12px;">
-                <span style="font-size:11px; opacity:0.6; width:100%;">选择颜色:</span>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin-bottom:14px;">
+                <span style="font-size:12px; opacity:0.6; width:100%;">选择颜色:</span>
                 <div id="custom-mood-colors" style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center;"></div>
             </div>
             <div style="display:flex; gap:8px;">
-                <button class="modal-btn modal-btn-secondary" onclick="closeCustomMoodDialog()" style="flex:1; font-size:12px;">取消</button>
-                <button class="modal-btn modal-btn-primary" onclick="saveCustomMood()" style="flex:1; font-size:12px;">添加</button>
+                <button class="modal-btn modal-btn-secondary" onclick="closeCustomMoodDialog()" style="flex:1; font-size:13px;">取消</button>
+                <button class="modal-btn modal-btn-primary" onclick="saveCustomMood()" style="flex:1; font-size:13px;">添加</button>
             </div>
         </div>
     
-        <div class="day-detail-card" id="mood-detail-view" style="display:none; width:85%; max-width:320px;">
-            <div class="day-detail-date" id="detail-date">--</div>
-            <div id="detail-my-section" style="margin-bottom:12px;">
-                <div style="font-size:11px; opacity:0.6; margin-bottom:6px; font-weight:600;">我的</div>
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
-                    <span id="detail-kaomoji" style="font-size:24px;"></span>
-                    <span id="detail-label" style="font-weight:600;"></span>
-                </div>
-                <div class="day-detail-content" id="detail-text"></div>
-                <div id="detail-my-weather" style="font-size:12px;color:var(--text-secondary);margin-top:4px;display:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:3px"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg><span id="detail-my-weather-val"></span></div>
+        <div class="day-detail-card" id="mood-detail-view" style="display:none; width:88%; max-width:360px;">
+            <div class="mdd-header">
+                <span class="day-detail-date" id="detail-date">--</span>
+                <button class="mde-close-btn" onclick="closeMoodOverlay()"><i class="fas fa-times"></i></button>
             </div>
-                <div id="detail-partner-section" style="border-top:1px dashed var(--border-color); padding-top:10px; margin-top:4px;">
-                <div style="font-size:11px; opacity:0.6; margin-bottom:6px; font-weight:600;" id="detail-partner-title">梦角的</div>
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
-                    <span id="detail-partner-kaomoji" style="font-size:24px;"></span>
-                    <span id="detail-partner-label" style="font-weight:600;"></span>
+            <!-- 我的 section -->
+            <div class="mdd-section" id="detail-my-section">
+                <div class="mdd-section-lbl" id="detail-my-title">我</div>
+                <div id="mdd-my-content">
+                    <div class="mdd-mood-row">
+                        <span id="detail-kaomoji" class="mdd-emoji"></span>
+                        <span id="detail-label" class="mdd-mood-label"></span>
+                    </div>
+                    <div class="mdd-note-text" id="detail-text"></div>
                 </div>
-                <div class="day-detail-content" id="detail-partner-text"></div>
-                <div id="detail-partner-weather" style="font-size:12px;color:var(--text-secondary);margin-top:4px;display:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:3px"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg><span id="detail-partner-weather-val"></span></div>
+                <div id="mdd-my-empty" class="mdd-empty-msg" style="display:none;">今天还没有记录</div>
+                <div class="mdd-section-acts">
+                    <button class="mdd-act-btn" onclick="window._moodOpenEditor(window.selectedDateStr,'me')"><i class="fas fa-pencil-alt"></i></button>
+                    <button class="mdd-act-btn mdd-act-del" id="delete-my-mood" style="display:none;" onclick="deleteDailyMood(window.selectedDateStr,'me')"><i class="fas fa-trash"></i></button>
+                </div>
             </div>
-            <div id="detail-partner-no-record" style="display:none; border-top:1px dashed var(--border-color); padding-top:10px; margin-top:4px; font-size:13px; color:var(--text-secondary); font-style:italic; text-align:center;" id="detail-partner-no-record-msg">Ta 这天还没有留下记录</div>
-            <div style="margin-top:20px; display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
-                <button class="modal-btn modal-btn-secondary" onclick="closeMoodOverlay()" style="font-size:12px; padding:6px 12px;">关闭</button>
-                <button class="modal-btn modal-btn-secondary" id="delete-my-mood" onclick="deleteDailyMood(selectedDateStr,'me')" style="font-size:12px; padding:6px 12px; color:#ff6b6b; border-color:rgba(255,107,107,0.4);" data-delete-me>删除我的</button>
-                <button class="modal-btn modal-btn-secondary" id="delete-partner-mood" onclick="deleteDailyMood(selectedDateStr,'partner')" style="font-size:12px; padding:6px 12px; color:#ff6b6b; border-color:rgba(255,107,107,0.4);" data-delete-partner>删除梦角</button>
-                <button class="modal-btn modal-btn-primary" id="edit-existing-mood" style="font-size:12px; padding:6px 12px;">修改我的</button>
-                <button class="modal-btn modal-btn-primary" id="edit-partner-mood" onclick="editPartnerMoodRecord()" style="font-size:12px; padding:6px 12px; background:rgba(255,107,107,0.8);" data-edit-partner>修改梦角</button>
+            <!-- 梦角的 section -->
+            <div class="mdd-section" id="detail-partner-section">
+                <div class="mdd-section-lbl" id="detail-partner-title">梦角</div>
+                <div id="mdd-partner-content">
+                    <div class="mdd-mood-row">
+                        <span id="detail-partner-kaomoji" class="mdd-emoji"></span>
+                        <span id="detail-partner-label" class="mdd-mood-label"></span>
+                    </div>
+                    <div class="mdd-note-text" id="detail-partner-text"></div>
+                </div>
+                <div id="detail-partner-no-record" class="mdd-empty-msg" style="display:none;">Ta 这天还没有留下记录</div>
+                <div class="mdd-section-acts">
+                    <button class="mdd-act-btn" onclick="window._moodOpenEditor(window.selectedDateStr,'partner')"><i class="fas fa-pencil-alt"></i></button>
+                    <button class="mdd-act-btn mdd-act-del" id="delete-partner-mood" style="display:none;" onclick="deleteDailyMood(window.selectedDateStr,'partner')"><i class="fas fa-trash"></i></button>
+                </div>
             </div>
         </div>
     </div>
@@ -3388,6 +3354,8 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
     <!-- == 功能模块 == -->
     <script src="js/features/mood.js"></script>
     <script src="js/features/envelope.js"></script>
+    <script src="js/features/moments.js"></script>
+    <script src="js/features/album.js"></script>
     <script src="js/features/reply-library.js"></script>
     <script src="js/features/theme-editor.js"></script>
     <script src="js/features/group-chat.js"></script>
@@ -3400,6 +3368,7 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
     <script src="js/foreground-bridge.js"></script>
     <script src="js/data.js"></script>
     <script src="js/onboarding.js"></script> 
+    <script src="js/features/anniversary.js"></script>
     <script src="js/listeners.js"></script>
     <script src="js/listeners-step2.js"></script>
     <script src="js/listeners-voice.js"></script>
@@ -3413,9 +3382,115 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
     <script src="js/cloud-media-migration.js"></script>
     <script src="js/cloud-sync-ui.js"></script>
     <script src="js/app.js"></script>
-    <script src="js/features/moments.js"></script>
-    <script src="js/features/album.js"></script>
-    <script src="js/features/anniversary.js"></script>
     <script src="js/features/cinema.js"></script>
+<!-- 相册图片详情（全屏） -->
+<div id="al-view-detail" style="display:none;position:fixed;inset:0;z-index:6000;background:#000;flex-direction:column;">
+    <div class="al-detail-topbar">
+        <button class="al-back-btn" onclick="window._alBackToGrid()"><i class="fas fa-chevron-left"></i></button>
+        <span id="al-detail-date" class="al-detail-date"></span>
+        <button id="al-detail-del" class="al-del-btn" onclick="window._alDeletePhoto(window._alCurrentPhotoId)" title="删除"><i class="fas fa-trash-alt"></i></button>
+    </div>
+    <div id="al-detail-main" class="al-detail-main"></div>
+    <button id="al-detail-fav" class="al-detail-fav" onclick="window._alToggleFav(window._alCurrentPhotoId)"><i class="far fa-heart"></i></button>
+    <div id="al-detail-strip" class="al-detail-strip"></div>
+</div>
+
+<!-- 全屏视频播放弹层 -->
+<div id="cs-video-player-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:10000;flex-direction:column;align-items:center;justify-content:center;">
+    <button onclick="closeCsVideoPlayer()" style="position:absolute;top:20px;right:20px;background:rgba(255,255,255,0.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+    <video id="cs-video-player" controls playsinline style="max-width:100%;max-height:90vh;border-radius:8px;"></video>
+</div>
+<script>
+(function(){
+  var DEFS={L:'#ff9f9d',R:'#a8c4ff'};
+  var _cols={L:DEFS.L,R:DEFS.R};
+  function lighten(hex,a){
+    var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    return 'rgba('+r+','+g+','+b+','+(a||0.4)+')';
+  }
+  function applyColor(side,color){
+    var light=lighten(color,0.45);
+    var ids=side==='L'?['csStopL1','csStopL2','prvStopL1','prvStopL2']:['csStopR1','csStopR2','prvStopR1','prvStopR2'];
+    ids.forEach(function(id,i){var el=document.getElementById(id);if(el)el.setAttribute('stop-color',i%2===0?light:color);});
+    var cur=document.getElementById('cs-trans-cur-'+side);
+    if(cur)cur.style.background=color;
+    document.querySelectorAll('.cs-trans-swatch[data-side="'+side+'"]').forEach(function(sw){sw.classList.toggle('sel',sw.dataset.color===color);});
+  }
+  function setColor(side,color){
+    _cols[side]=color;
+    applyColor(side,color);
+    saveColors();
+  }
+  async function saveColors(){
+    try{
+      var keys=await localforage.keys();
+      var mk=keys.find(function(k){return k.indexOf('_messages')!==-1;});
+      var pfx=mk?mk.replace('_messages',''):'CHAT_APP_V3_';
+      await localforage.setItem(pfx+'_csTransColors',JSON.stringify(_cols));
+    }catch(e){}
+  }
+  async function loadColors(){
+    try{
+      var keys=await localforage.keys();
+      var found=keys.find(function(k){return k.indexOf('_csTransColors')!==-1;});
+      if(found){var s=JSON.parse(await localforage.getItem(found));if(s)_cols=Object.assign({},DEFS,s);}
+    }catch(e){}
+    applyColor('L',_cols.L);applyColor('R',_cols.R);
+    var cL=document.getElementById('cs-trans-custom-L'),cR=document.getElementById('cs-trans-custom-R');
+    if(cL)cL.value=_cols.L;if(cR)cR.value=_cols.R;
+  }
+  document.addEventListener('DOMContentLoaded',function(){
+    loadColors();
+    document.addEventListener('click',function(e){
+      var sw=e.target.closest('.cs-trans-swatch');
+      if(sw)setColor(sw.dataset.side,sw.dataset.color);
+    });
+    var cL=document.getElementById('cs-trans-custom-L'),cR=document.getElementById('cs-trans-custom-R');
+    if(cL)cL.addEventListener('input',function(){setColor('L',cL.value);});
+    if(cR)cR.addEventListener('input',function(){setColor('R',cR.value);});
+    var rb=document.getElementById('cs-trans-reset-btn');
+    if(rb)rb.addEventListener('click',function(){
+      setColor('L',DEFS.L);setColor('R',DEFS.R);
+      if(cL)cL.value=DEFS.L;if(cR)cR.value=DEFS.R;
+    });
+  });
+})();
+</script>
+<script>
+function openMomentsWithTransition(){
+  var ov=document.getElementById('cs-transition-overlay');
+  if(!ov){
+    if(typeof window.openMomentsModal==='function'){window.openMomentsModal();}
+    else{_csFallbackOpen();}
+    return;
+  }
+  ov.classList.add('cs-trans-show');
+  requestAnimationFrame(function(){requestAnimationFrame(function(){ov.classList.add('cs-trans-visible');});});
+  setTimeout(function(){
+    var page=document.getElementById('couple-space-page');
+    if(page){page.style.transition='none';}
+    if(typeof window.openMomentsModal==='function'){window.openMomentsModal();}
+    else{_csFallbackOpen();}
+    setTimeout(function(){if(page){page.style.transition='';} },150);
+  },3700);
+  setTimeout(function(){
+    ov.classList.remove('cs-trans-visible');
+    setTimeout(function(){ov.classList.remove('cs-trans-show');},500);
+  },4000);
+}
+function _csFallbackOpen(){
+  var page=document.getElementById('couple-space-page');
+  if(!page)return;
+  page.style.display='flex';
+  page.style.opacity='1';
+  page.style.pointerEvents='all';
+  var feedPanel=document.getElementById('cs-panel-feed');
+  if(feedPanel)feedPanel.classList.add('cs-panel-active');
+  var outerHeader=document.getElementById('cs-outer-header');
+  if(outerHeader&&feedPanel&&outerHeader.parentElement!==feedPanel){
+    feedPanel.insertBefore(outerHeader,feedPanel.firstChild);
+  }
+}
+</script>
 </body>
 </html>
