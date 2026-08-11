@@ -90,6 +90,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         setTimeout(function () {
             if (typeof ForegroundBridge !== 'undefined') {
                 ForegroundBridge.start();
+                // 首次启动自动检查电池优化豁免（仅提示一次）
+                try {
+                    if (!localStorage.getItem('batteryOptChecked')) {
+                        ForegroundBridge.isBatteryOptimized(function(ignored) {
+                            if (!ignored) {
+                                ForegroundBridge.requestBatteryOptimization();
+                            }
+                            localStorage.setItem('batteryOptChecked', '1');
+                        });
+                    }
+                } catch(e) {}
             }
         }, 1000);
 
@@ -127,10 +138,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (backup && Array.isArray(backup.messages) && backup.messages.length > 0 && Array.isArray(messages) && backup.messages.length > messages.length) {
                         console.warn('[visibilitychange] 检测到备份消息比当前更多，自动尝试恢复');
                         try {
-                            messages = backup.messages.map(m => ({
-                                ...m,
-                                timestamp: new Date(m.timestamp)
-                            }));
+                            messages = backup.messages.map(m => {
+                                const ts = new Date(m.timestamp);
+                                return { ...m, timestamp: isNaN(ts.getTime()) ? new Date() : ts };
+                            });
                             if (backup.settings) Object.assign(settings, backup.settings);
                             if (typeof updateUI === 'function') updateUI();
                             if (typeof throttledSaveData === 'function') throttledSaveData();
@@ -193,10 +204,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const backup = typeof _tryRecoverFromBackup === 'function' ? _tryRecoverFromBackup() : null;
             if (backup && Array.isArray(backup.messages) && backup.messages.length > 0) {
-                messages = backup.messages.map(m => ({
-                    ...m,
-                    timestamp: new Date(m.timestamp)
-                }));
+                messages = backup.messages.map(m => {
+                    const ts = new Date(m.timestamp);
+                    return { ...m, timestamp: isNaN(ts.getTime()) ? new Date() : ts };
+                });
                 if (backup.settings) Object.assign(settings, backup.settings);
                 if (typeof updateUI === 'function') updateUI();
                 showNotification('初始化异常，已使用本地紧急备份恢复', 'warning', 5000);

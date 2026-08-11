@@ -71,7 +71,7 @@
     function _today()  { return _toStr(new Date()); }
     function _parse(s) { var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
     function _diff(a, b) { return Math.round((_parse(b) - _parse(a)) / 86400000); }
-    function _addD(s, n) { var d = _parse(s); d.setDate(d.getDate() + n); return _toStr(d); }
+    function _addD(s, n) { var d = _parse(s); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + n); return _toStr(d); }
 
     // ── Period 查询 ───────────────────────────────────
     function _getPeriodOf(dateStr) {

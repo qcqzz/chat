@@ -5,7 +5,9 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
@@ -13,6 +15,8 @@ import android.os.PowerManager;
 public class ForegroundService extends Service {
     private static final String CHANNEL_ID = "foreground_service";
     private static final int NOTIFICATION_ID = 1001;
+    private static final String PREFS_NAME = "chuanxun_prefs";
+    private static final String KEY_PARTNER_NAME = "partnerName";
     private PowerManager.WakeLock wakeLock = null;
     private String partnerName = "对方";
 
@@ -20,11 +24,19 @@ public class ForegroundService extends Service {
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
+        // 从 SharedPreferences 恢复昵称（防止服务被系统重启后丢失）
+        partnerName = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getString(KEY_PARTNER_NAME, "对方");
         acquireWakeLock();
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        // WakeLock 可能已过期（24h 自动释放），重新获取
+        if (wakeLock == null || !wakeLock.isHeld()) {
+            acquireWakeLock();
+        }
+
         // 处理更新通知文字请求
         if (intent != null && "UPDATE_NOTIFICATION".equals(intent.getAction())) {
             String name = intent.getStringExtra("partnerName");
@@ -35,6 +47,8 @@ public class ForegroundService extends Service {
         // 从 Intent 获取昵称
         if (intent != null && intent.hasExtra("partnerName")) {
             partnerName = intent.getStringExtra("partnerName");
+            getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit().putString(KEY_PARTNER_NAME, partnerName).apply();
         }
 
         // 点击通知回到 App
@@ -63,6 +77,9 @@ public class ForegroundService extends Service {
      */
     public void updateNotification(String name) {
         partnerName = (name != null && !name.isEmpty()) ? name : "对方";
+        // 持久化昵称，防止服务被系统重启后丢失
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putString(KEY_PARTNER_NAME, partnerName).apply();
 
         Intent notificationIntent = new Intent(this, MainActivity.class);
         notificationIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);

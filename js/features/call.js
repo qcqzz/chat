@@ -7,6 +7,10 @@
     const KEY_PILL_POS = 'callPillPos';
     const BG_LF_KEY    = 'callBgImageData';
 
+    function _safeParse(str, fallback) {
+        try { return JSON.parse(str); } catch (e) { return fallback; }
+    }
+
     const S = {
         enabled:         localStorage.getItem(KEY_ENABLED) !== 'false',
         active:          false,
@@ -16,9 +20,9 @@
         minimized:       false,
         immersive:       false,
         bgImage:         null,
-        pos:             JSON.parse(localStorage.getItem(KEY_POS)  || 'null'),
-        pillPos:         JSON.parse(localStorage.getItem(KEY_PILL_POS) || 'null'),
-        size:            JSON.parse(localStorage.getItem(KEY_SIZE) || '{"w":280,"h":440}'),
+        pos:             _safeParse(localStorage.getItem(KEY_POS), null),
+        pillPos:         _safeParse(localStorage.getItem(KEY_PILL_POS), null),
+        size:            _safeParse(localStorage.getItem(KEY_SIZE), { w: 280, h: 440 }),
         dragOff:         null,
         pillDragOff:     null,
         pillDragged:     false,

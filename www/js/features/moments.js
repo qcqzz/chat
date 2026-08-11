@@ -103,7 +103,17 @@ function _pushNotif(type, postId) {
     const name=_mPName(), texts={newPost:`${name}发了新动态`,liked:`${name}为你的动态点了赞`,commented:`${name}评论了你的动态`,replied:`${name}回复了你`};
     momentsData.notifications.unshift({id:_mUid('n'),type,postId,text:texts[type]||type,timestamp:Date.now(),read:false});
     if(momentsData.notifications.length>50)momentsData.notifications=momentsData.notifications.slice(0,50);
-    saveMomentsData(); _updateBadge(); _nQ.push({type,postId}); _drainN();
+    saveMomentsData(); _updateBadge();
+    // 系统级推送通知（后台/息屏也能看到）
+    try {
+        if (typeof window._sendPartnerNotification === 'function') {
+            const subs = {newPost:'快去看看 Ta 的动态~', liked:'', commented:'去看看 Ta 说了什么~', replied:'去看看 Ta 说了什么~'};
+            const title = texts[type] || texts.newPost;
+            const sub = subs[type] || '';
+            window._sendPartnerNotification(title, sub);
+        }
+    } catch (e) { console.warn('[moments] 系统通知推送失败:', e); }
+    _nQ.push({type,postId}); _drainN();
 }
 function _drainN(){if(_nBusy||!_nQ.length)return;_nBusy=true;_showN(_nQ.shift());}
 function _showN({type,postId}){

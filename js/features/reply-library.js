@@ -243,14 +243,15 @@ function renderReplyLibrary() {
         else if (currentSubTab === 'intros') itemsToRender = customIntros;
     }
 
-    if (renderType === 'emoji') { _renderEmojiTab(list, itemsToRender); return; }
-    if (renderType === 'image') { _renderStickerTab(list, itemsToRender); return; }
+    if (renderType === 'emoji') { _renderEmojiTab(list, itemsToRender); list.scrollTop = savedScrollTop; return; }
+    if (renderType === 'image') { _renderStickerTab(list, itemsToRender); list.scrollTop = savedScrollTop; requestAnimationFrame(() => { list.scrollTop = savedScrollTop; }); return; }
 
     const q = _searchQuery.toLowerCase().trim();
     let filtered = q ? itemsToRender.filter(item => item.toLowerCase().includes(q)) : itemsToRender;
 
     if (filtered.length === 0) {
         list.innerHTML = renderEmptyState(q ? `未找到"${q}"` : '列表空空如也');
+        list.scrollTop = savedScrollTop;
         return;
     }
 
@@ -259,6 +260,8 @@ function renderReplyLibrary() {
     } else {
         _renderAtmosphereList(list, filtered);
     }
+    list.scrollTop = savedScrollTop;
+    requestAnimationFrame(() => { list.scrollTop = savedScrollTop; });
 }
 
 function _renderModernToolbar() {
@@ -770,9 +773,18 @@ function _createCard(item, index, disabledSet) {
             </div>
         `;
         div.addEventListener('click', () => {
-            if (_batchSelectedIndices.has(index)) _batchSelectedIndices.delete(index);
+            const wasSelected = _batchSelectedIndices.has(index);
+            if (wasSelected) _batchSelectedIndices.delete(index);
             else _batchSelectedIndices.add(index);
-            renderReplyLibrary();
+            const isSel = !wasSelected;
+            div.classList.toggle('rl-selected', isSel);
+            const checkEl = div.querySelector('.rl-batch-check');
+            if (checkEl) {
+                checkEl.style.border = `1.5px solid ${isSel ? 'var(--accent-color)' : 'var(--border-color)'}`;
+                checkEl.style.background = isSel ? 'var(--accent-color)' : 'transparent';
+                checkEl.innerHTML = isSel ? `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>` : '';
+            }
+            _renderModernToolbar();
         });
         return div;
     }
@@ -890,9 +902,11 @@ function _renderStickerTab(list, itemsToRender) {
         div.addEventListener('click', () => {
             if (!_batchModeActive) return;
             if (currentMajorTab !== 'reply' || currentSubTab !== 'stickers') return;
-            if (isSelected) _batchSelectedIndices.delete(index);
+            const wasSelected = _batchSelectedIndices.has(index);
+            if (wasSelected) _batchSelectedIndices.delete(index);
             else _batchSelectedIndices.add(index);
-            renderReplyLibrary();
+            div.classList.toggle('sticker-batch-selected', !wasSelected);
+            _renderModernToolbar();
         });
         div.querySelector('.sticker-delete-btn').addEventListener('click', async e => {
             e.stopPropagation();

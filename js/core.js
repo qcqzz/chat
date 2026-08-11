@@ -138,10 +138,12 @@ function _appendNewerMessages(startIdx, endIdxExclusive) {
     const fragment = new DocumentFragment();
     // lastSenderRef 要先接上"当前已经渲染的最后一条是谁发的"，不然本来该合并显示的头像/时间会重复冒出来
     let lastSenderRef = { current: null };
-    if (startIdx > 0) {
+    if (startIdx > 0 && messages.length >= startIdx) {
         const lastRenderedMsg = messages[startIdx - 1];
-        const prevGroupMember = (lastRenderedMsg.sender !== 'user' && typeof getGroupMemberForMessage === 'function') ? getGroupMemberForMessage(lastRenderedMsg.id) : null;
-        lastSenderRef.current = prevGroupMember ? ('group_' + prevGroupMember.name) : lastRenderedMsg.sender;
+        if (lastRenderedMsg) {
+            const prevGroupMember = (lastRenderedMsg.sender !== 'user' && typeof getGroupMemberForMessage === 'function') ? getGroupMemberForMessage(lastRenderedMsg.id) : null;
+            lastSenderRef.current = prevGroupMember ? ('group_' + prevGroupMember.name) : lastRenderedMsg.sender;
+        }
     }
     batch.forEach((msg, i) => {
         const globalIdx = startIdx + i;
@@ -973,11 +975,11 @@ if (customIntros && customIntros.length > 0) {
 function manageAutoSendTimer() {
     if (autoSendTimer) {
         clearInterval(autoSendTimer);
-        clearTimeout(autoSendTimer);
         autoSendTimer = null;
     }
     if (settings.autoSendEnabled) {
-        const intervalMs = settings.autoSendInterval * 60 * 1000;
+        const interval = settings.autoSendInterval || 5;
+        const intervalMs = interval * 60 * 1000;
         autoSendTimer = setInterval(function() {
             if (document.body.classList.contains('batch-favorite-mode')) return;
             // 防止切回前台时浏览器批量回调导致洪水：检查距离上次回复是否已过足够间隔
@@ -2066,7 +2068,12 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                      
                      settings.partnerName = nextPersona.name;
                      DOMElements.partner.name.textContent = nextPersona.name;
-                     
+
+                     // 同步更新前台服务通知昵称
+                     if (typeof ForegroundBridge !== 'undefined') {
+                         ForegroundBridge.updateNotification();
+                     }
+
                      if (nextPersona.avatar) {
                          updateAvatar(DOMElements.partner.avatar, nextPersona.avatar);
                          localforage.setItem(getStorageKey('partnerAvatar'), nextPersona.avatar);
@@ -2704,7 +2711,10 @@ function showModal(modalElement, focusElement = null) {
                         closeDialog();
 
                         if (doMsgs) {
-                            messages = importedData.messages.map(m => ({ ...m, timestamp: new Date(m.timestamp) }));
+                            messages = importedData.messages.map(m => {
+                                const ts = new Date(m.timestamp);
+                                return { ...m, timestamp: isNaN(ts.getTime()) ? new Date() : ts };
+                            });
                         }
                         if (doSettings) {
                             if (importedData.settings) {

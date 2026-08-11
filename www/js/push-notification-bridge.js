@@ -101,7 +101,7 @@
     // ====== 发送自定义通知插件 ======
     function _sendViaCustomPlugin(title, body) {
         if (!_notifPlugin) return Promise.resolve(false);
-        var id = Date.now() + Math.floor(Math.random() * 10000);
+        var id = (Date.now() + Math.floor(Math.random() * 10000)) % 1000000;
         return _notifPlugin.send({
             title: title,
             body: body,
@@ -119,7 +119,7 @@
     function _sendViaLocalNotif(title, body) {
         if (!_lnPlugin) return Promise.resolve(false);
         var now = Date.now();
-        var id = now + Math.floor(Math.random() * 10000);
+        var id = (now + Math.floor(Math.random() * 10000)) % 1000000;
         return _lnPlugin.schedule({
             notifications: [{
                 title: title,

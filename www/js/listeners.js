@@ -2695,8 +2695,8 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
         if (index < 0) index = songs.length - 1;
 
         const song = songs[index];
-        document.getElementById('music-title').innerText = song.title;
-        document.getElementById('music-subtitle').innerText = song.sub;
+        document.getElementById('music-title').innerText = song.title || '未知歌曲';
+        document.getElementById('music-subtitle').innerText = song.sub || '';
         
         if (song.url) audio.src = song.url;
         updatePlaylistHighlight();
@@ -2896,7 +2896,7 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
 
                     // 补全缺失的 title/sub 字段
                     validSongs.forEach(s => {
-                        if (!s.title) s.title = s.url.split('/').pop() || '未知歌曲';
+                        if (!s.title) s.title = (typeof s.url === 'string' ? s.url.split('/').pop() : '') || '未知歌曲';
                         if (!s.sub) s.sub = '';
                     });
 
@@ -2940,8 +2940,8 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
         container.innerHTML = '';
         
         const filteredSongs = songs.map((s, i) => ({...s, originalIndex: i}))
-                                   .filter(s => s.title.toLowerCase().includes(searchTerm) || 
-                                                s.sub.toLowerCase().includes(searchTerm));
+                                   .filter(s => (s.title || '').toLowerCase().includes(searchTerm) || 
+                                                (s.sub || '').toLowerCase().includes(searchTerm));
 
         if (filteredSongs.length === 0) {
             container.innerHTML = `<div class="empty-search-result">未找到 "${searchTerm}" 相关歌曲</div>`;
@@ -2957,7 +2957,8 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
 
             const highlightText = (text, term) => {
                 if (!term) return text;
-                const regex = new RegExp(`(${term})`, 'gi');
+                const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`(${escaped})`, 'gi');
                 return text.replace(regex, '<span class="highlight">$1</span>');
             };
 

@@ -63,7 +63,18 @@ async function checkEnvelopeStatus() {
     });
     if (changed) {
         saveEnvelopeData();
-        if (newReplyLetter) showEnvelopeReplyPopup(newReplyLetter);
+        if (newReplyLetter) {
+            showEnvelopeReplyPopup(newReplyLetter);
+            try {
+                if (typeof window._sendPartnerNotification === 'function') {
+                    const partnerName = (typeof settings !== 'undefined' && settings.partnerName) || '对方';
+                    const preview = newReplyLetter.content.length > 20
+                        ? newReplyLetter.content.substring(0, 20) + '…'
+                        : newReplyLetter.content;
+                    window._sendPartnerNotification('💌 收到' + partnerName + '的回信', preview);
+                }
+            } catch (e) { console.warn('[envelope] 回信通知推送失败:', e); }
+        }
         if (typeof renderEnvelopeLists === 'function') { try { renderEnvelopeLists(); } catch(e) {} }
     }
 
@@ -93,6 +104,13 @@ window._generatePartnerLetter = function() {
     envelopeData.inbox.push(inboxLetter);
     saveEnvelopeData();
     showEnvelopeReplyPopup(inboxLetter);
+    try {
+        if (typeof window._sendPartnerNotification === 'function') {
+            const partnerName = (typeof settings !== 'undefined' && settings.partnerName) || '对方';
+            const preview = content.length > 20 ? content.substring(0, 20) + '…' : content;
+            window._sendPartnerNotification('💌 ' + partnerName + '给你写了一封信', preview);
+        }
+    } catch (e) { console.warn('[envelope] 主动来信通知推送失败:', e); }
     if (typeof renderEnvelopeLists === 'function') { try { renderEnvelopeLists(); } catch(e) {} }
 };
 

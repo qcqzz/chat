@@ -116,9 +116,10 @@ function deduplicateContentArray(arr, baseSystemArray = []) {
                     reader.onload = function () {
                         window.Android.downloadFile(reader.result, fileName, blob.type);
                     };
-                    reader.readAsDataURL(reader.result);
-                    // FileReader 不支持直接读 blob 为 dataURL，改用下面的方式
-                    _webViewDataUrlFallback(blob, fileName);
+                    reader.onerror = function () {
+                        _webViewDataUrlFallback(blob, fileName);
+                    };
+                    reader.readAsDataURL(blob);
                     return;
                 }
                 // 方案3: 用 data URL 在新窗口打开（部分 WebView 会触发下载）
@@ -879,9 +880,19 @@ function _showUpdateModal(latestTag, currentVer, downloadUrl) {
     var progressSection = document.getElementById('update-progress-section');
     var infoSection = document.getElementById('update-info-section');
     var buttonsSection = document.getElementById('update-buttons-section');
+    var githubBtn = document.getElementById('update-github-btn');
     if (progressSection) progressSection.style.display = 'none';
     if (infoSection) infoSection.style.display = '';
     if (buttonsSection) buttonsSection.style.display = '';
+    if (githubBtn) {
+        githubBtn.style.display = '';
+        githubBtn.textContent = '';
+        var ghIcon = document.createElement('i');
+        ghIcon.className = 'fab fa-github';
+        ghIcon.style.marginRight = '4px';
+        githubBtn.appendChild(ghIcon);
+        githubBtn.appendChild(document.createTextNode('GitHub 下载'));
+    }
 
     // 保存待处理信息
     _updatePendingInfo = { latestTag: latestTag, downloadUrl: downloadUrl };
@@ -897,6 +908,22 @@ function _showUpdateModal(latestTag, currentVer, downloadUrl) {
             localforage.setItem(ignoredKey, _updatePendingInfo.latestTag).catch(function () {});
             if (typeof hideModal === 'function') hideModal(modal);
             _updatePendingInfo = null;
+        });
+    }
+
+    if (githubBtn && !githubBtn._updateBound) {
+        githubBtn._updateBound = true;
+        githubBtn.addEventListener('click', function () {
+            // 跳转到 GitHub Release 页面，用户可手动下载 APK
+            if (typeof showNotification === 'function') showNotification('正在跳转 GitHub Release...', 'info', 2000);
+            try { window.open(GITHUB_RELEASES_URL, '_blank'); } catch (e) {
+                // WebView 环境兜底：用 location.href（如果支持）
+                if (window.Android && typeof window.Android.openUrl === 'function') {
+                    window.Android.openUrl(GITHUB_RELEASES_URL);
+                } else {
+                    location.href = GITHUB_RELEASES_URL;
+                }
+            }
         });
     }
 
@@ -1018,14 +1045,27 @@ function _downloadAndInstallApk(downloadUrl, version) {
     function onError(msg) {
         console.warn('[update] 下载失败:', msg);
         if (progressText) progressText.textContent = '下载失败';
-        if (progressStatus) progressStatus.textContent = msg || '请检查网络后重试';
-        if (typeof showNotification === 'function') showNotification('下载失败，请重试', 'error', 3000);
+        if (progressStatus) progressStatus.textContent = (msg || '请检查网络后重试') + '（可点击下方按钮跳转 GitHub 手动下载）';
+        if (typeof showNotification === 'function') showNotification('下载失败，请重试或跳转 GitHub 手动下载', 'error', 4000);
         if (buttonsSection) buttonsSection.style.display = '';
         if (progressSection) progressSection.style.display = 'none';
+        var githubBtn = document.getElementById('update-github-btn');
+        if (githubBtn) {
+            githubBtn.style.display = '';
+            githubBtn.textContent = '';
+            var ghIcon = document.createElement('i');
+            ghIcon.className = 'fab fa-github';
+            ghIcon.style.marginRight = '4px';
+            githubBtn.appendChild(ghIcon);
+            githubBtn.appendChild(document.createTextNode('GitHub 下载'));
+        }
+        var ignoreBtn = document.getElementById('update-ignore-btn');
+        if (ignoreBtn) ignoreBtn.style.display = 'none';
         var downloadBtn = document.getElementById('update-download-btn');
         if (downloadBtn) {
             downloadBtn.textContent = '重试更新';
             downloadBtn.onclick = function () {
+                if (ignoreBtn) ignoreBtn.style.display = '';
                 if (buttonsSection) buttonsSection.style.display = 'none';
                 if (progressSection) progressSection.style.display = '';
                 _downloadAndInstallApk(downloadUrl, version);
