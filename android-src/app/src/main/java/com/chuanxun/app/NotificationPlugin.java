@@ -100,7 +100,6 @@ public class NotificationPlugin extends Plugin {
             .setVibrate(new long[]{0, 300, 200, 300})
             .setGroup("chuanxun-partner")
             .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_ALL)
-            .setShowBadge(true)
             .setWhen(System.currentTimeMillis())
             .setOnlyAlertOnce(false);
 
