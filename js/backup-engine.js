@@ -675,7 +675,7 @@
             var targetLsKey = needRemap ? remapLfKey(k, backupSid, curSid, appPfx) : k;
             try {
                 var lsv = processLocalStorageValueForImport(lsRaw[k], mediaStore);
-                if (typeof lsv === 'string' && lsv.indexOf('data:image/') === 0 && lsv.length > 2000) continue;
+                if (typeof lsv === 'string' && lsv.indexOf('data:image/') === 0 && lsv.length > 500000) continue;
                 localStorage.setItem(targetLsKey, lsv);
             } catch (e2) {
                 console.warn('[backup] localStorage 恢复失败', targetLsKey, e2);

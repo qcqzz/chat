@@ -108,6 +108,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                     console.error('[visibilitychange] 保存失败:', e);
                 }
             } else if (document.visibilityState === 'visible') {
+                // 回到前台时：如果距离上次回复已超过自动发送间隔，立即补发一条消息
+                // 不需要重启定时器，setInterval 在后台也会持续触发（只是可能被节流）
+                try {
+                    if (typeof settings !== 'undefined' && settings.autoSendEnabled && window._lastReplyTs) {
+                        var intervalMs = (settings.autoSendInterval || 5) * 60 * 1000;
+                        var elapsed = Date.now() - window._lastReplyTs;
+                        if (elapsed >= intervalMs && typeof simulateReply === 'function') {
+                            // 清除防抖锁，确保本次能正常触发
+                            window._simulateReplyLockUntil = 0;
+                            simulateReply();
+                        }
+                    }
+                } catch(e) { console.warn('[visibilitychange] 补发消息失败:', e); }
+
                 try {
                     const backup = typeof _tryRecoverFromBackup === 'function' ? _tryRecoverFromBackup() : null;
                     if (backup && Array.isArray(backup.messages) && backup.messages.length > 0 && Array.isArray(messages) && backup.messages.length > messages.length) {
@@ -193,99 +207,98 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateLoader('加载遇到问题，已强制进入...', '100%');
         setTimeout(hideWelcomeScreen, 3500);
     }
-});
-const stickerInput = document.getElementById('sticker-file-input');
-            if (stickerInput) {
-                stickerInput.addEventListener('change', async (e) => {
-                    const files = Array.from(e.target.files);
-                    if (!files.length) return;
 
-                    const oversized = files.filter(f => f.size > 2 * 1024 * 1024);
-                    if (oversized.length > 0) {
-                        showNotification(oversized.length + ' 张图片超过 2MB 限制，已跳过', 'warning');
-                    }
+    // 贴纸上传事件监听（在 DOMContentLoaded 内确保元素已存在）
+    const stickerInput = document.getElementById('sticker-file-input');
+    if (stickerInput) {
+        stickerInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            if (!files.length) return;
 
-                    const validFiles = files.filter(f => f.size <= 2 * 1024 * 1024);
-                    if (!validFiles.length) return;
+            const oversized = files.filter(f => f.size > 2 * 1024 * 1024);
+            if (oversized.length > 0) {
+                showNotification(oversized.length + ' 张图片超过 2MB 限制，已跳过', 'warning');
+            }
 
-                    showNotification('正在批量处理 ' + validFiles.length + ' 张图片...', 'info');
+            const validFiles = files.filter(f => f.size <= 2 * 1024 * 1024);
+            if (!validFiles.length) return;
 
-                    let successCount = 0;
-                    let failCount = 0;
-                    const cloudReady = !!(window.CloudMedia && window.CloudSync && window.CloudSync.isConnected());
+            showNotification('正在批量处理 ' + validFiles.length + ' 张图片...', 'info');
 
-                    for (const file of validFiles) {
+            let successCount = 0;
+            let failCount = 0;
+            const cloudReady = !!(window.CloudMedia && window.CloudSync && window.CloudSync.isConnected());
+
+            for (const file of validFiles) {
+                try {
+                    const base64 = await optimizeImage(file, 300, 0.8);
+                    let toStore = base64;
+                    if (cloudReady) {
                         try {
-                            const base64 = await optimizeImage(file, 300, 0.8);
-                            let toStore = base64;
-                            // 阶段三B：连了云端就上传，本地只存 oss:// 引用
-                            if (cloudReady) {
-                                try {
-                                    const r = await window.CloudMedia.upload(base64, 'stickers');
-                                    toStore = r.url;
-                                } catch (upErr) {
-                                    console.warn('[cloud-media] 贴纸上传失败，降级本地', upErr);
-                                    // toStore 保持 base64
-                                }
-                            }
-                            stickerLibrary.push(toStore);
-                            successCount++;
-                        } catch (err) {
-                            console.error(err);
-                            failCount++;
+                            const r = await window.CloudMedia.upload(base64, 'stickers');
+                            toStore = r.url;
+                        } catch (upErr) {
+                            console.warn('[cloud-media] 贴纸上传失败，降级本地', upErr);
                         }
                     }
-
-                    throttledSaveData();
-                    renderReplyLibrary();
-
-                    if (failCount > 0) {
-                        showNotification('上传完成：' + successCount + ' 张成功，' + failCount + ' 张失败', 'warning');
-                    } else {
-                        showNotification('上传成功，共 ' + successCount + ' 张', 'success');
-                    }
-
-                    e.target.value = '';
-                });
-            }
-const myStickerQuickUpload = document.getElementById('my-sticker-quick-upload');
-if (myStickerQuickUpload) {
-    myStickerQuickUpload.addEventListener('change', async (e) => {
-        const files = Array.from(e.target.files);
-        if (!files.length) return;
-        const oversized = files.filter(f => f.size > 2 * 1024 * 1024);
-        if (oversized.length > 0) showNotification(oversized.length + ' 张图片超过 2MB，已跳过', 'warning');
-        const validFiles = files.filter(f => f.size <= 2 * 1024 * 1024);
-        if (!validFiles.length) return;
-        showNotification('正在处理 ' + validFiles.length + ' 张...', 'info');
-        let ok = 0, fail = 0;
-        const newStickers = [];
-        const cloudReady = !!(window.CloudMedia && window.CloudSync && window.CloudSync.isConnected());
-        for (const file of validFiles) {
-            try {
-                const base64 = await optimizeImage(file, 300, 0.8);
-                let toStore = base64;
-                if (cloudReady) {
-                    try {
-                        const r = await window.CloudMedia.upload(base64, 'my-stickers');
-                        toStore = r.url;
-                    } catch (upErr) {
-                        console.warn('[cloud-media] 我的贴纸上传失败，降级本地', upErr);
-                    }
+                    stickerLibrary.push(toStore);
+                    successCount++;
+                } catch (err) {
+                    console.error(err);
+                    failCount++;
                 }
-                newStickers.push(toStore);
-                ok++;
-            } catch(err) { fail++; }
-        }
-        // 新表情插到最前面，批量上传时保持原顺序
-        myStickerLibrary.unshift(...newStickers);
-        throttledSaveData();
-        if (typeof renderComboContent === 'function') renderComboContent('my-sticker');
-        showNotification(fail > 0 ? `上传完成：${ok} 成功 ${fail} 失败` : `✓ 已添加 ${ok} 张到我的表情库`, fail > 0 ? 'warning' : 'success');
-        e.target.value = '';
-    });
-}
+            }
 
+            throttledSaveData();
+            renderReplyLibrary();
+
+            if (failCount > 0) {
+                showNotification('上传完成：' + successCount + ' 张成功，' + failCount + ' 张失败', 'warning');
+            } else {
+                showNotification('上传成功，共 ' + successCount + ' 张', 'success');
+            }
+
+            e.target.value = '';
+        });
+    }
+
+    const myStickerQuickUpload = document.getElementById('my-sticker-quick-upload');
+    if (myStickerQuickUpload) {
+        myStickerQuickUpload.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            if (!files.length) return;
+            const oversized = files.filter(f => f.size > 2 * 1024 * 1024);
+            if (oversized.length > 0) showNotification(oversized.length + ' 张图片超过 2MB，已跳过', 'warning');
+            const validFiles = files.filter(f => f.size <= 2 * 1024 * 1024);
+            if (!validFiles.length) return;
+            showNotification('正在处理 ' + validFiles.length + ' 张...', 'info');
+            let ok = 0, fail = 0;
+            const newStickers = [];
+            const cloudReady = !!(window.CloudMedia && window.CloudSync && window.CloudSync.isConnected());
+            for (const file of validFiles) {
+                try {
+                    const base64 = await optimizeImage(file, 300, 0.8);
+                    let toStore = base64;
+                    if (cloudReady) {
+                        try {
+                            const r = await window.CloudMedia.upload(base64, 'my-stickers');
+                            toStore = r.url;
+                        } catch (upErr) {
+                            console.warn('[cloud-media] 我的贴纸上传失败，降级本地', upErr);
+                        }
+                    }
+                    newStickers.push(toStore);
+                    ok++;
+                } catch(err) { fail++; }
+            }
+            myStickerLibrary.unshift(...newStickers);
+            throttledSaveData();
+            if (typeof renderComboContent === 'function') renderComboContent('my-sticker');
+            showNotification(fail > 0 ? `上传完成：${ok} 成功 ${fail} 失败` : `✓ 已添加 ${ok} 张到我的表情库`, fail > 0 ? 'warning' : 'success');
+            e.target.value = '';
+        });
+    }
+});
 // 启动时检查闪退未结束的陪伴会话（独立于 load 事件，确保一定执行）
 (function() {
     function _cdRecLog(msg, data) {

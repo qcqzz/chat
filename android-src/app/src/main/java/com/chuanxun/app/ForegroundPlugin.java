@@ -46,7 +46,11 @@ public class ForegroundPlugin extends Plugin {
         Intent updateIntent = new Intent(getContext(), ForegroundService.class);
         updateIntent.setAction("UPDATE_NOTIFICATION");
         updateIntent.putExtra("partnerName", partnerName);
-        getContext().startService(updateIntent);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getContext().startForegroundService(updateIntent);
+        } else {
+            getContext().startService(updateIntent);
+        }
         call.resolve();
     }
 

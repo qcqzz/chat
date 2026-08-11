@@ -511,7 +511,7 @@ const loadData = async () => {
 
         if (savedMessages && Array.isArray(savedMessages)) {
             messages = savedMessages.map(m => ({
-                ...m, timestamp: new Date(m.timestamp)
+                ...m, timestamp: (m.timestamp instanceof Date) ? m.timestamp : new Date(m.timestamp || Date.now())
             }));
         } else {
             const backup = _tryRecoverFromBackup();
@@ -519,7 +519,7 @@ const loadData = async () => {
                 const timeSince = Math.round((Date.now() - backup.ts) / 60000);
                 console.warn(`[loadData] 主存储无消息，正在从备份恢复（备份时间：${timeSince} 分钟前）`);
                 messages = backup.messages.map(m => ({
-                    ...m, timestamp: new Date(m.timestamp)
+                    ...m, timestamp: (m.timestamp instanceof Date) ? m.timestamp : new Date(m.timestamp || Date.now())
                 }));
                 if (backup.settings) Object.assign(settings, backup.settings);
                 if (backup.anniversaries && Array.isArray(backup.anniversaries)) {
@@ -808,15 +808,19 @@ const saveData = async () => {
 
         function initializeRandomUI() {
 
+            const mottoEl = document.querySelector('.header-motto');
+            if (mottoEl) {
+                if (customMottos && customMottos.length > 0) {
+                    mottoEl.textContent = getRandomItem(customMottos);
+                } else {
+                    mottoEl.textContent = '';
+                }
+            }
 
-            document.querySelector('.header-motto').textContent = getRandomItem(CONSTANTS.HEADER_MOTTOS);
-if (customMottos && customMottos.length > 0) {
-    document.querySelector('.header-motto').textContent = getRandomItem(customMottos);
-} else {
-    document.querySelector('.header-motto').textContent = '';
-}
             const placeholder = "";
-            DOMElements.messageInput.placeholder = placeholder.length > 20 ? placeholder.substring(0, 20) + "...": placeholder;
+            if (DOMElements.messageInput) {
+                DOMElements.messageInput.placeholder = placeholder.length > 20 ? placeholder.substring(0, 20) + "..." : placeholder;
+            }
 
 
             const starsContainer = document.getElementById('stars-container');
@@ -969,15 +973,19 @@ if (customIntros && customIntros.length > 0) {
 function manageAutoSendTimer() {
     if (autoSendTimer) {
         clearInterval(autoSendTimer);
+        clearTimeout(autoSendTimer);
         autoSendTimer = null;
     }
     if (settings.autoSendEnabled) {
         const intervalMs = settings.autoSendInterval * 60 * 1000;
-        
-        autoSendTimer = setInterval(() => {
-            if (!document.body.classList.contains('batch-favorite-mode')) {
-                simulateReply(); 
+        autoSendTimer = setInterval(function() {
+            if (document.body.classList.contains('batch-favorite-mode')) return;
+            // 防止切回前台时浏览器批量回调导致洪水：检查距离上次回复是否已过足够间隔
+            var now = Date.now();
+            if (window._lastReplyTs && (now - window._lastReplyTs) < (intervalMs - 2000)) {
+                return;
             }
+            simulateReply();
         }, intervalMs);
     }
 }
@@ -2010,6 +2018,14 @@ if (!isBatchMode && type === 'normal') {
         };
 
         window.simulateReply = function() {
+            // 防抖：2 秒内不重复触发，防止切回前台时浏览器批量回调导致洪水
+            var now = Date.now();
+            if (window._simulateReplyLockUntil && now < window._simulateReplyLockUntil) {
+                return;
+            }
+            window._simulateReplyLockUntil = now + 2000;
+            window._lastReplyTs = now;
+
             function showTypingIndicator() {
                 if (!settings.typingIndicatorEnabled) return;
                 const tiWrapper = document.getElementById('typing-indicator-wrapper');

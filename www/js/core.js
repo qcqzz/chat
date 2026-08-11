@@ -969,15 +969,19 @@ if (customIntros && customIntros.length > 0) {
 function manageAutoSendTimer() {
     if (autoSendTimer) {
         clearInterval(autoSendTimer);
+        clearTimeout(autoSendTimer);
         autoSendTimer = null;
     }
     if (settings.autoSendEnabled) {
         const intervalMs = settings.autoSendInterval * 60 * 1000;
-        
-        autoSendTimer = setInterval(() => {
-            if (!document.body.classList.contains('batch-favorite-mode')) {
-                simulateReply(); 
+        autoSendTimer = setInterval(function() {
+            if (document.body.classList.contains('batch-favorite-mode')) return;
+            // 防止切回前台时浏览器批量回调导致洪水：检查距离上次回复是否已过足够间隔
+            var now = Date.now();
+            if (window._lastReplyTs && (now - window._lastReplyTs) < (intervalMs - 2000)) {
+                return;
             }
+            simulateReply();
         }, intervalMs);
     }
 }
@@ -2010,6 +2014,14 @@ if (!isBatchMode && type === 'normal') {
         };
 
         window.simulateReply = function() {
+            // 防抖：2 秒内不重复触发，防止切回前台时浏览器批量回调导致洪水
+            var now = Date.now();
+            if (window._simulateReplyLockUntil && now < window._simulateReplyLockUntil) {
+                return;
+            }
+            window._simulateReplyLockUntil = now + 2000;
+            window._lastReplyTs = now;
+
             function showTypingIndicator() {
                 if (!settings.typingIndicatorEnabled) return;
                 const tiWrapper = document.getElementById('typing-indicator-wrapper');

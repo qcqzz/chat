@@ -2878,17 +2878,38 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
             if (!file) return;
 
             const reader = new FileReader();
+            reader.onerror = () => {
+                showNotification('文件读取失败，请重试', 'error');
+            };
             reader.onload = (ev) => {
                 try {
                     const importedSongs = JSON.parse(ev.target.result);
                     if (!Array.isArray(importedSongs)) throw new Error('格式错误');
-                    
-                    if (confirm(`检测到 ${importedSongs.length} 首歌曲。\n点击【确定】覆盖当前歌单\n点击【取消】追加到当前歌单末尾`)) {
-                        songs = importedSongs;
+
+                    // 过滤掉缺少 url 字段的无效歌曲
+                    const validSongs = importedSongs.filter(s => s && typeof s.url === 'string' && s.url.trim());
+                    const skippedCount = importedSongs.length - validSongs.length;
+                    if (validSongs.length === 0) {
+                        showNotification('导入失败：文件中没有有效的歌曲（缺少 url 字段）', 'error');
+                        return;
+                    }
+
+                    // 补全缺失的 title/sub 字段
+                    validSongs.forEach(s => {
+                        if (!s.title) s.title = s.url.split('/').pop() || '未知歌曲';
+                        if (!s.sub) s.sub = '';
+                    });
+
+                    const msg = skippedCount > 0
+                        ? `检测到 ${importedSongs.length} 首歌曲，其中 ${validSongs.length} 首有效${skippedCount > 0 ? '（' + skippedCount + ' 首缺少链接已跳过）' : ''}。\n点击【确定】覆盖当前歌单\n点击【取消】追加到当前歌单末尾`
+                        : `检测到 ${validSongs.length} 首歌曲。\n点击【确定】覆盖当前歌单\n点击【取消】追加到当前歌单末尾`;
+
+                    if (confirm(msg)) {
+                        songs = validSongs;
                         showNotification('歌单已覆盖', 'success');
                     } else {
-                        songs = [...songs, ...importedSongs];
-                        showNotification(`已追加 ${importedSongs.length} 首歌曲`, 'success');
+                        songs = [...songs, ...validSongs];
+                        showNotification(`已追加 ${validSongs.length} 首歌曲`, 'success');
                     }
                     
                     savePlaylist();

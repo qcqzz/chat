@@ -50,16 +50,19 @@ public class NotificationPlugin extends Plugin {
                 channel.enableVibration(true);
                 channel.enableLights(true);
                 channel.setBypassDnd(true);
+                channel.setShowBadge(true);
                 manager.createNotificationChannel(channel);
                 Log.i(TAG, "Notification channel created: " + CHANNEL_ID);
             } else {
-                // 确保已有 channel 也启用了振动和免打扰绕过
+                // 确保已有 channel 也启用了振动、免打扰绕过和锁屏显示
                 if (existing.getImportance() < NotificationManager.IMPORTANCE_HIGH) {
                     existing.setImportance(NotificationManager.IMPORTANCE_HIGH);
                 }
+                existing.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
                 existing.enableVibration(true);
                 existing.enableLights(true);
                 existing.setBypassDnd(true);
+                existing.setShowBadge(true);
                 manager.createNotificationChannel(existing);
                 Log.i(TAG, "Notification channel updated: " + CHANNEL_ID);
             }
@@ -85,7 +88,7 @@ public class NotificationPlugin extends Plugin {
         );
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_stat_notification)
             .setContentTitle(title)
             .setContentText(body)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -94,7 +97,12 @@ public class NotificationPlugin extends Plugin {
             .setContentIntent(pendingIntent)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
-            .setVibrate(new long[]{0, 300, 200, 300});
+            .setVibrate(new long[]{0, 300, 200, 300})
+            .setGroup("chuanxun-partner")
+            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_ALL)
+            .setShowBadge(true)
+            .setWhen(System.currentTimeMillis())
+            .setOnlyAlertOnce(false);
 
         // Android 10+ 需要 FullScreenIntent 才能在锁屏/其他 APP 前台时弹出提醒
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -206,8 +214,8 @@ public class NotificationPlugin extends Plugin {
                 Log.i(TAG, "Downloading APK from: " + urlStr);
                 URL url = new URL(urlStr);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setConnectTimeout(30000);
-                conn.setReadTimeout(120000);
+                conn.setConnectTimeout(60000);
+                conn.setReadTimeout(300000);
                 conn.setInstanceFollowRedirects(true);
                 conn.connect();
 

@@ -215,6 +215,7 @@ function renderReplyLibrary() {
         });
     }
 
+    const savedScrollTop = list.scrollTop;
     list.innerHTML = '';
     list.className = 'content-list-area';
 
@@ -251,6 +252,7 @@ function renderReplyLibrary() {
 
     if (filtered.length === 0) {
         list.innerHTML = renderEmptyState(q ? `未找到"${q}"` : '列表空空如也');
+        list.scrollTop = savedScrollTop;
         return;
     }
 
@@ -259,6 +261,7 @@ function renderReplyLibrary() {
     } else {
         _renderAtmosphereList(list, filtered);
     }
+    list.scrollTop = savedScrollTop;
 }
 
 function _renderModernToolbar() {

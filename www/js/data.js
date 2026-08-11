@@ -63,7 +63,7 @@
         +     '</div>'
         +     '<div class="dm-row-item" id="check-update-row" style="cursor:pointer">'
         +       '<div class="dm-row-icon green"><i class="fas fa-sync-alt"></i></div>'
-        +       '<div class="dm-row-info"><div class="dm-row-title">检查更新</div><div class="dm-row-desc" id="dm-update-status">当前版本 v1.4.0</div></div>'
+        +       '<div class="dm-row-info"><div class="dm-row-title">检查更新</div><div class="dm-row-desc" id="dm-update-status">当前版本 v1.5.0</div></div>'
         +       '<button class="dm-nav-btn" id="check-update-dm-btn"><i class="fas fa-chevron-right"></i></button>'
         +     '</div>'
         +   '</div>'
@@ -551,12 +551,16 @@ window._sendPartnerNotification = function(title, body) {
         return;
     }
 
+    // APK 环境检测（即使 PushBridge 未就绪）
+    var isApk = !!(window.Capacitor && window.Capacitor.Plugins);
+
     // 回退：原有的 Web Notification API
     try {
         if (localStorage.getItem('notifEnabled') !== '1') return;
         if (!('Notification' in window)) return;
         if (Notification.permission !== 'granted') return;
-        if (!document.hidden) return;
+        // APK 模式下不检查 document.hidden，确保无论前台/息屏都能推送通知
+        if (!isApk && !document.hidden) return;
         new Notification(title || '传讯', {
             body: body || '对方发来了消息',
             icon: (document.querySelector('#partner-avatar img') || {}).src,
