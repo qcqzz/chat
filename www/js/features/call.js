@@ -730,7 +730,8 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
                 const partnerName = getName();
                 window._sendPartnerNotification(
                     partnerName + ' 正在邀请你视频通话',
-                    '快接听吧 📹'
+                    '快接听吧 📹',
+                    { urgent: true } // 视频邀请用紧急模式：全屏弹窗等待用户接听，类似微信来电
                 );
             }
         } catch (e) { console.warn('[call] invite notification error:', e); }

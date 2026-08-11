@@ -684,6 +684,7 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
     const autoToggle = document.getElementById('auto-send-toggle');
     if (autoToggle) autoToggle.classList.toggle('active', !!settings.autoSendEnabled);
     updateAutoSendUI();
+    if (typeof updateCombineCardsUI === 'function') updateCombineCardsUI(); // 每次打开设置都重新刷新一次，跟"主动发消息"那个开关同样的做法，避免显示的还是网页刚启动、设置数据还没读完时的旧状态
     updateDelayUI();
     const immToggle = document.getElementById('immersive-toggle');
     if (immToggle) immToggle.classList.toggle('active', document.body.classList.contains('immersive-mode'));
@@ -1565,7 +1566,14 @@ updateCombineCardsUI();
 combineCardsToggle.addEventListener('click', () => {
     settings.combineReplyCards = !settings.combineReplyCards;
     updateCombineCardsUI();
-    throttledSaveData();
+    // 开关这种一次性点击的操作，不能用"等0.5秒再存"的节流保存——万一点完立刻退出网页，
+    // 这0.5秒还没到就直接白点了，等于没保存。改成点了立刻存，不等待
+    if (typeof saveData === 'function') {
+        try {
+            const p = saveData();
+            if (p && typeof p.catch === 'function') p.catch(e => console.error('[回复拼接字卡] 保存失败:', e));
+        } catch (e) { console.error('[回复拼接字卡] 保存失败:', e); }
+    }
     showNotification(`回复拼接字卡已${settings.combineReplyCards ? '开启' : '关闭'}`, 'success');
 });
 

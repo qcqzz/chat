@@ -240,7 +240,9 @@
             'background:rgba(0,0,0,0.5)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'opacity:1', 'pointer-events:all',
-            'animation:companionFadeIn 0.25s ease'
+            'animation:companionFadeIn 0.25s ease',
+            'backdrop-filter:blur(8px)',
+            '-webkit-backdrop-filter:blur(8px)'
         ].join(';'));
 
         modal.innerHTML = `
@@ -679,6 +681,8 @@
         const ok = await ensureDataLoaded();
         if (!ok) return;
 
+        // 观影中，或者快到约定观影时间了（2小时内），不弹陪伴邀请
+        if (typeof window._cinemaShouldBlockInterruptions === 'function' && window._cinemaShouldBlockInterruptions()) return;
         // 如果当前已经在陪伴中或有其他陪伴弹窗/过渡画面在，跳过
         if (document.getElementById('companion-page')?.classList.contains('active')) return;
         if (document.querySelector('#companion-inviting-overlay, #companion-incoming-overlay, #companion-modal-dynamic, #setup-modal-dynamic, #time-modal-dynamic, .companion-transition')) return;
@@ -818,7 +822,8 @@
                 const sceneName = MODES[mode]?.label?.replace(/^一起/, '') || '';
                 window._sendPartnerNotification(
                     partnerName + ' 邀请你陪伴',
-                    `想和你一起${sceneName}，快来看看吧 ✨`
+                    `想和你一起${sceneName}，快来看看吧 ✨`,
+                    { urgent: true } // 陪伴邀请也用紧急模式：弹出等待用户响应
                 );
             }
         } catch (e) { console.warn('[companion] invite notification error:', e); }
@@ -1189,12 +1194,14 @@
             'background:rgba(0,0,0,0.5)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'opacity:1', 'pointer-events:all',
-            'animation:companionFadeIn 0.25s ease'
+            'animation:companionFadeIn 0.25s ease',
+            'backdrop-filter:blur(8px)',
+            '-webkit-backdrop-filter:blur(8px)'
         ].join(';'));
 
         modal.innerHTML = `
             <div style="
-                background:#fff;border-radius:20px;padding:28px 24px 20px;
+                background:var(--secondary-bg, #fff);border-radius:20px;padding:28px 24px 20px;
                 width:min(92vw, 460px);max-height:85vh;overflow-y:auto;
                 box-shadow:0 20px 60px rgba(0,0,0,0.18);
                 animation:companionPopIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
@@ -3624,6 +3631,26 @@
                     cloudKey = r.cloudKey;
                 } finally {
                     clearInterval(fakeTimer);
+                }
+            } else {
+                // 没有配置云端存储：localUrl 是 blob: 临时地址，刷新后会失效，
+                // 保存时也会被专门过滤掉——图片转成本地能长期保存的 base64；
+                // 视频体积太大不适合转成base64存本地，提前告知用户，避免刷新后静默消失
+                if (isVideo) {
+                    notify('未连接云端时，视频背景刷新后会丢失，建议先配置云端存储', 'warning', 4000);
+                } else {
+                    try {
+                        mediaData = (typeof optimizeImage === 'function')
+                            ? await optimizeImage(file)
+                            : await new Promise((resolve, reject) => {
+                                const reader = new FileReader();
+                                reader.onload = () => resolve(reader.result);
+                                reader.onerror = reject;
+                                reader.readAsDataURL(file);
+                            });
+                    } catch (convErr) {
+                        console.warn('[companion] 本地转存失败，这条背景可能刷新后会丢失', convErr);
+                    }
                 }
             }
 

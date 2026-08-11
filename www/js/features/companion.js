@@ -822,7 +822,8 @@
                 const sceneName = MODES[mode]?.label?.replace(/^一起/, '') || '';
                 window._sendPartnerNotification(
                     partnerName + ' 邀请你陪伴',
-                    `想和你一起${sceneName}，快来看看吧 ✨`
+                    `想和你一起${sceneName}，快来看看吧 ✨`,
+                    { urgent: true } // 陪伴邀请也用紧急模式：弹出等待用户响应
                 );
             }
         } catch (e) { console.warn('[companion] invite notification error:', e); }

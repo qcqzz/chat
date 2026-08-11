@@ -74,6 +74,9 @@ public class NotificationPlugin extends Plugin {
         String title = call.getString("title", "传讯");
         String body = call.getString("body", "");
         int id = call.getInt("id", (int) (System.currentTimeMillis() % Integer.MAX_VALUE));
+        // urgent=true：视频邀请/来电等紧急场景，用 FullScreenIntent 弹全屏弹窗（类似微信来电）
+        // urgent=false：普通聊天消息等，只用 Heads-up 横幅，几秒后自动收回（类似微信普通消息）
+        boolean urgent = call.getBoolean("urgent", false);
 
         createChannel();
 
@@ -92,7 +95,7 @@ public class NotificationPlugin extends Plugin {
             .setContentTitle(title)
             .setContentText(body)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setCategory(urgent ? NotificationCompat.CATEGORY_CALL : NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -103,14 +106,21 @@ public class NotificationPlugin extends Plugin {
             .setWhen(System.currentTimeMillis())
             .setOnlyAlertOnce(false);
 
-        // Android 10+ 需要 FullScreenIntent 才能在锁屏/其他 APP 前台时弹出提醒
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        // 关键区分：
+        // 1) 普通消息（urgent=false）：不用 FullScreenIntent
+        //    —— 只用 PRIORITY_HIGH + IMPORTANCE_HIGH，
+        //       系统会在顶部弹出 Heads-up 横幅，几秒后自动收回，
+        //       通知留在下拉栏中等待用户点击，行为完全等同于微信普通消息。
+        // 2) 紧急场景（urgent=true）：保留 FullScreenIntent
+        //    —— 视频邀请/来电等需要立刻打断用户的场景，类似微信来电全屏弹窗，
+        //       用户手动接听/拒接或响铃超时后才会消失。
+        if (urgent && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             builder.setFullScreenIntent(pendingIntent, true);
         }
 
         try {
             NotificationManagerCompat.from(context).notify(id, builder.build());
-            Log.i(TAG, "Notification sent: id=" + id + " title=" + title);
+            Log.i(TAG, "Notification sent: id=" + id + " urgent=" + urgent + " title=" + title);
             call.resolve(new JSObject().put("success", true).put("id", id));
         } catch (SecurityException e) {
             Log.e(TAG, "Permission denied: " + e.getMessage());

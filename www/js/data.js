@@ -544,10 +544,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-window._sendPartnerNotification = function(title, body) {
+window._sendPartnerNotification = function(title, body, options) {
+    options = options || {};
     // 统一使用 PushBridge 推送层（自动适配浏览器 / APK 环境）
     if (typeof PushBridge !== 'undefined') {
-        PushBridge.send(title, body);
+        PushBridge.send(title, body, options);
         return;
     }
 
@@ -564,7 +565,7 @@ window._sendPartnerNotification = function(title, body) {
         new Notification(title || '传讯', {
             body: body || '对方发来了消息',
             icon: (document.querySelector('#partner-avatar img') || {}).src,
-            tag: 'partner-msg',
+            tag: options.urgent ? 'partner-invite' : 'partner-msg',
             renotify: true
         });
     } catch(e) {}
