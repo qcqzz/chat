@@ -218,12 +218,14 @@ public class NotificationPlugin extends Plugin {
                 conn.setInstanceFollowRedirects(true);
                 conn.connect();
 
-                if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                    Log.e(TAG, "Download failed: HTTP " + conn.getResponseCode());
-                    state.error = "HTTP " + conn.getResponseCode();
+                int responseCode = conn.getResponseCode();
+                if (responseCode != HttpURLConnection.HTTP_OK) {
+                    Log.e(TAG, "Download failed: HTTP " + responseCode);
+                    state.error = "HTTP " + responseCode;
                     state.active = false;
+                    final int code = responseCode;
                     getBridge().executeOnMainThread(() -> {
-                        call.reject("Download failed: HTTP " + conn.getResponseCode());
+                        call.reject("Download failed: HTTP " + code);
                     });
                     return;
                 }
