@@ -1,13 +1,24 @@
-name: Build APK
+name: Build APK (dual flavor)
 
 on:
   push:
     branches: [main, master]
+    paths:
+      - '.github/workflows/build-apk.yml'
+      - 'android-src/**'
+      - 'www/**'
+      - 'js/**'
+      - 'resources/**'
+      - 'capacitor.config.json'
+      - 'package.json'
+      - 'package-lock.json'
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write  # 上传 Release 需要
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -32,13 +43,13 @@ jobs:
           unzip -q cmdline-tools.zip
           mv cmdline-tools latest
           rm cmdline-tools.zip
-          
+
           # 设置环境变量
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
           echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
           echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
-          
+
           # 接受许可协议并安装 SDK
           yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
           $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" 2>&1
@@ -56,12 +67,52 @@ jobs:
           fi
           ./node_modules/.bin/cap sync
 
-      - name: 设置版本号
+      - name: 设置版本号 + 注入双 flavor 配置
         run: |
-          # 更新 versionCode 和 versionName（覆盖 Capacitor 默认值）
-          sed -i 's/versionCode 1/versionCode 10/' android/app/build.gradle
-          sed -i 's/versionName "1.0"/versionName "1.5.0"/' android/app/build.gradle
-          echo "Updated versionCode to 10, versionName to 1.5.0"
+          # 1) 更新 versionCode / versionName（覆盖 Capacitor 默认值）
+          sed -i 's/versionCode 1/versionCode 11/' android/app/build.gradle
+          sed -i 's/versionName "1.0"/versionName "1.5.0-22-25"/' android/app/build.gradle
+
+          # 2) 在 defaultConfig 之前注入 flavorDimensions + productFlavors
+          #    用 Python 精确插入，避免 sed 多行转义麻烦
+          python3 - <<'PY'
+          import re, pathlib
+          p = pathlib.Path('android/app/build.gradle')
+          txt = p.read_text(encoding='utf-8')
+
+          flavors = '''
+    flavorDimensions "variant"
+    productFlavors {
+        app22 {
+            dimension "variant"
+            applicationId "com.chuanxun.app22"
+            resValue "string", "app_name", "22"
+        }
+        app25 {
+            dimension "variant"
+            applicationId "com.chuanxun.app25"
+            resValue "string", "app_name", "25"
+        }
+    }
+'''
+
+          # 在第一个 "    defaultConfig {" 之前插入
+          new_txt, n = re.subn(r'(\n    defaultConfig \{)', flavors + r'\1', txt, count=1)
+          if n == 0:
+              raise SystemExit("没找到 defaultConfig 块，注入失败")
+          p.write_text(new_txt, encoding='utf-8')
+          print(f"注入 productFlavors 成功，匹配数={n}")
+          PY
+
+          # 3) 删除 strings.xml 里的 app_name 行（避免和 resValue 冲突 duplicate resources）
+          STRINGS=android/app/src/main/res/values/strings.xml
+          if [ -f "$STRINGS" ]; then
+            sed -i '/<string name="app_name">/d' "$STRINGS"
+            echo "strings.xml 已清理 app_name"
+          fi
+
+          echo "===== build.gradle 改动预览 ====="
+          sed -n '1,50p' android/app/build.gradle
 
       - name: 注入前台服务保活代码
         run: |
@@ -69,43 +120,43 @@ jobs:
           mkdir -p android/app/src/main/assets
           mkdir -p android/app/src/main/java/com/chuanxun/app/
           mkdir -p android/app/src/main/res/xml/
-          
+
           # file_paths.xml — FileProvider 路径配置（AndroidManifest 引用 @xml/file_paths）
           cp android-src/app/src/main/res/xml/file_paths.xml \
              android/app/src/main/res/xml/
-          
+
           # ForegroundService.java — 前台服务保活
           cp android-src/app/src/main/java/com/chuanxun/app/ForegroundService.java \
              android/app/src/main/java/com/chuanxun/app/
-          
+
           # ForegroundPlugin.java — Capacitor 插件
           cp android-src/app/src/main/java/com/chuanxun/app/ForegroundPlugin.java \
              android/app/src/main/java/com/chuanxun/app/
-          
+
           # NotificationPlugin.java — 自定义通知插件
           cp android-src/app/src/main/java/com/chuanxun/app/NotificationPlugin.java \
              android/app/src/main/java/com/chuanxun/app/
-          
+
           # KeepAliveReceiver.java — 定时唤醒接收器
           cp android-src/app/src/main/java/com/chuanxun/app/KeepAliveReceiver.java \
              android/app/src/main/java/com/chuanxun/app/
-          
+
           # BootReceiver.java — 开机自启动接收器
           cp android-src/app/src/main/java/com/chuanxun/app/BootReceiver.java \
              android/app/src/main/java/com/chuanxun/app/
-          
+
           # MainActivity.java — 启动前台服务
           cp android-src/app/src/main/java/com/chuanxun/app/MainActivity.java \
              android/app/src/main/java/com/chuanxun/app/
-          
+
           # AndroidManifest.xml — 注册服务 + 权限
           cp android-src/app/src/main/AndroidManifest.xml \
              android/app/src/main/
-          
+
           # capacitor.plugins.json — 注册插件
           cp android-src/app/src/main/assets/capacitor.plugins.json \
              android/app/src/main/assets/
-          
+
           echo "前台服务代码已注入"
 
       - name: 替换应用图标
@@ -117,7 +168,7 @@ jobs:
             cp resources/mipmap-$density/ic_launcher_foreground.png android/app/src/main/res/mipmap-$density/
           done
           echo "Icons replaced"
-          
+
           # 创建通知图标（Android 通知必需）
           for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
             mkdir -p android/app/src/main/res/drawable-$density
@@ -127,30 +178,67 @@ jobs:
           cp resources/mipmap-hdpi/ic_launcher.png android/app/src/main/res/drawable/ic_stat_notification.png
           echo "Notification icons created"
 
-      - name: 构建 APK
+      - name: 构建 APK（两个 flavor）
         run: |
           cd android
           echo "sdk.dir=$ANDROID_HOME" > local.properties
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleApp22Debug assembleApp25Debug --no-daemon
+
+          # 重命名为更直观的名字
+          cp app/build/outputs/apk/app22/debug/app22-debug.apk \
+             app/build/outputs/apk/app22/app-22.apk
+          cp app/build/outputs/apk/app25/debug/app25-debug.apk \
+             app/build/outputs/apk/app25/app-25.apk
+          ls -la app/build/outputs/apk/app22/ app/build/outputs/apk/app25/
 
       - name: 签名 APK (v1+v2+v3)
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
-          $ANDROID_HOME/build-tools/36.0.0/apksigner sign \
-            --ks release.keystore \
-            --ks-pass pass:"${{ secrets.KEYSTORE_PASSWORD }}" \
-            --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
-            --key-pass pass:"${{ secrets.KEY_PASSWORD }}" \
-            --v1-signing-enabled true \
-            --v2-signing-enabled true \
-            --v3-signing-enabled true \
-            android/app/build/outputs/apk/debug/app-debug.apk
-          $ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose android/app/build/outputs/apk/debug/app-debug.apk
+
+          for flavor in app22 app25; do
+            SHORT=$(echo $flavor | sed 's/app//')  # 22 / 25
+            SRC=android/app/build/outputs/apk/$flavor/debug/$flavor-debug.apk
+            DST=android/app/build/outputs/apk/$flavor/app-$SHORT.apk
+
+            echo "===== 签名 $flavor -> app-$SHORT.apk ====="
+            $ANDROID_HOME/build-tools/36.0.0/apksigner sign \
+              --ks release.keystore \
+              --ks-pass pass:"${{ secrets.KEYSTORE_PASSWORD }}" \
+              --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
+              --key-pass pass:"${{ secrets.KEY_PASSWORD }}" \
+              --v1-signing-enabled true \
+              --v2-signing-enabled true \
+              --v3-signing-enabled true \
+              "$DST"
+
+            $ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose "$DST" | head -10
+          done
           rm release.keystore
 
-      - name: 上传 APK
+      - name: 上传 artifact（两个 APK）
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: app-dual-flavor
+          path: |
+            android/app/build/outputs/apk/app22/app-22.apk
+            android/app/build/outputs/apk/app25/app-25.apk
+
+      - name: 上传到 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.5-22-25
+          name: "v1.5 - 双包名版本 (22 & 25)"
+          body: |
+            两个 APK 可同时安装共存（不同 applicationId）。
+
+            - **app-22.apk**: 桌面图标显示"22"，applicationId = `com.chuanxun.app22`
+            - **app-25.apk**: 桌面图标显示"25"，applicationId = `com.chuanxun.app25`
+
+            其他功能完全一致，包含 1.5 的全部修复（通知弹窗分紧急/普通模式、回复拼接字卡开关修复、悬浮音乐播放器鲁棒性修复等）。
+          files: |
+            android/app/build/outputs/apk/app22/app-22.apk
+            android/app/build/outputs/apk/app25/app-25.apk
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
