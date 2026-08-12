@@ -99,12 +99,12 @@
         const chatContainer = document.getElementById('chat-container');
         if (!chatContainer) return;
 
-        // ─────────── 视频通话按钮 ───────────
+        // ─────────── 视频通话按钮（备选绑定，主绑定在 call.js 的 bindVideocallBtn 中）───────────
         const videocallBtn = document.getElementById('videocall-btn');
-        if (videocallBtn) {
+        if (videocallBtn && !videocallBtn._callBound) {
+            videocallBtn._callBound = true;
             videocallBtn.addEventListener('click', () => {
                 if (window.callFeature && typeof window.callFeature.startCall === 'function') {
-                    // 如果通话已在进行中，恢复窗口并提示
                     if (window.callFeature.isActive && window.callFeature.isActive()) {
                         window.callFeature.restoreWindow && window.callFeature.restoreWindow();
                         if (typeof showNotification === 'function') showNotification('正在进行视频通话', 'info');

@@ -500,6 +500,19 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         anchor.parentNode.insertBefore(btn, anchor);
     }
 
+    // 绑定 HTML 中已有的 #videocall-btn（聊天框左侧视频通话按钮）
+    function bindVideocallBtn() {
+        const btn = document.getElementById('videocall-btn');
+        if (!btn || btn._callBound) return;
+        btn._callBound = true;
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (!S.enabled) return;
+            if (S.active) { restoreWindow(); return; }
+            startCall(false);
+        });
+    }
+
     function fmt(ms) {
         const s = Math.floor(ms / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60);
         return h > 0
@@ -969,10 +982,12 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         injectCSS();
         injectHTML();
         bindEvents();
+        bindVideocallBtn();
         loadBg();
 
         const late = () => {
             injectToolbarBtn();
+            bindVideocallBtn();  // 重试绑定，确保按钮存在时绑定成功
             if (S.enabled) scheduleRandomCall();
             const syncCallToggle = () => {
                 const tog = document.getElementById('call-enabled-toggle');
