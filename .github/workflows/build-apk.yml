@@ -73,45 +73,45 @@ jobs:
           sed -i 's/versionCode 1/versionCode 11/' android/app/build.gradle
           sed -i 's/versionName "1.0"/versionName "1.5.0-22-25"/' android/app/build.gradle
 
-          # 2) 在 defaultConfig 之前注入 flavorDimensions + productFlavors
-          #    用 Python 精确插入，避免 sed 多行转义麻烦
-          python3 - <<'PY'
+          # 2) 把 productFlavors 片段写到临时文件（避免 yaml 块里嵌套多行字符串触发解析错误）
+          cat > /tmp/flavors.snippet <<'EOF'
+          flavorDimensions "variant"
+          productFlavors {
+              app22 {
+                  dimension "variant"
+                  applicationId "com.chuanxun.app22"
+                  resValue "string", "app_name", "22"
+              }
+              app25 {
+                  dimension "variant"
+                  applicationId "com.chuanxun.app25"
+                  resValue "string", "app_name", "25"
+              }
+          }
+          EOF
+
+          # 3) 用 Python 在 defaultConfig 之前注入片段（给每行加 4 空格缩进匹配 build.gradle）
+          python3 -c "
           import re, pathlib
-          p = pathlib.Path('android/app/build.gradle')
-          txt = p.read_text(encoding='utf-8')
-
-          flavors = '''
-    flavorDimensions "variant"
-    productFlavors {
-        app22 {
-            dimension "variant"
-            applicationId "com.chuanxun.app22"
-            resValue "string", "app_name", "22"
-        }
-        app25 {
-            dimension "variant"
-            applicationId "com.chuanxun.app25"
-            resValue "string", "app_name", "25"
-        }
-    }
-'''
-
-          # 在第一个 "    defaultConfig {" 之前插入
-          new_txt, n = re.subn(r'(\n    defaultConfig \{)', flavors + r'\1', txt, count=1)
+          bg = pathlib.Path('android/app/build.gradle')
+          txt = bg.read_text(encoding='utf-8')
+          raw = pathlib.Path('/tmp/flavors.snippet').read_text(encoding='utf-8').splitlines()
+          snippet = '\n'.join('    ' + line if line.strip() else line for line in raw)
+          new_txt, n = re.subn(r'(\n    defaultConfig \{)', '\n' + snippet + r'\1', txt, count=1)
           if n == 0:
-              raise SystemExit("没找到 defaultConfig 块，注入失败")
-          p.write_text(new_txt, encoding='utf-8')
-          print(f"注入 productFlavors 成功，匹配数={n}")
-          PY
+              raise SystemExit('defaultConfig not found, inject failed')
+          bg.write_text(new_txt, encoding='utf-8')
+          print('injected productFlavors, matches=', n)
+          "
 
-          # 3) 删除 strings.xml 里的 app_name 行（避免和 resValue 冲突 duplicate resources）
+          # 4) 删除 strings.xml 里的 app_name 行（避免和 resValue 冲突 duplicate resources）
           STRINGS=android/app/src/main/res/values/strings.xml
           if [ -f "$STRINGS" ]; then
             sed -i '/<string name="app_name">/d' "$STRINGS"
             echo "strings.xml 已清理 app_name"
           fi
 
-          echo "===== build.gradle 改动预览 ====="
+          echo "===== build.gradle 改动预览（前 50 行） ====="
           sed -n '1,50p' android/app/build.gradle
 
       - name: 注入前台服务保活代码
