@@ -10812,12 +10812,13 @@
     display: none !important;
 }
 
-/* 顶部栏按钮顺序：情侣空间 · 陪伴 · 公告 · 设置 */
+/* 顶部栏按钮顺序：信箱 · 陪伴 · 公告 · 情侣空间 · 设置 */
 .header-actions { display: flex; }
-#couple-space-btn   { order: 1; }
-#companion-btn      { order: 2; }
-#daily-greeting-btn { order: 3; }
-#settings-btn       { order: 4; }
+#envelope-header-btn  { order: 1; }
+#companion-btn        { order: 2; }
+#daily-greeting-btn   { order: 3; }
+#moments-header-btn   { order: 4; }
+#settings-btn         { order: 5; }
 
 /* 底部输入区：隐藏让对方继续说、批量发送、发送按钮 */
 #continue-btn,
@@ -11637,7 +11638,6 @@ body #user-sticker-picker .empty-sticker-tip {
     font-size: 13px;
 }
 
-/* 高级功能里"敬请期待"占位项 */
 .settings-item.settings-item-disabled {
     opacity: 0.45;
     cursor: not-allowed;

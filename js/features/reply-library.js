@@ -215,6 +215,7 @@ function renderReplyLibrary() {
         });
     }
 
+    const savedScrollTop = list.scrollTop;
     list.innerHTML = '';
     list.className = 'content-list-area';
 

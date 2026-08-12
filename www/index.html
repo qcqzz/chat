@@ -615,6 +615,12 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
             <!-- 标题栏 -->
             <div class="cs-mood-hd">
                 <span class="cs-mood-hd-title">心情手账</span>
+                <button class="cs-icon-btn" id="mood-import-btn" title="导入">
+                    <i class="fas fa-file-import"></i>
+                </button>
+                <button class="cs-icon-btn" id="mood-export-btn" title="导出">
+                    <i class="fas fa-file-export"></i>
+                </button>
                 <button class="cs-icon-btn" id="cs-mood-trash-btn" title="回收站">
                     <i class="fas fa-recycle"></i>
                 </button>
@@ -2594,7 +2600,7 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
     <div id="lenormand-modal" style="display:none;"></div>
 
 
-    <!-- mood-modal 已移入情侣空间 #cs-panel-mood，此处保留导入导出的隐藏元素 -->
+    <!-- 心情手账导入/导出/选择器组件：已移入情侣空间 #cs-panel-mood -->
     <input type="file" id="mood-import-file-input" accept="application/json" style="display:none;">
 
     <!-- 心情手账回收站 overlay -->

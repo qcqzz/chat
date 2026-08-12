@@ -513,7 +513,7 @@ const loadData = async () => {
 
         if (savedMessages && Array.isArray(savedMessages)) {
             messages = savedMessages.map(m => ({
-                ...m, timestamp: (m.timestamp instanceof Date) ? m.timestamp : new Date(m.timestamp || Date.now())
+                ...m, timestamp: new Date(m.timestamp)
             }));
         } else {
             const backup = _tryRecoverFromBackup();
@@ -521,7 +521,7 @@ const loadData = async () => {
                 const timeSince = Math.round((Date.now() - backup.ts) / 60000);
                 console.warn(`[loadData] 主存储无消息，正在从备份恢复（备份时间：${timeSince} 分钟前）`);
                 messages = backup.messages.map(m => ({
-                    ...m, timestamp: (m.timestamp instanceof Date) ? m.timestamp : new Date(m.timestamp || Date.now())
+                    ...m, timestamp: new Date(m.timestamp)
                 }));
                 if (backup.settings) Object.assign(settings, backup.settings);
                 if (backup.anniversaries && Array.isArray(backup.anniversaries)) {
@@ -810,19 +810,15 @@ const saveData = async () => {
 
         function initializeRandomUI() {
 
-            const mottoEl = document.querySelector('.header-motto');
-            if (mottoEl) {
-                if (customMottos && customMottos.length > 0) {
-                    mottoEl.textContent = getRandomItem(customMottos);
-                } else {
-                    mottoEl.textContent = '';
-                }
-            }
 
+            document.querySelector('.header-motto').textContent = getRandomItem(CONSTANTS.HEADER_MOTTOS);
+if (customMottos && customMottos.length > 0) {
+    document.querySelector('.header-motto').textContent = getRandomItem(customMottos);
+} else {
+    document.querySelector('.header-motto').textContent = '';
+}
             const placeholder = "";
-            if (DOMElements.messageInput) {
-                DOMElements.messageInput.placeholder = placeholder.length > 20 ? placeholder.substring(0, 20) + "..." : placeholder;
-            }
+            DOMElements.messageInput.placeholder = placeholder.length > 20 ? placeholder.substring(0, 20) + "...": placeholder;
 
 
             const starsContainer = document.getElementById('stars-container');

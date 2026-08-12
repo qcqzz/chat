@@ -310,7 +310,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 });
-
 // 启动时检查闪退未结束的陪伴会话（独立于 load 事件，确保一定执行）
 (function() {
     function _cdRecLog(msg, data) {
@@ -712,11 +711,11 @@ function showCompanionRecoverDialog(session) {
 // 陪伴已结束提示弹窗（倒计时模式：闪退后过太久，时间已经到了）
 function showCompanionCompletedDialog(session) {
     const modeNames = { study: '学习', work: '工作', exercise: '运动', sleep: '睡觉' };
-    const modeName = modeNames[session?.mode] || '陪伴';
-    const startTime = new Date(session?.startTs || Date.now());
+    const modeName = modeNames[session.mode] || '陪伴';
+    const startTime = new Date(session.startTs);
     const startTimeStr = ('0' + startTime.getHours()).slice(-2) + ':' + ('0' + startTime.getMinutes()).slice(-2);
 
-    const totalMin = Math.floor((session?.totalSeconds || 0) / 60);
+    const totalMin = Math.floor(session.totalSeconds / 60);
     const totalStr = totalMin >= 60
         ? Math.floor(totalMin / 60) + 'h' + (totalMin % 60 > 0 ? ' ' + (totalMin % 60) + 'min' : '')
         : totalMin + 'min';

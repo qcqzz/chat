@@ -224,7 +224,6 @@ let moodTrash = [];
 let currentCalendarDate = new Date();
 window.selectedDateStr = null;
 let selectedDateStr = null;
-let currentMoodPage = 1; 
 let currentMoodEditTarget = 'me';
 let _moodEditorFromDetail = false; 
 let customMoodOptions = []; 
@@ -285,10 +284,6 @@ function saveMoodData() {
     }
     localforage.setItem(getStorageKey('moodCalendar'), moodData);
     window.moodData = moodData;
-    var moodModal = document.getElementById('mood-modal');
-    if (moodModal && !moodModal.classList.contains('hidden') && moodModal.style.display !== 'none') {
-        renderMoodCalendar();
-    }
 }
 
 // 供导入逻辑调用：按日期 key 合并心情手账（不覆盖已有日期的数据）
@@ -536,34 +531,6 @@ function updateDualMoodStats(stats) {
         </div>
     `;
 }
-
-window.editStatsWeather = function(el, who) {
-    if (el.querySelector('input')) return;
-    var todayStr = formatDateStr(new Date());
-    if (!moodData[todayStr]) moodData[todayStr] = {};
-    var current = who === 'me' ? (moodData[todayStr].myWeather || '') : (moodData[todayStr].partnerWeather || '');
-    var input = document.createElement('input');
-    input.type = 'text';
-    input.value = current;
-    input.maxLength = 20;
-    input.placeholder = '今日天气…';
-    input.style.cssText = 'width:100%;padding:3px 7px;border:1px solid var(--accent-color);border-radius:8px;font-size:12px;background:var(--primary-bg);color:var(--text-primary);outline:none;text-align:center;';
-    el.innerHTML = '';
-    el.appendChild(input);
-    input.focus(); input.select();
-    function save() {
-        var val = input.value.trim();
-        if (who === 'me') moodData[todayStr].myWeather = val;
-        else moodData[todayStr].partnerWeather = val;
-        saveMoodData();
-        el.innerHTML = val ? `<span>${val}</span>` : `<span style="opacity:0.4;">+ 天气</span>`;
-    }
-    input.addEventListener('blur', save);
-    input.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') { e.preventDefault(); save(); }
-        if (e.key === 'Escape') { el.innerHTML = current ? `<span>${current}</span>` : `<span style="opacity:0.4;">+ 天气</span>`; }
-    });
-};
 
 window.deleteDailyMood = function(dateStr, who) {
     if (!moodData[dateStr]) return;
@@ -873,48 +840,6 @@ function renderMoodOptionsGrid(targetKey) {
     `}).join('');
 }
 
-function switchMoodPage(dir) {
-    currentMoodPage = Math.max(1, Math.min(2, currentMoodPage + dir));
-    const page1 = document.getElementById('mood-page-1');
-    const page2 = document.getElementById('mood-page-2');
-    const indicator = document.getElementById('mood-page-indicator');
-    const prevBtn = document.getElementById('mood-page-prev');
-    const nextBtn = document.getElementById('mood-page-next');
-    if (currentMoodPage === 1) {
-        page1.style.display = 'block'; page2.style.display = 'none';
-        indicator.textContent = '第 1 页 · 心情';
-        prevBtn.disabled = true; nextBtn.disabled = false;
-    } else {
-        page1.style.display = 'none'; page2.style.display = 'block';
-        const isPartner = currentMoodEditTarget === 'partner';
-        indicator.textContent = '第 2 页 · 随记';
-        document.getElementById('mood-note-label').textContent = isPartner ? '对方随记:' : '随记:';
-        document.getElementById('mood-note-input').placeholder = isPartner ? '记录对方今天发生的事...' : '记录下今天发生的小事...';
-        prevBtn.disabled = false; nextBtn.disabled = true;
-    }
-}
-window.switchMoodPage = switchMoodPage;
-
-function switchMoodEditTarget(target) {
-    currentMoodEditTarget = target;
-    document.getElementById('mood-tab-me').classList.toggle('active', target === 'me');
-    document.getElementById('mood-tab-partner').classList.toggle('active', target === 'partner');
-    const existing = moodData[selectedDateStr];
-    let currentKey, noteVal;
-    if (target === 'me') {
-        currentKey = existing ? existing.user : null;
-        noteVal = (existing && existing.note) ? existing.note : '';
-    } else {
-        currentKey = existing ? existing.partner : null;
-        noteVal = (existing && existing.partnerNote) ? existing.partnerNote : '';
-    }
-    currentMoodSelection = currentKey;
-    document.getElementById('mood-note-input').value = noteVal;
-    renderMoodOptionsGrid(currentKey);
-    switchMoodPage(0); 
-}
-window.switchMoodEditTarget = switchMoodEditTarget;
-
 function openMoodSelector(dateStr, editTarget) {
     selectedDateStr = dateStr;
     window.selectedDateStr = dateStr;
@@ -1156,31 +1081,18 @@ window.editCustomMood = function(key) {
 };
 
 function initMoodListeners() {
-    // 旧版三视图切换按钮已移除，此处无需绑定
-
+    // mood-modal 已移入情侣空间 #cs-panel-mood，入口按钮改为打开情侣空间
     const entryBtn = document.getElementById('mood-function');
-    const modal = document.getElementById('mood-modal');
-    
     if (entryBtn && !entryBtn.dataset.initialized) {
         entryBtn.dataset.initialized = 'true';
         const newBtn = entryBtn.cloneNode(true);
         entryBtn.parentNode.replaceChild(newBtn, entryBtn);
-        
         newBtn.addEventListener('click', () => {
-            if (typeof window.updateDynamicNames === 'function') window.updateDynamicNames();
-            const advModal = document.getElementById('advanced-modal');
-            if (advModal) hideModal(advModal); 
-            setTimeout(() => {
-                renderMoodCalendar();
-                showModal(modal);
-            }, 150); 
+            if (typeof window.openCoupleSpace === 'function') {
+                window.openCoupleSpace();
+                setTimeout(() => { if (typeof window._csSwitchTab === 'function') window._csSwitchTab('mood'); }, 300);
+            }
         });
-    }
-
-    const closeMoodBtn = document.getElementById('close-mood');
-    if (closeMoodBtn && !closeMoodBtn.dataset.initialized) {
-        closeMoodBtn.dataset.initialized = 'true';
-        closeMoodBtn.addEventListener('click', () => hideModal(modal));
     }
 
     const exportMoodBtn = document.getElementById('mood-export-btn');
