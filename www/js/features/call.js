@@ -12,7 +12,7 @@
     }
 
     const S = {
-        enabled:         localStorage.getItem(KEY_ENABLED) !== 'false',
+        enabled:         true,  // 默认开启，不再从 localStorage 读取（开关已隐藏，避免误关闭导致按钮无反应）
         active:          false,
         startTime:       null,
         elapsed:         0,

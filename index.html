@@ -3108,7 +3108,13 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
             </div>
             <input type="text" class="modal-input" id="new-song-title" placeholder="歌曲名称 (例如: 这里的风景)">
             <input type="text" class="modal-input" id="new-song-sub" placeholder="歌手/备注 (例如: 你的名字)">
-            <input type="text" class="modal-input" id="new-song-url" placeholder="音频链接 (mp3/m4a 链接)">
+            <div class="modal-input-row">
+                <input type="text" class="modal-input" id="new-song-url" placeholder="音频链接 (mp3/m4a 链接)">
+                <button type="button" class="modal-btn modal-btn-secondary" id="import-mp3-btn" title="导入本地MP3文件">
+                    <i class="fas fa-folder-open"></i>
+                </button>
+            </div>
+            <input type="file" id="mp3-file-input" accept=".mp3,audio/mp3,audio/mpeg" style="display:none">
             <div class="modal-buttons">
                 <button class="modal-btn modal-btn-secondary" id="cancel-add-song">取消</button>
                 <button class="modal-btn modal-btn-primary" id="confirm-add-song">添加播放</button>

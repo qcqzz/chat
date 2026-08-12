@@ -1689,6 +1689,25 @@
             transition: var(--transition);
             font-family: var(--font-family);
         }
+        .modal-input-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .modal-input-row .modal-input {
+            flex: 1;
+            margin-bottom: 16px;
+        }
+        .modal-input-row .modal-btn {
+            margin-bottom: 16px;
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
         .modal-textarea {
             resize: vertical;
             min-height: 80px;

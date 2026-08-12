@@ -2651,7 +2651,7 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
     let songs = [];
     try {
         const savedSongs = await localforage.getItem(APP_PREFIX + 'customSongs');
-        if (savedSongs && Array.isArray(savedSongs) && savedSongs.length > 0) {
+        if (savedSongs && Array.isArray(savedSongs)) {
             songs = savedSongs;
         } else if (savedSongs && typeof savedSongs === 'string') {
             songs = JSON.parse(savedSongs);
@@ -2688,6 +2688,8 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
     const newSongUrl = document.getElementById('new-song-url');
     const confirmAddSongBtn = document.getElementById('confirm-add-song');
     const cancelAddSongBtn = document.getElementById('cancel-add-song');
+    const importMp3Btn = document.getElementById('import-mp3-btn');
+    const mp3FileInput = document.getElementById('mp3-file-input');
     const modalTitleElem = addSongModal.querySelector('.modal-title span');
 
     let currentIndex = 0;
@@ -2696,6 +2698,7 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
     let editModeIndex = -1;
     let searchTerm = '';
     let isSearchVisible = false;
+    let pendingMp3DataUrl = null;
 
     function loadSong(index) {
         if (songs.length === 0) return;
@@ -2753,11 +2756,13 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
         if (isPlaying) audio.play();
     }
 
-    function savePlaylist() {
-        localforage.setItem(APP_PREFIX + 'customSongs', songs).catch(e => {
+    async function savePlaylist() {
+        try {
+            await localforage.setItem(APP_PREFIX + 'customSongs', songs);
+        } catch(e) {
             console.error('歌单保存失败', e);
             showNotification('歌单保存失败，存储空间可能已满', 'error');
-        });
+        }
         renderPlaylist();
     }
 
@@ -2765,6 +2770,7 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
         const song = songs[index];
         if (!song) return;
         editModeIndex = index;
+        pendingMp3DataUrl = null;
         newSongTitle.value = song.title;
         newSongSub.value = song.sub;
         newSongUrl.value = song.url;
@@ -2775,9 +2781,11 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
 
     function openAddModal() {
         editModeIndex = -1;
+        pendingMp3DataUrl = null;
         newSongTitle.value = '';
         newSongSub.value = '';
         newSongUrl.value = '';
+        newSongUrl.style.color = '';
         modalTitleElem.innerText = "添加自定义歌曲";
         confirmAddSongBtn.innerText = "添加播放";
         showModal(addSongModal);
@@ -3033,10 +3041,19 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
     confirmAddSongBtn.addEventListener('click', () => {
         const title = newSongTitle.value.trim();
         const sub = newSongSub.value.trim();
-        const url = newSongUrl.value.trim();
+        let url = newSongUrl.value.trim();
 
-        if (!title || !url) {
-            showNotification('歌名和链接不能为空', 'error');
+        // 优先使用导入的MP3文件
+        if (pendingMp3DataUrl) {
+            url = pendingMp3DataUrl;
+        }
+
+        if (!title) {
+            showNotification('请输入歌曲名称', 'error');
+            return;
+        }
+        if (!url) {
+            showNotification('请输入音频链接或导入MP3文件', 'error');
             return;
         }
 
@@ -3057,6 +3074,7 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
         }
 
         searchTerm = '';
+        pendingMp3DataUrl = null;
         savePlaylist();
         newSongTitle.value = '';
         newSongSub.value = '';
@@ -3065,7 +3083,41 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
     });
 
     cancelAddSongBtn.addEventListener('click', () => {
+        pendingMp3DataUrl = null;
         hideModal(addSongModal);
+    });
+
+    // MP3文件导入
+    importMp3Btn.addEventListener('click', () => {
+        mp3FileInput.click();
+    });
+
+    mp3FileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 30 * 1024 * 1024) {
+            showNotification('文件太大，请选择30MB以内的MP3文件', 'error');
+            mp3FileInput.value = '';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onerror = () => {
+            showNotification('文件读取失败，请重试', 'error');
+            mp3FileInput.value = '';
+        };
+        reader.onload = (ev) => {
+            pendingMp3DataUrl = ev.target.result;
+            newSongUrl.value = '[已导入本地MP3文件]';
+            newSongUrl.style.color = 'var(--accent-color)';
+            // 自动用文件名填充标题
+            if (!newSongTitle.value.trim()) {
+                const fileName = file.name.replace(/\.(mp3|m4a|aac|ogg|wav|flac)$/i, '');
+                newSongTitle.value = fileName;
+            }
+            showNotification('MP3文件已加载，点击"添加播放"即可', 'success');
+            mp3FileInput.value = '';
+        };
+        reader.readAsDataURL(file);
     });
 
     function setupDrag() {
