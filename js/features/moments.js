@@ -89,7 +89,29 @@ function _mCmtContent() {
 }
 
 async function loadMomentsData() {
-    try { const s=await localforage.getItem(getStorageKey(_M_STORAGE_KEY)); if(s){momentsData=s;if(!momentsData.notifications)momentsData.notifications=[];} _momentsDataLoaded=true; } catch(e){console.warn('[Moments] load 失败',e);}
+    try {
+        const s=await localforage.getItem(getStorageKey(_M_STORAGE_KEY));
+        if(s){
+            momentsData=s;
+            if(!momentsData.notifications) momentsData.notifications=[];
+            // 兼容旧数据/备份导入：老版本保存的帖子可能缺少新版本才有的字段，
+            // 逐条补全，避免渲染时对 undefined 调用 .some()/.forEach() 直接抛错导致动态列表空白
+            if(Array.isArray(momentsData.posts)){
+                momentsData.posts.forEach(function(p){
+                    if(p&&typeof p==='object'){
+                        if(!Array.isArray(p.comments))p.comments=[];
+                        if(!Array.isArray(p.images))p.images=[];
+                        if(p.video===undefined)p.video=null;
+                        if(p.videoCover===undefined)p.videoCover=null;
+                        if(p.userLiked===undefined)p.userLiked=false;
+                        if(p.partnerLiked===undefined)p.partnerLiked=false;
+                        if(p.isNewForUser===undefined)p.isNewForUser=false;
+                    }
+                });
+            }
+        }
+        _momentsDataLoaded=true;
+    } catch(e){console.warn('[Moments] load 失败',e);}
 }
 async function saveMomentsData() {
     if (!_momentsDataLoaded) { console.warn('[Moments] 本次会话还没有确认加载成功过动态数据，为了避免覆盖历史记录，跳过这次保存'); return; }
@@ -913,12 +935,17 @@ function _csSetupFeedScroll() {
         feedPanel._feedLastScrollY = scrollY;
     }, { passive: true });
 
-    // ③ topbar 点击回顶
+    // ③ topbar 点击回顶（兼容不支持对象参数的旧 WebView）
     if (topbar && !topbar._csTopbarClickSet) {
         topbar._csTopbarClickSet = true;
         topbar.addEventListener('click', (e) => {
             if (!e.target.closest('.cs-icon-btn')) {
-                feedPanel.scrollTo({ top: 0, behavior: 'smooth' });
+                try {
+                    feedPanel.scrollTo({ top: 0, behavior: 'smooth' });
+                } catch (err) {
+                    // 回退方案：直接跳，不做平滑滚动，保证至少能工作
+                    feedPanel.scrollTop = 0;
+                }
             }
         });
     }

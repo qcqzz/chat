@@ -180,7 +180,7 @@
 
         #splash-declaration {
             position: fixed;
-            inset: 0;
+            top: 0; right: 0; bottom: 0; left: 0; inset: 0;
             z-index: 999999;
             background: #06060e;
             display: flex;
@@ -197,7 +197,7 @@
         }
         .splash-bg-stars {
             position: absolute;
-            inset: 0;
+            top: 0; right: 0; bottom: 0; left: 0; inset: 0;
             pointer-events: none;
         }
         .splash-bg-stars span {
@@ -305,7 +305,7 @@
         }
         .splash-slide {
             position: absolute;
-            inset: 0;
+            top: 0; right: 0; bottom: 0; left: 0; inset: 0;
             opacity: 0;
             transform: translateX(28px);
             transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.4,0,0.2,1);
@@ -1783,7 +1783,7 @@
         }
 
         #daily-greeting-modal {
-            position: fixed; inset: 0; z-index: 9998;
+            position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 9998;
             background: rgba(0,0,0,0.78);
             backdrop-filter: blur(28px) saturate(1.6);
             -webkit-backdrop-filter: blur(28px) saturate(1.6);
@@ -1818,7 +1818,7 @@
         }
         .dg-header-band::before {
             content: '';
-            position: absolute; inset: 0; z-index: 0;
+            position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 0;
             background:
                 radial-gradient(ellipse at 85% 8%, rgba(255,255,255,0.28) 0%, transparent 48%),
                 radial-gradient(ellipse at 10% 95%, rgba(0,0,0,0.2) 0%, transparent 42%),
@@ -1839,7 +1839,7 @@
         }
 
         .dg-header-band-shimmer {
-            position: absolute; inset: 0; z-index: 1;
+            position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 1;
             background: linear-gradient(110deg, transparent 25%, rgba(255,255,255,0.18) 50%, transparent 75%);
             animation: shimmerSlide 4s ease-in-out infinite;
         }
@@ -2091,12 +2091,12 @@
         }
         .daily-greeting-close-btn::before {
             content: '';
-            position: absolute; inset: 0;
+            position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0;
             background: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, transparent 55%);
         }
         .daily-greeting-close-btn::after {
             content: '';
-            position: absolute; inset: 0;
+            position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0;
             background: linear-gradient(110deg, transparent 25%, rgba(255,255,255,0.12) 50%, transparent 75%);
             animation: btnShimmer 3s ease-in-out infinite 1.5s;
         }
@@ -2111,7 +2111,7 @@
         .daily-greeting-close-btn:active { transform: translateY(1px); }
 
         .dg-card-bg-layer {
-            position: absolute; inset: 0; z-index: 0;
+            position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 0;
             background-size: cover; background-position: center; background-repeat: no-repeat;
             border-radius: inherit;
             pointer-events: none;
@@ -2120,13 +2120,13 @@
         .daily-greeting-card { position: relative; overflow: hidden; }
 
         .dg-header-band-bg {
-            position: absolute; inset: 0;
+            position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0;
             background-size: cover; background-position: center;
             background-repeat: no-repeat;
             z-index: 0;
         }
         .dg-header-band-overlay {
-            position: absolute; inset: 0;
+            position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0;
             background: linear-gradient(145deg, var(--accent-color) 0%, rgba(var(--accent-color-rgb),0.72) 100%);
             z-index: 1;
             transition: opacity 0.3s;
@@ -2211,7 +2211,7 @@
             color: #fff !important;
         }
         .dg-card-tint-overlay {
-            position: absolute; inset: 0; z-index: 1;
+            position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 1;
             background: rgba(0,0,0,0);
             border-radius: inherit;
             pointer-events: none;
@@ -2359,7 +2359,7 @@
         }
         .env-header-flap::before {
             content: '';
-            position: absolute; inset: 0;
+            position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0;
             background: linear-gradient(160deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.04) 55%, transparent 100%);
             pointer-events: none;
         }
@@ -2489,7 +2489,7 @@
         }
         .env-compose-paper::after {
             content: '';
-            position: absolute; inset: 0;
+            position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0;
             background: repeating-linear-gradient(
                 transparent,
                 transparent 28px,
@@ -2748,7 +2748,7 @@
         #ti-settings-modal {
             display: none;
             position: fixed;
-            inset: 0;
+            top: 0; right: 0; bottom: 0; left: 0; inset: 0;
             z-index: 99200;
             background: rgba(0,0,0,0.50);
             backdrop-filter: blur(10px);
@@ -3196,7 +3196,7 @@
         }
 
         .welcome-bg-gradient {
-            position: absolute; inset: 0;
+            position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0;
             background:
                 radial-gradient(ellipse 80% 60% at 20% 20%, rgba(var(--accent-color-rgb), 0.22) 0%, transparent 55%),
                 radial-gradient(ellipse 60% 50% at 80% 80%, rgba(var(--accent-color-rgb), 0.16) 0%, transparent 52%),
@@ -3211,7 +3211,7 @@
 
         .welcome-animation::before {
             content: '';
-            position: absolute; inset: 0; z-index: 2; pointer-events: none;
+            position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 2; pointer-events: none;
             background:
                 radial-gradient(ellipse 90% 90% at 50% 50%, transparent 40%, rgba(0,0,0,0.55) 100%);
         }
@@ -3221,7 +3221,7 @@
         }
         .welcome-animation::after {
             content: '';
-            position: absolute; inset: 0; z-index: 1; pointer-events: none;
+            position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 1; pointer-events: none;
             background-image:
                 linear-gradient(rgba(var(--accent-color-rgb),0.03) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(var(--accent-color-rgb),0.03) 1px, transparent 1px);
@@ -3234,7 +3234,7 @@
         }
 
         .welcome-particles {
-            position: absolute; inset: 0;
+            position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0;
             pointer-events: none; overflow: hidden; z-index: 3;
         }
         .wp {
@@ -3339,7 +3339,7 @@
 
         .logo-tech-container::before {
             content: '';
-            position: absolute; inset: -30px;
+            position: absolute; top: -30px; right: -30px; bottom: -30px; left: -30px; inset: -30px;
             border-radius: 50%;
             background: radial-gradient(circle, rgba(var(--accent-color-rgb),0.3) 0%, transparent 70%);
             animation: ambientGlow 3.5s ease-in-out infinite;
@@ -3379,14 +3379,14 @@
         }
         .logo-circle-outer::before {
             content: '';
-            position: absolute; inset: -22px;
+            position: absolute; top: -22px; right: -22px; bottom: -22px; left: -22px; inset: -22px;
             border-radius: 50%;
             border: 1px solid rgba(var(--accent-color-rgb), 0.15);
             animation: pulseRing 3.5s ease-in-out infinite 0.9s;
         }
         .logo-circle-outer::after {
             content: '';
-            position: absolute; inset: -42px;
+            position: absolute; top: -42px; right: -42px; bottom: -42px; left: -42px; inset: -42px;
             border-radius: 50%;
             border: 1px solid rgba(var(--accent-color-rgb), 0.07);
             animation: pulseRing 3.5s ease-in-out infinite 1.6s;
@@ -3521,7 +3521,7 @@
         }
         .loader-tech::before {
             content: '';
-            position: absolute; inset: -1px;
+            position: absolute; top: -1px; right: -1px; bottom: -1px; left: -1px; inset: -1px;
             border-radius: 2px;
             background: transparent;
             box-shadow: 0 0 12px rgba(var(--accent-color-rgb), 0.15);
@@ -5389,7 +5389,7 @@
 
         .ann-header-card-bg {
     position: absolute;
-    inset: 0;
+    top: 0; right: 0; bottom: 0; left: 0; inset: 0;
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -5398,7 +5398,7 @@
 
         .ann-header-card-overlay {
     position: absolute;
-    inset: 0;
+    top: 0; right: 0; bottom: 0; left: 0; inset: 0;
     background: linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.5) 100%);
     pointer-events: none;
         }
@@ -9373,7 +9373,7 @@
         .picker-card::before {
     content: '';
     position: absolute;
-    inset: 0;
+    top: 0; right: 0; bottom: 0; left: 0; inset: 0;
     background: linear-gradient(135deg, rgba(var(--accent-color-rgb),0.06) 0%, transparent 60%);
     border-radius: inherit;
         }
@@ -9487,7 +9487,7 @@
         .modal-btn::after, .settings-item::after, .setting-pill-row::after {
     content: '';
     position: absolute;
-    inset: 0;
+    top: 0; right: 0; bottom: 0; left: 0; inset: 0;
     background: radial-gradient(circle, rgba(var(--accent-color-rgb),0.2) 0%, transparent 70%);
     opacity: 0;
     transform: scale(0);
@@ -9578,7 +9578,7 @@
         .avatar-container::after {
             content: '';
             position: absolute;
-            inset: -2px;
+            top: -2px; right: -2px; bottom: -2px; left: -2px; inset: -2px;
             border-radius: 50%;
             background: linear-gradient(135deg, var(--accent-color), rgba(var(--accent-color-rgb),0.3));
             z-index: -1;
@@ -9990,7 +9990,7 @@
         .dm-tile::after {
             content: '';
             position: absolute;
-            inset: 0;
+            top: 0; right: 0; bottom: 0; left: 0; inset: 0;
             border-radius: 18px;
             background: rgba(var(--accent-color-rgb), 0);
             transition: background 0.18s;
@@ -10091,7 +10091,7 @@
         .dm-toggle-slider {
             position: absolute;
             cursor: pointer;
-            inset: 0;
+            top: 0; right: 0; bottom: 0; left: 0; inset: 0;
             background: var(--border-color);
             border-radius: 28px;
             transition: 0.28s;
@@ -10151,7 +10151,7 @@
 
         .dm-action-drawer {
             position: fixed;
-            inset: 0;
+            top: 0; right: 0; bottom: 0; left: 0; inset: 0;
             z-index: 9999;
             display: flex;
             flex-direction: column;
@@ -10166,7 +10166,7 @@
         }
         .dm-drawer-backdrop {
             position: absolute;
-            inset: 0;
+            top: 0; right: 0; bottom: 0; left: 0; inset: 0;
             background: rgba(0,0,0,0.42);
             backdrop-filter: blur(3px);
         }
@@ -11668,7 +11668,7 @@ body #user-sticker-picker .empty-sticker-tip {
 
 /* ── 全屏页面入场 ── */
 #couple-space-page {
-    position: fixed; inset: 0; z-index: 1500;
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 1500;
     display: none; flex-direction: column;
     background: var(--primary-bg);
     opacity: 0;
@@ -11778,7 +11778,7 @@ body #user-sticker-picker .empty-sticker-tip {
     flex: 1; overflow: hidden; position: relative;
 }
 .cs-content .cs-panel {
-    position: absolute; inset: 0;
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0;
     overflow-y: auto; -webkit-overflow-scrolling: touch;
     display: none; padding: 0 16px;
 }
@@ -11894,7 +11894,7 @@ body #user-sticker-picker .empty-sticker-tip {
 
 /* ── 遮罩 ── */
 #cs-overlay {
-    position: fixed; inset: 0; z-index: 1800;
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 1800;
     background: rgba(0,0,0,0); pointer-events: none;
     transition: background 0.3s;
 }
@@ -12105,7 +12105,7 @@ body #user-sticker-picker .empty-sticker-tip {
     color: rgba(255,255,255,0.4); font-size: 32px;
 }
 .cs-video-play-btn {
-    position: absolute; inset: 0; display: flex;
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; display: flex;
     align-items: center; justify-content: center;
 }
 .cs-video-play-btn i {
@@ -12116,7 +12116,7 @@ body #user-sticker-picker .empty-sticker-tip {
 }
 .cs-prev-video { position: relative; }
 .cs-prev-video-icon {
-    position: absolute; inset: 0; display: flex;
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; display: flex;
     align-items: center; justify-content: center;
     background: rgba(0,0,0,0.3); border-radius: 8px;
 }
@@ -12230,7 +12230,7 @@ body #user-sticker-picker .empty-sticker-tip {
 .al-photo-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .al-photo-cell:active { opacity: 0.75; }
 .al-photo-cell.selected::after {
-    content: ''; position: absolute; inset: 0;
+    content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0;
     background: rgba(var(--accent-color-rgb),.35);
 }
 .al-photo-cell.selected::before {
@@ -12246,7 +12246,7 @@ body #user-sticker-picker .empty-sticker-tip {
     color: var(--text-secondary); font-size: 20px;
 }
 .al-cell-play {
-    position: absolute; inset: 0; display: flex;
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; display: flex;
     align-items: center; justify-content: center;
     background: rgba(0,0,0,0.25);
 }
@@ -12295,7 +12295,7 @@ body #user-sticker-picker .empty-sticker-tip {
     position: relative; cursor: pointer;
 }
 .al-detail-play {
-    position: absolute; inset: 0; display: flex;
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; display: flex;
     align-items: center; justify-content: center;
 }
 .al-detail-play i {
@@ -12336,7 +12336,7 @@ body #user-sticker-picker .empty-sticker-tip {
 .al-strip-thumb.active { opacity: 1; border-color: #fff; }
 .al-strip-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .al-strip-play {
-    position: absolute; inset: 0; display: flex;
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; display: flex;
     align-items: center; justify-content: center;
     background: rgba(0,0,0,0.3);
 }
@@ -12389,7 +12389,7 @@ body #user-sticker-picker .empty-sticker-tip {
 
 /* ── 相册更多操作 Action Sheet ── */
 .al-action-mask {
-    position: absolute; inset: 0;
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0;
     background: rgba(0,0,0,0.4);
 }
 .al-action-body {
@@ -12466,7 +12466,7 @@ body #user-sticker-picker .empty-sticker-tip {
 
 /* 回收站 bottom-sheet overlay */
 .cs-mood-trash-overlay {
-    position: fixed; inset: 0;
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0;
     background: rgba(0,0,0,0.45);
     z-index: 3000;
     display: flex; align-items: flex-end;
@@ -12810,12 +12810,12 @@ body #user-sticker-picker .empty-sticker-tip {
 }
 .ann-detail-card-overlay {
     position: absolute;
-    inset: 0;
+    top: 0; right: 0; bottom: 0; left: 0; inset: 0;
     background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.05) 40%, rgba(0,0,0,0.25) 100%);
 }
 .ann-detail-card-content {
     position: absolute;
-    inset: 0;
+    top: 0; right: 0; bottom: 0; left: 0; inset: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -13307,7 +13307,7 @@ body #user-sticker-picker .empty-sticker-tip {
 
 /* ── 经期历史全屏页面（陪伴日记风格） ── */
 .pd-history-page {
-    position: fixed; inset: 0; z-index: 2200;
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 2200;
     background: var(--primary-bg);
     display: flex; flex-direction: column;
     transform: translateY(100%);
@@ -13732,4 +13732,71 @@ body #user-sticker-picker .empty-sticker-tip {
     max-width: 140px;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* ═══ aspect-ratio 兼容回退（旧 WebView / Chromium < 88 不支持 aspect-ratio）═══
+   原理：grid 子项与块级元素的百分比 padding 按“包含块宽度”计算，在内容高度为 0
+   （子元素 absolute）时可用 padding 撑出正方形/等比高度。
+   仅在不支持 aspect-ratio 时生效，现代浏览器不受影响。 */
+@supports not (aspect-ratio: 1 / 1) {
+    /* 背景选择圆格（子元素已是 absolute，padding 直接撑出正方形） */
+    .bg-item {
+        padding-bottom: 100%;
+    }
+
+    /* 表情/贴纸/选择格：让内部图片 absolute 填充以撑出正方形 */
+    .sticker-item,
+    .sticker-grid-item,
+    .picker-item,
+    .sticker-grid-add,
+    .al-new-cover {
+        padding-bottom: 100%;
+    }
+    .sticker-item > img,
+    .sticker-grid-item > img,
+    .picker-item > img {
+        position: absolute; top: 0; left: 0;
+        width: 100%; height: 100%; object-fit: cover;
+    }
+    .picker-item > span,
+    .sticker-grid-add > i,
+    .al-new-cover > i {
+        position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    /* 情侣空间：视频缩略图撑出 16:9 */
+    .cs-video-thumb {
+        padding-bottom: calc((100% - 24px) * 9 / 16);
+    }
+    .cs-video-thumb > .cs-video-cover,
+    .cs-video-thumb > .cs-video-cover-empty {
+        position: absolute; top: 0; left: 0;
+        width: 100%; height: 100%;
+    }
+
+    /* 相册：封面与图片格 */
+    .al-cover,
+    .al-photo-cell {
+        padding-bottom: 100%;
+    }
+    .al-cover > img,
+    .al-cover > .al-cover-empty,
+    .al-photo-cell > img {
+        position: absolute; top: 0; left: 0;
+        width: 100%; height: 100%;
+    }
+
+    /* 纪念日卡片（子元素已是 absolute） */
+    .ann-detail-card {
+        padding-bottom: calc(100% - 64px);
+    }
+
+    /* 塔罗牌：flex 子项百分比 padding 按整行宽度计算，不适合 padding 技巧，改为固定高度兜底 */
+    .tarot-responsive {
+        width: auto !important;
+        height: 240px !important;
+        padding-bottom: 0 !important;
+    }
+    /* 生理期日历格 / emoji 格 / 动态图片为文本或 img 内容，保留自然高度（内容完整可见） */
 }
