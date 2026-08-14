@@ -35,10 +35,11 @@
         }
     </style>
 <style id="cs-transition-styles">
-#cs-transition-overlay{position:fixed;inset:0;z-index:1600;display:none;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 36%,rgba(255,255,255,.95),rgba(255,250,246,.82) 30%,rgba(245,238,232,.96) 72%),#f4eee8;opacity:0;transition:opacity 0.5s ease;pointer-events:none;}
+#cs-transition-overlay{position:fixed;top:0;right:0;bottom:0;left:0;inset:0;z-index:1600;display:none;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 36%,rgba(255,255,255,.95),rgba(255,250,246,.82) 30%,rgba(245,238,232,.96) 72%),#f4eee8;opacity:0;transition:opacity 0.5s ease;pointer-events:none;}
 #cs-transition-overlay.cs-trans-show{display:flex;pointer-events:all;}
 #cs-transition-overlay.cs-trans-visible{opacity:1;}
-#cs-transition-overlay .cs-trans-inner{width:min(480px,88vw);aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;}
+#cs-transition-overlay .cs-trans-inner{width:88vw;max-width:480px;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;}
+@supports not (aspect-ratio:16/9){#cs-transition-overlay .cs-trans-inner{padding-bottom:56.25%;}}
 #cs-transition-overlay svg{width:82%;height:auto;overflow:visible;}
 #cs-transition-overlay .cs-lp{transform-origin:220px 240px;animation:csLeftMove 6s cubic-bezier(.2,.75,.2,1) infinite;}
 #cs-transition-overlay .cs-rp{transform-origin:580px 240px;animation:csRightMove 6s cubic-bezier(.2,.75,.2,1) infinite;}
@@ -3394,7 +3395,7 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
     <script src="js/app.js"></script>
     <script src="js/features/cinema.js"></script>
 <!-- 相册图片详情（全屏） -->
-<div id="al-view-detail" style="display:none;position:fixed;inset:0;z-index:6000;background:#000;flex-direction:column;">
+<div id="al-view-detail" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;inset:0;z-index:6000;background:#000;flex-direction:column;">
     <div class="al-detail-topbar">
         <button class="al-back-btn" onclick="window._alBackToGrid()"><i class="fas fa-chevron-left"></i></button>
         <span id="al-detail-date" class="al-detail-date"></span>
@@ -3406,7 +3407,7 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
 </div>
 
 <!-- 全屏视频播放弹层 -->
-<div id="cs-video-player-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:10000;flex-direction:column;align-items:center;justify-content:center;">
+<div id="cs-video-player-overlay" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;inset:0;background:rgba(0,0,0,0.95);z-index:10000;flex-direction:column;align-items:center;justify-content:center;">
     <button onclick="closeCsVideoPlayer()" style="position:absolute;top:20px;right:20px;background:rgba(255,255,255,0.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
     <video id="cs-video-player" controls playsinline style="max-width:100%;max-height:90vh;border-radius:8px;"></video>
 </div>

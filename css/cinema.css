@@ -627,6 +627,7 @@
 }
 .cinema-video-overlay {
     position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     display: flex;
     align-items: center;
@@ -691,6 +692,7 @@
 /* ── 档案页 ─────────────────────────────────────────── */
 .cinema-archive-page {
     position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     background: var(--primary-bg, #f9f9f9);
     z-index: 50;
@@ -923,11 +925,13 @@
 /* ── 观看历史：编辑弹层 ─────────────────────────────── */
 .cinema-hist-edit-sheet {
     position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     z-index: 9000;
 }
 .cinema-hist-edit-mask {
     position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     background: rgba(0,0,0,0.45);
 }
@@ -1007,11 +1011,13 @@
 /* ── 邀请弹层：片名 + 日期 + 时间 ───────────────────── */
 .cinema-invite-sheet, .cinema-rating-sheet {
     position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     z-index: 9000;
 }
 .cinema-invite-mask, .cinema-rating-mask {
     position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     background: rgba(0,0,0,0.45);
 }
@@ -1082,6 +1088,7 @@
 /* ── 测试片源：极简播放页，只有播放器居中 + 关闭按钮 ──────── */
 .cinema-test-player-overlay {
     position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     z-index: 99997;
     background: #000;
@@ -1289,6 +1296,7 @@
 /* ── 居中卡片式确认弹窗（结束观影等场景用，跟邀请/打分弹层同一套圆角卡片语言）── */
 .cinema-confirm-modal {
     position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     z-index: 99999;
     display: flex;
@@ -1297,6 +1305,7 @@
 }
 .cinema-confirm-mask {
     position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     background: rgba(0,0,0,0.45);
 }
@@ -1367,6 +1376,7 @@
 }
 .cinema-invite-card-decor {
     position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     pointer-events: none;
 }
@@ -1571,6 +1581,7 @@ html[data-theme="dark"] .cinema-invite-card-status--declined {
 /* ── 开场前提醒蒙层：仿照"梦角邀请陪伴"的黑色蒙层视觉，独立实现 ── */
 .cinema-showtime-overlay {
     position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     z-index: 99998;
     background: rgba(15,15,20,0.95);
@@ -1605,12 +1616,14 @@ html[data-theme="dark"] .cinema-invite-card-status--declined {
 }
 .cinema-showtime-ring {
     position: absolute;
+    top: -6px; right: -6px; bottom: -6px; left: -6px;
     inset: -6px;
     border-radius: 50%;
     border: 2px solid rgba(var(--accent-color-rgb, 123,200,164), 0.5);
     animation: cinemaShowtimePulseRing 1.6s ease-out infinite;
 }
 .cinema-showtime-ring--delay {
+    top: -14px; right: -14px; bottom: -14px; left: -14px;
     inset: -14px;
     border-color: rgba(var(--accent-color-rgb, 123,200,164), 0.3);
     animation-delay: 0.5s;
