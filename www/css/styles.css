@@ -3186,7 +3186,7 @@
             justify-content: center;
             z-index: 9999;
             overflow: hidden;
-            transition: all 1.6s cubic-bezier(0.7, 0, 0.3, 1);
+            transition: all 0.7s cubic-bezier(0.7, 0, 0.3, 1);
         }
         .welcome-animation.hidden {
             opacity: 0;

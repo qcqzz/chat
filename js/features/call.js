@@ -8,7 +8,12 @@
     const BG_LF_KEY    = 'callBgImageData';
 
     function _safeParse(str, fallback) {
-        try { return JSON.parse(str); } catch (e) { return fallback; }
+        try {
+            // JSON.parse(null) 不会抛错，而是返回 null（"null" 是合法 JSON）
+            // 因此这里要额外把 null/undefined 兜底到 fallback，避免 S.size 等被置为 null
+            const v = JSON.parse(str);
+            return v === null || v === undefined ? fallback : v;
+        } catch (e) { return fallback; }
     }
 
     const S = {
@@ -597,6 +602,11 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
     function positionWindow() {
         const win = document.getElementById('call-window');
         if (!win) return;
+        // 防御：旧版本可能把损坏的尺寸写入 localStorage，自愈为默认尺寸，避免崩溃导致按钮无反应
+        if (!S.size || typeof S.size.w !== 'number' || typeof S.size.h !== 'number') {
+            S.size = { w: 280, h: 440 };
+            localStorage.setItem(KEY_SIZE, JSON.stringify(S.size));
+        }
         win.style.width = S.size.w + 'px';
         win.style.height = S.size.h + 'px';
         if (S.pos) {

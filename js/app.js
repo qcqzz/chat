@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         updateLoader('连接成功，欢迎回来。', '100%');
-        setTimeout(hideWelcomeScreen, 3500);
+        setTimeout(hideWelcomeScreen, 900);
 
         // 自动检查更新（启动后延迟执行，避免影响启动性能）
         setTimeout(function () {
@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.warn('[boot] 初始化失败后的恢复也失败:', recoverErr);
         }
         updateLoader('加载遇到问题，已强制进入...', '100%');
-        setTimeout(hideWelcomeScreen, 3500);
+        setTimeout(hideWelcomeScreen, 900);
     }
 
     // 贴纸上传事件监听（在 DOMContentLoaded 内确保元素已存在）
