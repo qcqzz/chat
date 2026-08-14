@@ -236,7 +236,7 @@
         const modal = document.createElement('div');
         modal.id = 'companion-modal-dynamic';
         modal.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99998',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99998',
             'background:rgba(0,0,0,0.5)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'opacity:1', 'pointer-events:all',
@@ -551,7 +551,7 @@
         const overlay = document.createElement('div');
         overlay.id = 'companion-inviting-overlay';
         overlay.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99998',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99998',
             'background:rgba(15,15,20,0.92)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'animation:companionFadeIn 0.3s ease',
@@ -733,7 +733,7 @@
         overlay.dataset.inviteTime = inviteTime;
         overlay.dataset.inviteMode = mode;
         overlay.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99998',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99998',
             'background:rgba(15,15,20,0.95)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'animation:companionFadeIn 0.35s ease',
@@ -1014,7 +1014,7 @@
         const overlay = document.createElement('div');
         overlay.id = 'companion-goodnight-overlay';
         overlay.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99999',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99999',
             'background:rgba(15,15,20,0.92)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'animation:companionFadeIn 1.8s ease',
@@ -1090,7 +1090,7 @@
         const overlay = document.createElement('div');
         overlay.id = 'companion-farewell-overlay';
         overlay.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99999',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99999',
             'background:rgba(15,15,20,0.92)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'animation:companionFadeIn 1.8s ease',
@@ -1190,7 +1190,7 @@
         const modal = document.createElement('div');
         modal.id = id;
         modal.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99998',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99998',
             'background:rgba(0,0,0,0.5)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'opacity:1', 'pointer-events:all',
@@ -1621,7 +1621,7 @@
         if (!bg) {
             const fallback = document.createElement('div');
             fallback.style.cssText = `
-                position:absolute;inset:0;
+                position:absolute;top:0;right:0;bottom:0;left:0;inset:0;
                 background:
                     radial-gradient(ellipse at 30% 20%, rgba(var(--accent-color-rgb, 197,164,126), 0.32) 0%, transparent 60%),
                     radial-gradient(ellipse at 75% 75%, rgba(var(--accent-color-rgb, 197,164,126), 0.22) 0%, transparent 60%),
@@ -2506,7 +2506,7 @@
         const overlay = document.createElement('div');
         overlay.id = 'companion-extend-prompt';
         overlay.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99998',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99998',
             'background:rgba(15,15,20,0.92)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'animation:companionFadeIn 0.5s ease'
@@ -2577,7 +2577,7 @@
         const overlay = document.createElement('div');
         overlay.id = 'companion-inviting-overlay';
         overlay.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99998',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99998',
             'background:rgba(15,15,20,0.92)',
             'display:flex', 'align-items:center', 'justify-content:center'
         ].join(';'));
@@ -2704,7 +2704,7 @@
         const overlay = document.createElement('div');
         overlay.id = 'companion-extend-prompt-partner';
         overlay.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99998',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99998',
             'background:rgba(15,15,20,0.92)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'animation:companionFadeIn 0.5s ease'
