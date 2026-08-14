@@ -63,7 +63,7 @@
         +     '</div>'
         +     '<div class="dm-row-item" id="check-update-row" style="cursor:pointer">'
         +       '<div class="dm-row-icon green"><i class="fas fa-sync-alt"></i></div>'
-        +       '<div class="dm-row-info"><div class="dm-row-title">检查更新</div><div class="dm-row-desc" id="dm-update-status">当前版本 v1.5.0</div></div>'
+        +       '<div class="dm-row-info"><div class="dm-row-title">检查更新</div><div class="dm-row-desc" id="dm-update-status">当前版本 v1.5.1</div></div>'
         +       '<button class="dm-nav-btn" id="check-update-dm-btn"><i class="fas fa-chevron-right"></i></button>'
         +     '</div>'
         +   '</div>'
