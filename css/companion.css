@@ -8,6 +8,7 @@
     align-items: center;
     justify-content: center;
     position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     background: rgba(0,0,0,0.45);
     z-index: 3000;
@@ -263,6 +264,7 @@ html[data-theme="dark"] .companion-mode-card i {
 /* ── 全屏陪伴页面 ──────────────────────────────────────────────── */
 .companion-page {
     position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     z-index: 4000;
     display: flex;
@@ -280,6 +282,7 @@ html[data-theme="dark"] .companion-mode-card i {
 
 .companion-bg-container {
     position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     z-index: 0;
     background: #111;
@@ -293,6 +296,7 @@ html[data-theme="dark"] .companion-mode-card i {
 
 .companion-overlay {
     position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     z-index: 1;
     pointer-events: none;
@@ -392,6 +396,7 @@ html[data-theme="dark"] .companion-mode-card i {
 .companion-timer-glass::before {
     content: '';
     position: absolute;
+    top: -4px; right: -4px; bottom: -4px; left: -4px;
     inset: -4px;
     border-radius: 50%;
     background: conic-gradient(
@@ -472,6 +477,7 @@ html[data-theme="dark"] .companion-mode-card i {
 /* ── 退出确认 ──────────────────────────────────────────────────── */
 .companion-exit-confirm {
     position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     z-index: 5;
     background: rgba(0,0,0,0.5);
@@ -833,6 +839,7 @@ html[data-theme="dark"] .companion-mode-card i {
 /* 白噪音选择卡片（中间弹出）*/
 .companion-noise-card {
     position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     z-index: 99997;
     background: rgba(0,0,0,0.55);
@@ -1185,6 +1192,7 @@ html[data-theme="dark"] .companion-mode-card i {
    ──────────────────────────────────────────────────────────────── */
 .companion-transition {
     position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     z-index: 100000;
     background: radial-gradient(ellipse at center, #1a1525 0%, #050308 70%, #000 100%);
@@ -1202,6 +1210,7 @@ html[data-theme="dark"] .companion-mode-card i {
 }
 .companion-transition .stars {
     position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     overflow: hidden;
 }
@@ -1209,6 +1218,7 @@ html[data-theme="dark"] .companion-mode-card i {
 .companion-transition .stars::after {
     content: '';
     position: absolute;
+    top: -50%; right: -50%; bottom: -50%; left: -50%;
     inset: -50% -50%;
     background-image:
         radial-gradient(1.5px 1.5px at 20% 30%, rgba(255,255,255,0.8), transparent),
@@ -1237,6 +1247,7 @@ html[data-theme="dark"] .companion-mode-card i {
 }
 .companion-transition .glow {
     position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     background:
         radial-gradient(circle at 30% 40%, rgba(120, 100, 200, 0.15), transparent 50%),
@@ -1488,6 +1499,7 @@ html[data-theme="dark"] .companion-mode-card i {
    ──────────────────────────────────────────────────────────────── */
 .companion-history-modal {
     position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     z-index: 100001;  /* 高于所有陪伴 UI（含过渡画面）*/
     background: rgba(0, 0, 0, 0.6);
