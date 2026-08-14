@@ -386,35 +386,6 @@ autoSendInterval: 5,
 }
 
 
-        // 超大 base64 图片先缩放再应用：聊天背景存的是全尺寸 base64，
-        // 低端安卓 WebView 解码几 MB 的 data URI 会内存不足导致背景不显示
-        // （图库缩略图只有 200px 所以正常）。gif 动图不压缩。
-        function _shrinkBackgroundImage(base64, maxSide) {
-            if (typeof base64 !== 'string' || base64.indexOf('data:image') !== 0 || base64.indexOf('image/gif') !== -1) {
-                return Promise.resolve(base64);
-            }
-            return new Promise(function (resolve) {
-                var img = new Image();
-                img.onload = function () {
-                    var w = img.width, h = img.height;
-                    if (!w || !h || Math.max(w, h) <= maxSide) { resolve(base64); return; }
-                    var ratio = maxSide / Math.max(w, h);
-                    var cw = Math.max(1, Math.round(w * ratio));
-                    var ch = Math.max(1, Math.round(h * ratio));
-                    try {
-                        var canvas = document.createElement('canvas');
-                        canvas.width = cw; canvas.height = ch;
-                        var ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, cw, ch);
-                        var out = canvas.toDataURL('image/jpeg', 0.82);
-                        resolve(out.length < base64.length ? out : base64);
-                    } catch (e) { resolve(base64); }
-                };
-                img.onerror = function () { resolve(base64); };
-                img.src = base64;
-            });
-        }
-
         const applyBackground = async (value) => {
             if (!value || typeof value !== 'string') return;
             try {
@@ -450,10 +421,6 @@ autoSendInterval: 5,
                 if (value.startsWith('linear-gradient') || value.startsWith('#') || value.startsWith('rgb')) {
                     document.documentElement.style.setProperty('--chat-bg-image', value);
                 } else {
-                    // 超大 base64 图片先缩放再应用，避免低端设备渲染全尺寸 data URI 失败
-                    if (value.indexOf('data:image') === 0 && value.indexOf('image/gif') === -1) {
-                        value = await _shrinkBackgroundImage(value, 1600);
-                    }
                     const cssValue = value.startsWith('url(') ? value : `url(${value})`;
                     document.documentElement.style.setProperty('--chat-bg-image', cssValue);
                 }
