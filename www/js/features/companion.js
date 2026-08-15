@@ -236,7 +236,7 @@
         const modal = document.createElement('div');
         modal.id = 'companion-modal-dynamic';
         modal.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99998',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99998',
             'background:rgba(0,0,0,0.5)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'opacity:1', 'pointer-events:all',
@@ -551,7 +551,7 @@
         const overlay = document.createElement('div');
         overlay.id = 'companion-inviting-overlay';
         overlay.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99998',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99998',
             'background:rgba(15,15,20,0.92)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'animation:companionFadeIn 0.3s ease',
@@ -568,12 +568,12 @@
             ">
                 <div style="position:relative;width:96px;height:96px;">
                     <div style="
-                        position:absolute;inset:-6px;border-radius:50%;
+                        position:absolute;top:-6px;right:-6px;bottom:-6px;left:-6px;inset:-6px;border-radius:50%;
                         border:2px solid rgba(var(--accent-color-rgb,197,164,126),0.5);
                         animation:companionPulseRing 1.6s ease-out infinite;
                     "></div>
                     <div style="
-                        position:absolute;inset:-14px;border-radius:50%;
+                        position:absolute;top:-14px;right:-14px;bottom:-14px;left:-14px;inset:-14px;border-radius:50%;
                         border:2px solid rgba(var(--accent-color-rgb,197,164,126),0.3);
                         animation:companionPulseRing 1.6s ease-out infinite 0.5s;
                     "></div>
@@ -733,7 +733,7 @@
         overlay.dataset.inviteTime = inviteTime;
         overlay.dataset.inviteMode = mode;
         overlay.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99998',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99998',
             'background:rgba(15,15,20,0.95)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'animation:companionFadeIn 0.35s ease',
@@ -746,8 +746,8 @@
         overlay.innerHTML = `
             <div style="display:flex;flex-direction:column;align-items:center;gap:18px;color:#fff;">
                 <div style="position:relative;width:96px;height:96px;">
-                    <div style="position:absolute;inset:-6px;border-radius:50%;border:2px solid rgba(var(--accent-color-rgb,197,164,126),0.5);animation:companionPulseRing 1.6s ease-out infinite;"></div>
-                    <div style="position:absolute;inset:-14px;border-radius:50%;border:2px solid rgba(var(--accent-color-rgb,197,164,126),0.3);animation:companionPulseRing 1.6s ease-out infinite 0.5s;"></div>
+                    <div style="position:absolute;top:-6px;right:-6px;bottom:-6px;left:-6px;inset:-6px;border-radius:50%;border:2px solid rgba(var(--accent-color-rgb,197,164,126),0.5);animation:companionPulseRing 1.6s ease-out infinite;"></div>
+                    <div style="position:absolute;top:-14px;right:-14px;bottom:-14px;left:-14px;inset:-14px;border-radius:50%;border:2px solid rgba(var(--accent-color-rgb,197,164,126),0.3);animation:companionPulseRing 1.6s ease-out infinite 0.5s;"></div>
                     <div style="
                         width:96px;height:96px;border-radius:50%;overflow:hidden;
                         background:rgba(255,255,255,0.1);
@@ -1014,7 +1014,7 @@
         const overlay = document.createElement('div');
         overlay.id = 'companion-goodnight-overlay';
         overlay.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99999',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99999',
             'background:rgba(15,15,20,0.92)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'animation:companionFadeIn 1.8s ease',
@@ -1090,7 +1090,7 @@
         const overlay = document.createElement('div');
         overlay.id = 'companion-farewell-overlay';
         overlay.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99999',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99999',
             'background:rgba(15,15,20,0.92)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'animation:companionFadeIn 1.8s ease',
@@ -1190,7 +1190,7 @@
         const modal = document.createElement('div');
         modal.id = id;
         modal.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99998',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99998',
             'background:rgba(0,0,0,0.5)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'opacity:1', 'pointer-events:all',
@@ -1621,7 +1621,7 @@
         if (!bg) {
             const fallback = document.createElement('div');
             fallback.style.cssText = `
-                position:absolute;inset:0;
+                position:absolute;top:0;right:0;bottom:0;left:0;inset:0;
                 background:
                     radial-gradient(ellipse at 30% 20%, rgba(var(--accent-color-rgb, 197,164,126), 0.32) 0%, transparent 60%),
                     radial-gradient(ellipse at 75% 75%, rgba(var(--accent-color-rgb, 197,164,126), 0.22) 0%, transparent 60%),
@@ -2506,7 +2506,7 @@
         const overlay = document.createElement('div');
         overlay.id = 'companion-extend-prompt';
         overlay.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99998',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99998',
             'background:rgba(15,15,20,0.92)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'animation:companionFadeIn 0.5s ease'
@@ -2577,7 +2577,7 @@
         const overlay = document.createElement('div');
         overlay.id = 'companion-inviting-overlay';
         overlay.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99998',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99998',
             'background:rgba(15,15,20,0.92)',
             'display:flex', 'align-items:center', 'justify-content:center'
         ].join(';'));
@@ -2590,12 +2590,12 @@
             <div style="display:flex;flex-direction:column;align-items:center;gap:18px;color:#fff;">
                 <div style="position:relative;width:96px;height:96px;">
                     <div style="
-                        position:absolute;inset:-12px;border-radius:50%;
+                        position:absolute;top:-12px;right:-12px;bottom:-12px;left:-12px;inset:-12px;border-radius:50%;
                         border:2px solid rgba(var(--accent-color-rgb,197,164,126),.55);
                         animation:companionPulseRing 1.6s ease-out infinite;
                     "></div>
                     <div style="
-                        position:absolute;inset:-24px;border-radius:50%;
+                        position:absolute;top:-24px;right:-24px;bottom:-24px;left:-24px;inset:-24px;border-radius:50%;
                         border:1px solid rgba(var(--accent-color-rgb,197,164,126),.32);
                         animation:companionPulseRing 1.6s ease-out infinite 0.4s;
                     "></div>
@@ -2704,7 +2704,7 @@
         const overlay = document.createElement('div');
         overlay.id = 'companion-extend-prompt-partner';
         overlay.setAttribute('style', [
-            'position:fixed', 'inset:0', 'z-index:99998',
+            'position:fixed', 'top:0', 'right:0', 'bottom:0', 'left:0', 'inset:0', 'z-index:99998',
             'background:rgba(15,15,20,0.92)',
             'display:flex', 'align-items:center', 'justify-content:center',
             'animation:companionFadeIn 0.5s ease'

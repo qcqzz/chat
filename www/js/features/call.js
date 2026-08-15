@@ -60,7 +60,7 @@
         el.id = 'call-feature-style';
         el.textContent = `
 #call-incoming-overlay{
-    position:fixed;inset:0;z-index:99990;
+    position:fixed;top:0;right:0;bottom:0;left:0;inset:0;z-index:99990;
     display:none;align-items:center;justify-content:center;
     background:rgba(0,0,0,.62);
     backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
@@ -77,7 +77,7 @@
     position:relative;overflow:hidden;
 }
 .call-inc-card::before{
-    content:'';position:absolute;inset:0;pointer-events:none;
+    content:'';position:absolute;top:0;right:0;bottom:0;left:0;inset:0;pointer-events:none;
     background:radial-gradient(ellipse at 50% 0%,rgba(var(--accent-color-rgb,224,105,138),.28),transparent 65%);
 }
 .call-inc-ring{position:relative;margin-bottom:8px;width:88px;height:88px;}
@@ -92,7 +92,7 @@
     border-color:rgba(255,255,255,.08);animation-delay:.65s;
 }
 .call-inc-avatar{
-    position:absolute;inset:0;
+    position:absolute;top:0;right:0;bottom:0;left:0;inset:0;
     border-radius:50%;background:var(--accent-color,#e0698a);
     display:flex;align-items:center;justify-content:center;overflow:hidden;
     border:2px solid rgba(255,255,255,.25);box-shadow:0 8px 28px rgba(0,0,0,.36);
@@ -131,15 +131,15 @@
     flex:1;display:flex;flex-direction:column;position:relative;
 }
 
-#call-window-bg{position:absolute;inset:0;z-index:0;}
-.call-bg-grad{position:absolute;inset:0;background:linear-gradient(155deg,#0d1b2a 0%,#1b263b 50%,#415a77 100%);}
-#call-window-bg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;}
+#call-window-bg{position:absolute;top:0;right:0;bottom:0;left:0;inset:0;z-index:0;}
+.call-bg-grad{position:absolute;top:0;right:0;bottom:0;left:0;inset:0;background:linear-gradient(155deg,#0d1b2a 0%,#1b263b 50%,#415a77 100%);}
+#call-window-bg img{position:absolute;top:0;right:0;bottom:0;left:0;inset:0;width:100%;height:100%;object-fit:cover;display:none;}
 .call-orb{position:absolute;border-radius:50%;filter:blur(44px);opacity:.28;animation:cOrb linear infinite;pointer-events:none;}
 .call-orb-1{width:130px;height:130px;background:var(--accent-color,#e0698a);top:-25px;left:-25px;animation-duration:18s;}
 .call-orb-2{width:90px;height:90px;background:#4a90d9;bottom:10px;right:-10px;animation-duration:23s;animation-delay:-9s;}
 .call-orb-3{width:70px;height:70px;background:#9b59b6;top:40%;left:45%;animation-duration:28s;animation-delay:-14s;}
 .call-overlay{
-    position:absolute;inset:0;z-index:1;transition:opacity .4s;
+    position:absolute;top:0;right:0;bottom:0;left:0;inset:0;z-index:1;transition:opacity .4s;
     background:linear-gradient(to bottom,rgba(0,0,0,.5) 0%,rgba(0,0,0,.04) 35%,rgba(0,0,0,.04) 60%,rgba(0,0,0,.65) 100%);
 }
 
