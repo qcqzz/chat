@@ -1125,22 +1125,18 @@ function _redpacketCover(sender) {
         return (typeof c === 'string' && c) ? c : '';
     } catch (e) { return ''; }
 }
-// 红包消息在聊天气泡内的卡片 HTML（微信风格）
+// 红包消息在聊天气泡内的卡片 HTML（系统风格单卡片，仅显示祝福语）
 function _redpacketCardHTML(msg) {
     const cover = _redpacketCover(msg.sender);
     const greeting = (msg && msg.text) ? String(msg.text) : '恭喜发财，大吉大利';
     const mid = String(msg.id).replace(/['"`\\]/g, '');
-    const sqStyle = cover
+    const coverStyle = cover
         ? 'background-image:url("' + _escapeHtml(cover) + '");'
-        : 'background-image:linear-gradient(135deg,#ff8a65,#e53935);';
+        : 'background-image:linear-gradient(135deg,var(--primary-bg),var(--accent-color));';
     return '<div class="redpacket-card" data-id="' + _escapeHtml(mid) + '" data-mid="' + _escapeHtml(mid) + '" onclick="TransferFeature.openRedpacket(\'' + _escapeHtml(mid) + '\')">'
-        + '<div class="redpacket-sq" style="' + sqStyle + '">'
-        + (cover ? '' : '<span class="redpacket-sq-core">🧧</span>')
-        + '</div>'
-        + '<div class="redpacket-info">'
-        + '<div class="redpacket-greeting">' + _escapeHtml(greeting) + '</div>'
-        + '<div class="redpacket-label">微信红包</div>'
-        + '</div></div>';
+        + '<span class="redpacket-card-ico" style="' + coverStyle + '">' + (cover ? '' : '🧧') + '</span>'
+        + '<span class="redpacket-card-text">' + _escapeHtml(greeting) + '</span>'
+        + '</div>';
 }
 
 function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {

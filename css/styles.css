@@ -13848,37 +13848,37 @@ body #user-sticker-picker .empty-sticker-tip {
     /* 生理期日历格 / emoji 格 / 动态图片为文本或 img 内容，保留自然高度（内容完整可见） */
 }
 
-/* ── 微信风格红包：聊天消息卡片 ─────────────────────────────── */
+/* ── 红包：聊天消息卡片（系统风格单卡片，仅显示祝福语）────── */
 .redpacket-card {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 11px;
+    gap: 8px;
+    padding: 8px 12px;
     background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
     border-radius: 10px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     cursor: pointer;
     max-width: 240px;
-    min-width: 180px;
+    min-width: 160px;
     user-select: none;
-    border: 1px solid var(--border-color);
+    box-sizing: border-box;
 }
 .redpacket-card:active { opacity: 0.8; }
-.redpacket-sq {
-    width: 46px;
-    height: 46px;
-    flex: 0 0 46px;
-    border-radius: 8px;
+.redpacket-card-ico {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    border-radius: 7px;
     background-size: cover;
     background-position: center;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    box-shadow: inset 0 -2px 6px rgba(0,0,0,0.18);
+    font-size: 18px;
+    line-height: 1;
 }
-.redpacket-sq-core { font-size: 24px; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25)); }
-.redpacket-info { flex: 1; min-width: 0; padding-right: 4px; }
-.redpacket-greeting {
+.redpacket-card-text {
     font-weight: 600;
     color: var(--text-primary);
     font-size: 14px;
@@ -13886,7 +13886,6 @@ body #user-sticker-picker .empty-sticker-tip {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.redpacket-label { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
 .message-redpacket-bubble {
     background: transparent !important;
     border: none !important;
@@ -13896,11 +13895,17 @@ body #user-sticker-picker .empty-sticker-tip {
 .message-redpacket-bubble::before,
 .message-redpacket-bubble::after { display: none !important; }
 
-/* ── 微信风格红包：发送弹窗 ─────────────────────────────────── */
+/* ── 红包：发送弹窗（跟随系统风格，横竖比 3:4）────────────── */
+.redpacket-send-content {
+    aspect-ratio: 3 / 4;
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+}
 .redpacket-send-content .redpacket-send-cover {
-    height: 180px;
+    flex: 0 0 36%;
     position: relative;
-    background: linear-gradient(135deg, #ffab66, #ff5b6a);
+    background: linear-gradient(135deg, var(--secondary-bg), var(--message-received-bg));
     background-size: cover;
     background-position: center;
     display: flex;
@@ -13915,21 +13920,23 @@ body #user-sticker-picker .empty-sticker-tip {
     flex-direction: column;
     align-items: center;
     padding: 0 16px 16px;
-    color: #fff;
+    color: var(--text-primary);
 }
 .redpacket-send-cover-top { font-size: 15px; font-weight: 600; letter-spacing: 1px; }
-.redpacket-send-cover-bot { font-size: 11px; opacity: 0.85; margin-top: 2px; }
+.redpacket-send-cover-bot { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
 .redpacket-send-cny {
     position: absolute;
-    top: 50%;
+    top: 40%;
     left: 50%;
     transform: translate(-50%, -50%);
     font-size: 64px;
     font-weight: 700;
-    color: rgba(255,255,255,0.9);
-    text-shadow: 0 2px 12px rgba(0,0,0,0.25);
+    color: var(--accent-color);
+    opacity: 0.5;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.08);
 }
 .redpacket-send-content .redpacket-send-cover.has-custom .redpacket-send-cny { display: none; }
+.redpacket-send-form { flex: 1; min-height: 0; overflow-y: auto; }
 .transfer-preset {
     padding: 6px 12px;
     border-radius: 16px;
@@ -13947,14 +13954,14 @@ body #user-sticker-picker .empty-sticker-tip {
     border-color: var(--accent-color);
 }
 .rp-gold-btn {
-    background: linear-gradient(135deg, #ffb952, #ff7f3d);
+    background: var(--accent-color);
     color: #fff;
     border: none;
     border-radius: 8px;
     font-weight: 700;
     font-size: 14px;
     letter-spacing: 0.5px;
-    box-shadow: 0 3px 10px rgba(255,127,61,0.35);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.18);
 }
 .rp-gold-btn:hover { filter: brightness(1.05); }
 

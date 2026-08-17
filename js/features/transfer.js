@@ -177,11 +177,25 @@
         var greetingEl = document.getElementById('rp-send-greeting');
         var greeting = (greetingEl && greetingEl.value.trim()) || '恭喜发财，大吉大利';
 
-        // 用户发出微信风格红包消息 → 梦角回复
+        // 用户发出红包消息 → 对方领取：在聊天页中间显示系统提示（不回复消息）
         _pushRedpacket('user', greeting, amt);
-        setTimeout(function () {
-            _pushMessage(_partnerName(), _fill(_random(USER_TRANSFER_REPLIES), _fmt(amt)), 'received');
-        }, 1600);
+        setTimeout(function () { _pushClaimedNotice(); }, 1600);
+    }
+
+    // 聊天页中间的系统提示：{partner}领取了{my}的红包（昵称跟随设置）
+    function _pushClaimedNotice() {
+        var push = window.addMessage || addMessage;
+        if (typeof push !== 'function') return;
+        var partner = _partnerName();
+        var my = '我';
+        try { if (settings && settings.myName) my = settings.myName; } catch (e) {}
+        push({
+            id: Date.now() + Math.random(),
+            sender: 'system',
+            text: partner + '领取了' + my + '的红包',
+            timestamp: new Date(),
+            type: 'system'
+        });
     }
 
     // ── 红包小窗：点击聊天里的红包消息后打开 ─────────────────────
