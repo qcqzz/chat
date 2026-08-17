@@ -97,20 +97,6 @@
         }, 130);
     }
 
-    // 让"发红包"弹窗头部预览跟随用户设置的用户封面（仅预览浅米灰主区效果）
-    function _refreshSendCoverPreview() {
-        var el = document.getElementById('rp-send-cover-prev');
-        if (!el) return;
-        var cover = _coverFor('user', 'card');
-        if (cover) {
-            el.style.backgroundImage = 'linear-gradient(rgba(255,249,245,0.86),rgba(255,249,245,0.86)),url("' + cover + '")';
-            el.classList.add('has-cover');
-        } else {
-            el.style.backgroundImage = '';
-            el.classList.remove('has-cover');
-        }
-    }
-
     function _parseAmount() {
         var v = parseFloat(_amountInput.value);
         if (!isFinite(v) || v <= 0) return null;
@@ -152,6 +138,22 @@
 
     // 聊天页中间的系统提示：{partner}领取了{my}的红包（昵称跟随设置）
     function _pushClaimedNotice() {
+        // 先把最近一条「我发出的红包」标记为已领取，卡片状态随之从「待领取」变为「已领取」
+        try {
+            var arr = (typeof messages !== 'undefined' && messages) ? messages : (window.messages || []);
+            for (var i = arr.length - 1; i >= 0; i--) {
+                var m = arr[i];
+                if (m && m.type === 'redpacket' && m.sender === 'user' && !m.opened) {
+                    m.opened = true;
+                    m.openedAt = Date.now();
+                    break;
+                }
+            }
+            try { if (typeof throttledSaveData === 'function') throttledSaveData(); } catch (e) {}
+            try { if (typeof renderMessages === 'function') renderMessages(); } catch (e) {}
+            // 红包记录弹窗若已打开（或之后打开），同步刷新当前视角列表，保证卡片与记录状态一致
+            try { _renderRpRecordList(_rpRecordView); } catch (e) {}
+        } catch (e) {}
         var push = window.addMessage || addMessage;
         if (typeof push !== 'function') return;
         var partner = _partnerName();
@@ -306,14 +308,24 @@
         var ch = _rpEl('rp-choice-modal');
         if (ch && typeof hideModal === 'function') hideModal(ch);
         openTransfer();
-        _refreshSendCoverPreview();
     }
-    // 选择「红包记录」→ 关闭选择弹窗，打开红包记录弹窗
+    // 红包记录弹窗上方「梦角 / 我」按钮文字跟随用户设置的昵称
+    function _syncRecordTabNames() {
+        var partnerBtn = _rpEl('rp-record-tab-partner');
+        var meBtn = _rpEl('rp-record-tab-me');
+        if (!partnerBtn || !meBtn) return;
+        var partnerName = _partnerName();
+        var myName = '我';
+        try { if (settings && settings.myName) myName = settings.myName; } catch (e) {}
+        partnerBtn.innerHTML = '<i class="fas fa-heart"></i> ' + _escapeHtml(partnerName);
+        meBtn.innerHTML = '<i class="fas fa-user"></i> ' + _escapeHtml(myName);
+    }
     function openRpRecord() {
         var ch = _rpEl('rp-choice-modal');
         if (ch && typeof hideModal === 'function') hideModal(ch);
         var modal = _rpEl('rp-record-modal');
         if (!modal) return;
+        _syncRecordTabNames();
         switchRpRecordView('partner');
         if (typeof showModal === 'function') showModal(modal);
     }
@@ -378,7 +390,9 @@
         }).join('');
     }
     // 切换「梦角 / 我」视角（HTML onclick 调用）
+    var _rpRecordView = 'partner'; // 红包记录当前视角，供状态变化时同步刷新
     function switchRpRecordView(who) {
+        _rpRecordView = who;
         _renderRpRecordList(who);
     }
     window.switchRpRecord = switchRpRecordView;

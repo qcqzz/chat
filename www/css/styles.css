@@ -14238,20 +14238,3 @@ body #user-sticker-picker .empty-sticker-tip {
 .rp-rec-status { font-size: 11px; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
 .rp-rec-status.done { background: rgba(var(--accent-color-rgb), 0.14); color: var(--accent-color); }
 .rp-rec-status.wait { background: var(--border-color); color: var(--text-secondary); }
-/* 发送弹窗头部的封面预览小方块（跟随用户封面，点击旁边的设置处可换） */
-.redpacket-send-cover-prev {
-    margin-left: auto;
-    width: 42px;
-    height: 42px;
-    flex: 0 0 42px;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    background: linear-gradient(160deg, #fbeef0, #f6e2d4);
-    background-size: cover;
-    background-position: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    line-height: 1;
-}

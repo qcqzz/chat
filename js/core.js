@@ -1156,9 +1156,8 @@ function _redpacketCardHTML(msg) {
     const mid = String(msg.id).replace(/['"`\\]/g, '');
     const amount = '¥' + Number(msg && msg.amount || 0).toFixed(2);
     const time = _rpTime(msg && msg.timestamp);
-    const self = !!(msg && msg.sender === 'user');
     const opened = !!(msg && msg.opened);
-    const status = (self || opened)
+    const status = opened
         ? '<span class="redpacket-card-check">✓</span>已领取'
         : '<span class="redpacket-card-check empty">◌</span>待领取';
     // 封面仅作用于主区背景；叠加浅色半透明遮罩保证文字可读，无封面时用 CSS 内置浅米灰渐变
