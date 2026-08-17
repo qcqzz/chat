@@ -13947,6 +13947,8 @@ body #user-sticker-picker .empty-sticker-tip {
     border-bottom: 1px solid var(--border-color);
 }
 .redpacket-send-head-ico { font-size: 26px; line-height: 1; }
+.redpacket-send-head-ico i { color: var(--accent-color); }
+html[data-theme="dark"] .redpacket-send-head-ico i { color: var(--accent-color-dark); }
 .redpacket-send-head-txt { display: flex; flex-direction: column; gap: 2px; }
 .redpacket-send-head-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
 .redpacket-send-head-sub { font-size: 11.5px; color: var(--text-secondary); }

@@ -133,7 +133,27 @@
 
         // 用户发出红包消息 → 对方领取：在聊天页中间显示系统提示（不回复消息）
         _pushRedpacket('user', greeting, amt);
-        setTimeout(function () { _pushClaimedNotice(); }, 1600);
+        // 阶段1：红包消息先显示「已读」（对方读到了消息，卡片仍显示「待领取」）
+        setTimeout(function () { _markRpRead(); }, 1600);
+        // 阶段2：再把红包卡片标记为「已领取」（对方拆开红包）+ 中间系统提示
+        setTimeout(function () { _pushClaimedNotice(); }, 3200);
+    }
+
+    // 阶段1：把最近一条「我发出的、未读」的红包消息标记为已读
+    function _markRpRead() {
+        try {
+            var arr = (typeof messages !== 'undefined' && messages) ? messages : (window.messages || []);
+            for (var i = arr.length - 1; i >= 0; i--) {
+                var m = arr[i];
+                if (m && m.type === 'redpacket' && m.sender === 'user' && m.status !== 'read') {
+                    m.status = 'read';
+                    break;
+                }
+            }
+            try { if (typeof throttledSaveData === 'function') throttledSaveData(); } catch (e) {}
+            try { if (typeof renderMessages === 'function') renderMessages(); } catch (e) {}
+            try { if (typeof _updateReadReceiptsDOM === 'function') _updateReadReceiptsDOM(); } catch (e) {}
+        } catch (e) {}
     }
 
     // 聊天页中间的系统提示：{partner}领取了{my}的红包（昵称跟随设置）
