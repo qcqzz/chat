@@ -3638,37 +3638,31 @@ window.exitCollapseMode = function() {
     }
 })();
 
-// ── 自定义红包封面：渲染预览 + 更换/恢复 ─────────────────────────
+// ── 自定义红包封面：卡片/弹窗 × 我的/梦角 四组，上传时按区域比例自由裁剪 ──
 (function initRedpacketCoverSettings() {
-    window.renderRedpacketCoverSettings = function () {
-        ['me', 'partner'].forEach(function (role) {
-            var key = role === 'me' ? 'redpacketMyCover' : 'redpacketPartnerCover';
-            var prev = document.getElementById('rp-cover-prev-' + role);
-            if (!prev) return;
-            var cover = (typeof settings !== 'undefined') ? settings[key] : null;
-            if (typeof cover === 'string' && cover) {
-                prev.style.backgroundImage = 'url("' + cover + '")';
-            } else {
-                prev.style.backgroundImage = '';
-            }
-        });
+    const COVER_ITEMS = [
+        { key: 'redpacketCardMyCover',      prevId: 'rp-cover-prev-card-me' },
+        { key: 'redpacketCardPartnerCover', prevId: 'rp-cover-prev-card-partner' },
+        { key: 'redpacketOpenMyCover',      prevId: 'rp-cover-prev-open-me' },
+        { key: 'redpacketOpenPartnerCover', prevId: 'rp-cover-prev-open-partner' }
+    ];
+    const KEY2RATIO = {
+        redpacketCardMyCover: 2.6,
+        redpacketCardPartnerCover: 2.6,
+        redpacketOpenMyCover: 1.37,
+        redpacketOpenPartnerCover: 1.37
     };
 
-    function readCover(fileInput, key, prevId) {
-        const file = fileInput.files[0];
-        if (!file) return;
-        if (file.size > 5 * 1024 * 1024) { if (typeof showNotification === 'function') showNotification('封面图片不能超过5MB', 'error'); return; }
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const base64 = e.target.result;
-            if (typeof settings !== 'undefined') settings[key] = base64;
-            if (typeof saveData === 'function') { try { saveData(); } catch (err) { console.warn('[cover] saveData failed', err); } }
-            if (typeof renderMessages === 'function') { try { renderMessages(); } catch (err) {} }
-            if (typeof window.renderRedpacketCoverSettings === 'function') window.renderRedpacketCoverSettings();
-            if (typeof showNotification === 'function') showNotification('红包封面已更新', 'success');
-        };
-        reader.readAsDataURL(file);
-    }
+    const $ = (id) => document.getElementById(id);
+
+    window.renderRedpacketCoverSettings = function () {
+        COVER_ITEMS.forEach(function (d) {
+            var prev = $(d.prevId);
+            if (!prev) return;
+            var c = (typeof settings !== 'undefined') ? settings[d.key] : null;
+            prev.style.backgroundImage = (typeof c === 'string' && c) ? 'url("' + c + '")' : '';
+        });
+    };
 
     function resetCover(key) {
         if (typeof settings !== 'undefined') settings[key] = null;
@@ -3678,19 +3672,190 @@ window.exitCollapseMode = function() {
         if (typeof showNotification === 'function') showNotification('已恢复默认封面', 'success');
     }
 
+    // ── 裁剪器状态 ──
+    let _cropKey = null;
+    let _ratio = 2.6;
+    let _img = null, _Wn = 0, _Hn = 0;
+    let _Sw = 0, _Sh = 0, _base = 0, _zoom = 1;
+    let _imgX = 0, _imgY = 0, _dispW = 0, _dispH = 0;
+    let _cropX = 0, _cropY = 0, _cropW = 0, _cropH = 0;
+    let _drag = null;
+
+    function clamp(v, mn, mx) { return v < mn ? mn : (v > mx ? mx : v); }
+
+    function stageSize() {
+        const st = $('rp-crop-stage');
+        return { w: st.clientWidth, h: st.clientHeight };
+    }
+
+    function redraw() {
+        _dispW = _Wn * _base * _zoom;
+        _dispH = _Hn * _base * _zoom;
+        const imgEl = $('rp-crop-img');
+        if (imgEl) {
+            imgEl.style.width = _dispW + 'px';
+            imgEl.style.height = _dispH + 'px';
+            imgEl.style.left = _imgX + 'px';
+            imgEl.style.top = _imgY + 'px';
+        }
+        _cropH = _cropW / _ratio;
+        const win = $('rp-crop-window');
+        if (win) {
+            win.style.width = _cropW + 'px';
+            win.style.height = _cropH + 'px';
+            win.style.left = _cropX + 'px';
+            win.style.top = _cropY + 'px';
+        }
+    }
+
+    function clampWindowInImage() {
+        const mnX = Math.max(0, _imgX);
+        const mxX = Math.min(_Sw - _cropW, _imgX + _dispW - _cropW);
+        const mnY = Math.max(0, _imgY);
+        const mxY = Math.min(_Sh - _cropH, _imgY + _dispH - _cropH);
+        if (mxX >= mnX) _cropX = clamp(_cropX, mnX, mxX); else _cropX = mnX;
+        if (mxY >= mnY) _cropY = clamp(_cropY, mnY, mxY); else _cropY = mnY;
+    }
+
+    function initAfterShow() {
+        const s = stageSize();
+        _Sw = s.w; _Sh = s.h;
+        _base = Math.min((_Sw - 8) / _Wn, (_Sh - 8) / _Hn);
+        _zoom = 1;
+        _dispW = _Wn * _base * _zoom;
+        _dispH = _Hn * _base * _zoom;
+        _imgX = (_Sw - _dispW) / 2;
+        _imgY = (_Sh - _dispH) / 2;
+        // 裁剪窗不可超过舞台，也不能超过(基准放大=1下的)图片范围
+        _cropW = Math.max(120, Math.min(_Sw - 16, (_Sh - 16) * _ratio, _dispW + 0.001, _dispH * _ratio + 0.001));
+        _cropH = _cropW / _ratio;
+        _cropX = (_Sw - _cropW) / 2;
+        _cropY = (_Sh - _cropH) / 2;
+        clampWindowInImage();
+        redraw();
+        const z = $('rp-crop-zoom'); if (z) z.value = '1';
+    }
+
+    function onFileChange() {
+        const input = $('redpacket-cover-crop-input');
+        const file = input.files[0];
+        if (!file) return;
+        if (file.size > 8 * 1024 * 1024) { if (typeof showNotification === 'function') showNotification('图片不能超过8MB', 'error'); return; }
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const url = e.target.result;
+            const im = new Image();
+            im.onload = function () {
+                _img = im; _Wn = im.naturalWidth || im.width; _Hn = im.naturalHeight || im.height;
+                const showEl = $('rp-crop-img');
+                if (showEl) showEl.src = url;
+                const modal = $('redpacket-crop-modal');
+                if (modal && typeof showModal === 'function') showModal(modal);
+                setTimeout(initAfterShow, 80);
+            };
+            im.src = url;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    window.RedpacketCrop = {
+        cancel: function () {
+            const modal = $('redpacket-crop-modal');
+            if (modal && typeof hideModal === 'function') hideModal(modal);
+            _cropKey = null;
+        },
+        confirm: function () {
+            if (!_cropKey || !_img) return;
+            let sx = (_cropX - _imgX) / _dispW * _Wn;
+            let sy = (_cropY - _imgY) / _dispH * _Hn;
+            let sw = _cropW / _dispW * _Wn;
+            let sh = _cropH / _dispH * _Hn;
+            sx = clamp(sx, 0, _Wn); sy = clamp(sy, 0, _Hn);
+            sw = Math.min(sw, _Wn - sx); sh = Math.min(sh, _Hn - sy);
+            if (sw < 1 || sh < 1) return;
+            const outW = 640, outH = Math.max(1, Math.round(outW / _ratio));
+            const cv = document.createElement('canvas');
+            cv.width = outW; cv.height = outH;
+            const cx = cv.getContext('2d');
+            cx.drawImage(_img, sx, sy, sw, sh, 0, 0, outW, outH);
+            const dataURL = cv.toDataURL('image/jpeg', 0.92);
+            if (typeof settings === 'object' && settings) settings[_cropKey] = dataURL;
+            if (typeof saveData === 'function') { try { saveData(); } catch (err) {} }
+            if (typeof renderMessages === 'function') { try { renderMessages(); } catch (err) {} }
+            if (typeof window.renderRedpacketCoverSettings === 'function') window.renderRedpacketCoverSettings();
+            const modal = $('redpacket-crop-modal');
+            if (modal && typeof hideModal === 'function') hideModal(modal);
+            _cropKey = null;
+            if (typeof showNotification === 'function') showNotification('封面已更新', 'success');
+        }
+    };
+
+    // 拖拽：窗内移动裁剪窗，窗外移动图片
+    function onStageDown(e) {
+        if (e.target.closest('input,button')) return;
+        const r = $('rp-crop-stage').getBoundingClientRect();
+        const x = e.clientX - r.left, y = e.clientY - r.top;
+        const inWin = x >= _cropX && x <= _cropX + _cropW && y >= _cropY && y <= _cropY + _cropH;
+        _drag = {
+            mode: inWin ? 'win' : 'img',
+            startX: e.clientX, startY: e.clientY,
+            origX: inWin ? _cropX : _imgX,
+            origY: inWin ? _cropY : _imgY
+        };
+        e.preventDefault();
+        window.addEventListener('pointermove', onStageMove);
+        window.addEventListener('pointerup', onStageUp);
+    }
+    function onStageMove(e) {
+        if (!_drag) return;
+        const dx = e.clientX - _drag.startX, dy = e.clientY - _drag.startY;
+        if (_drag.mode === 'win') {
+            _cropX = clamp(_drag.origX + dx, 0, _Sw - _cropW);
+            _cropY = clamp(_drag.origY + dy, 0, _Sh - _cropH);
+            clampWindowInImage();
+        } else {
+            _imgX = clamp(_drag.origX + dx, _cropX - _dispW + _cropW, _cropX);
+            _imgY = clamp(_drag.origY + dy, _cropY - _dispH + _cropH, _cropY);
+        }
+        redraw();
+    }
+    function onStageUp() {
+        _drag = null;
+        window.removeEventListener('pointermove', onStageMove);
+        window.removeEventListener('pointerup', onStageUp);
+    }
+    // 缩放：以裁剪窗中心为锚点
+    function onZoom(e) {
+        _zoom = Number(e.target.value) || 1;
+        const cx = _cropX + _cropW / 2, cy = _cropY + _cropH / 2;
+        _dispW = _Wn * _base * _zoom;
+        _dispH = _Hn * _base * _zoom;
+        _imgX = clamp(cx - _dispW / 2, _cropX - _dispW + _cropW, _cropX);
+        _imgY = clamp(cy - _dispH / 2, _cropY - _dispH + _cropH, _cropY);
+        redraw();
+        clampWindowInImage();
+        redraw();
+    }
+
     function bind() {
-        const inputMe = document.getElementById('redpacket-cover-input-me');
-        const inputPartner = document.getElementById('redpacket-cover-input-partner');
-        if (inputMe) inputMe.addEventListener('change', function () { readCover(this, 'redpacketMyCover', 'rp-cover-prev-me'); });
-        if (inputPartner) inputPartner.addEventListener('change', function () { readCover(this, 'redpacketPartnerCover', 'rp-cover-prev-partner'); });
-        const setMe = document.getElementById('rp-cover-set-me');
-        const setPartner = document.getElementById('rp-cover-set-partner');
-        if (setMe) setMe.addEventListener('click', function () { if (inputMe) inputMe.click(); });
-        if (setPartner) setPartner.addEventListener('click', function () { if (inputPartner) inputPartner.click(); });
-        const resetMe = document.getElementById('rp-cover-reset-me');
-        const resetPartner = document.getElementById('rp-cover-reset-partner');
-        if (resetMe) resetMe.addEventListener('click', function () { resetCover('redpacketMyCover'); });
-        if (resetPartner) resetPartner.addEventListener('click', function () { resetCover('redpacketPartnerCover'); });
+        const input = $('redpacket-cover-crop-input');
+        if (input) input.addEventListener('change', onFileChange);
+        document.querySelectorAll('[data-crop]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                _cropKey = btn.getAttribute('data-crop');
+                _ratio = KEY2RATIO[_cropKey] || 2.6;
+                const hint = $('rp-crop-hint');
+                if (hint) hint.textContent = '拖动裁剪框或移动图片，用下方滑杆缩放，选择要保留的区域';
+                if (input) { input.value = ''; input.click(); }
+            });
+        });
+        document.querySelectorAll('[data-reset]').forEach(function (btn) {
+            btn.addEventListener('click', function () { resetCover(btn.getAttribute('data-reset')); });
+        });
+        const z = $('rp-crop-zoom');
+        if (z) z.addEventListener('input', onZoom);
+        const stage = $('rp-crop-stage');
+        if (stage) stage.addEventListener('pointerdown', onStageDown);
     }
 
     if (document.readyState === 'loading') {
@@ -3699,3 +3864,5 @@ window.exitCollapseMode = function() {
         bind();
     }
 })();
+
+

@@ -61,11 +61,15 @@
         });
     }
 
-    // 红包封面解析（与 core.js 的 _redpacketCover 保持一致的取值规则）
-    function _coverFor(sender) {
+    // 红包封面解析：按「场景(card/open) × 发送方」取对应封面；兼容旧字段
+    function _coverFor(sender, scope) {
         try {
-            var c = sender === 'user' ? settings.redpacketMyCover : settings.redpacketPartnerCover;
-            return (typeof c === 'string' && c) ? c : '';
+            var isUser = sender === 'user';
+            var key = (scope === 'open' ? 'redpacketOpen' : 'redpacketCard')
+                + (isUser ? 'MyCover' : 'PartnerCover');
+            if (typeof settings === 'object' && settings && settings[key]) return settings[key];
+            var old = isUser ? settings.redpacketMyCover : settings.redpacketPartnerCover;
+            return (typeof old === 'string' && old) ? old : '';
         } catch (e) { return ''; }
     }
     function _fmtMoney(n) { return '¥' + Number(n || 0).toFixed(2); }
@@ -93,17 +97,17 @@
         }, 130);
     }
 
-    // 让"发红包"弹窗的封面预览跟随用户设置的用户封面
+    // 让"发红包"弹窗头部预览跟随用户设置的用户封面（仅预览浅米灰主区效果）
     function _refreshSendCoverPreview() {
-        var el = document.getElementById('rp-send-cover');
+        var el = document.getElementById('rp-send-cover-prev');
         if (!el) return;
-        var cover = _coverFor('user');
+        var cover = _coverFor('user', 'card');
         if (cover) {
-            el.style.backgroundImage = 'url("' + cover + '")';
-            el.classList.add('has-custom');
+            el.style.backgroundImage = 'linear-gradient(rgba(255,249,245,0.86),rgba(255,249,245,0.86)),url("' + cover + '")';
+            el.classList.add('has-cover');
         } else {
             el.style.backgroundImage = '';
-            el.classList.remove('has-custom');
+            el.classList.remove('has-cover');
         }
     }
 
@@ -183,28 +187,35 @@
     function _populateOpenModal() {
         var msg = _openMsg;
         if (!msg) return;
-        var cover = _coverFor(msg.sender);
         var name = msg.sender === 'user'
             ? (settings.myName || '我')
-            : (settings.partnerName || msg.sender || '对方');
+            : (settings.partnerName || '对方');
         var greeting = msg.text || '恭喜发财，大吉大利';
+        var hasOpened = !!msg.opened;
 
-        var inner = document.getElementById('redpacket-open-inner');
-        if (inner) {
-            if (cover) { inner.style.backgroundImage = 'url("' + cover + '")'; }
-            else { inner.style.backgroundImage = ''; }
-        }
         var nameEl = document.getElementById('rp-open-name');
-        if (nameEl) nameEl.textContent = (msg.sender === 'user' ? '' : '@') + name;
+        if (nameEl) nameEl.textContent = name + '发来的红包';
         var greetingEl = document.getElementById('rp-open-greeting');
         if (greetingEl) greetingEl.textContent = greeting;
         var amtEl = document.getElementById('rp-open-amount');
         if (amtEl) amtEl.textContent = _fmtMoney(msg.amount);
-        var hasOpened = !!msg.opened;
+
+        // 浅米灰主区支持自定义封面：按发送方取封面，叠加浅色遮罩保证文字可读；无封面用内置渐变
+        var body = document.getElementById('redpacket-open-body');
+        if (body) {
+            var cover = _coverFor(msg.sender, 'open');
+            if (cover) {
+                body.style.backgroundImage = 'linear-gradient(rgba(255,249,245,0.86),rgba(255,249,245,0.86)),url("' + cover + '")';
+                body.classList.add('redpacket-open-body-cover');
+            } else {
+                body.style.backgroundImage = '';
+                body.classList.remove('redpacket-open-body-cover');
+            }
+        }
+
+        // 已领取/未领取 圆形按钮：跟随系统强调色，白字
         var btn = document.getElementById('rp-open-btn');
-        if (btn) btn.style.display = hasOpened ? 'none' : 'block';
-        var amountWrap = document.getElementById('rp-open-amount-wrap');
-        if (amountWrap) amountWrap.style.display = hasOpened ? 'flex' : 'none';
+        if (btn) btn.textContent = hasOpened ? '已领取' : '开';
     }
 
     // 点击"开"按钮 → 拆开红包，显示金额
@@ -278,6 +289,100 @@
         }, (20 + Math.random() * 40) * 60 * 1000);
     }
 
+    // ── 发红包入口选择 + 红包记录 ──────────────────────────────
+    function _rpEl(id) { return document.getElementById(id); }
+
+    // 点左下角发红包按钮：先弹出「发红包 / 红包记录」选择弹窗
+    function openRpChoice() {
+        var modal = _rpEl('rp-choice-modal');
+        if (modal && typeof showModal === 'function') showModal(modal);
+    }
+    function closeChoice() {
+        var modal = _rpEl('rp-choice-modal');
+        if (modal && typeof hideModal === 'function') hideModal(modal);
+    }
+    // 选择「发红包」→ 关闭选择弹窗，打开金额输入弹窗
+    function openSendModal() {
+        var ch = _rpEl('rp-choice-modal');
+        if (ch && typeof hideModal === 'function') hideModal(ch);
+        openTransfer();
+        _refreshSendCoverPreview();
+    }
+    // 选择「红包记录」→ 关闭选择弹窗，打开红包记录弹窗
+    function openRpRecord() {
+        var ch = _rpEl('rp-choice-modal');
+        if (ch && typeof hideModal === 'function') hideModal(ch);
+        var modal = _rpEl('rp-record-modal');
+        if (!modal) return;
+        switchRpRecordView('partner');
+        if (typeof showModal === 'function') showModal(modal);
+    }
+    function closeRpRecord() {
+        var modal = _rpEl('rp-record-modal');
+        if (modal && typeof hideModal === 'function') hideModal(modal);
+    }
+
+    // 按视角收集红包消息：me=我发出的 / partner=梦角发来的（新在前）
+    function _rpCollect(who) {
+        var arr = (typeof messages !== 'undefined' && messages) ? messages : (window.messages || []);
+        var out = [];
+        for (var i = 0; i < arr.length; i++) {
+            var m = arr[i];
+            if (!m || m.type !== 'redpacket') continue;
+            var isUser = m.sender === 'user';
+            if (who === 'me' && !isUser) continue;
+            if (who === 'partner' && isUser) continue;
+            out.push(m);
+        }
+        return out;
+    }
+    function _rpDate(ts) {
+        var d = new Date(ts);
+        return d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) + ' ' +
+               d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
+    function _renderRpRecordList(who) {
+        var list = _rpEl('rp-record-list');
+        if (!list) return;
+        var partnerBtn = _rpEl('rp-record-tab-partner');
+        var meBtn = _rpEl('rp-record-tab-me');
+        if (partnerBtn && meBtn) {
+            partnerBtn.classList.toggle('active', who === 'partner');
+            meBtn.classList.toggle('active', who === 'me');
+        }
+        var recs = _rpCollect(who);
+        if (!recs.length) {
+            list.innerHTML = '<div style="text-align:center;color:var(--text-secondary);font-size:13px;padding:32px 10px;">暂无红包记录</div>';
+            return;
+        }
+        recs = recs.slice().sort(function (a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+        var partnerName = _partnerName();
+        var myName = '我';
+        try { if (settings && settings.myName) myName = settings.myName; } catch (e) {}
+        list.innerHTML = recs.map(function (m) {
+            var amt = _fmt(m.amount);
+            var greeting = (m.text || '恭喜发财，大吉大利');
+            var senderName = (m.sender === 'user') ? myName : partnerName;
+            var icon = m.sender === 'user' ? 'fa-paper-plane' : 'fa-gift';
+            var st = m.opened
+                ? '<span class="rp-rec-status done">已领取</span>'
+                : '<span class="rp-rec-status wait">待领取</span>';
+            return '<div class="rp-rec-item">'
+                + '<div class="rp-rec-ico"><i class="fas ' + icon + '"></i></div>'
+                + '<div class="rp-rec-mid">'
+                +   '<div class="rp-rec-title">' + _escapeHtml(senderName) + '的红包</div>'
+                +   '<div class="rp-rec-sub">' + _escapeHtml(greeting) + ' · ' + _escapeHtml(_rpDate(m.timestamp)) + '</div>'
+                + '</div>'
+                + '<div class="rp-rec-side"><div class="rp-rec-amt">' + _escapeHtml(amt) + '</div>' + st + '</div>'
+                + '</div>';
+        }).join('');
+    }
+    // 切换「梦角 / 我」视角（HTML onclick 调用）
+    function switchRpRecordView(who) {
+        _renderRpRecordList(who);
+    }
+    window.switchRpRecord = switchRpRecordView;
+
     function init() {
         _modal = document.getElementById('transfer-modal');
         _amountInput = document.getElementById('transfer-amount-input');
@@ -288,8 +393,16 @@
         var confirmBtn = document.getElementById('transfer-confirm-btn');
         var cancelBtn = document.getElementById('transfer-cancel-btn');
 
-        if (btn) btn.addEventListener('click', openTransfer);
-        if (btn) btn.addEventListener('click', _refreshSendCoverPreview);
+        // 发红包按钮 → 先弹选择弹窗
+        if (btn) btn.addEventListener('click', openRpChoice);
+        var choiceSend = _rpEl('rp-choice-send');
+        var choiceRecord = _rpEl('rp-choice-record');
+        var closeChoiceBtn = _rpEl('close-rp-choice');
+        var closeRecordBtn = _rpEl('close-rp-record');
+        if (choiceSend) choiceSend.addEventListener('click', openSendModal);
+        if (choiceRecord) choiceRecord.addEventListener('click', openRpRecord);
+        if (closeChoiceBtn) closeChoiceBtn.addEventListener('click', closeChoice);
+        if (closeRecordBtn) closeRecordBtn.addEventListener('click', closeRpRecord);
         if (_amountInput) {
             _amountInput.addEventListener('input', function () { _syncAmountLabel(); _markPreset(null); });
         }
@@ -326,6 +439,11 @@
     // 暴露测试/外部调用入口（含红包小窗）
     window.TransferFeature = {
         open: openTransfer,
+        openRpChoice: openRpChoice,
+        closeChoice: closeChoice,
+        openRecord: openRpRecord,
+        closeRecord: closeRpRecord,
+        switchRecord: switchRpRecordView,
         openRedpacket: openRedpacket,
         openIt: openIt,
         closeOpen: closeOpen,

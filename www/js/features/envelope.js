@@ -165,7 +165,7 @@ window.showAppearancePanel = function(panel) {
         if (target) target.style.display = 'block';
     }
     if (panel === 'bubble' || panel === 'bubble-css') { setTimeout(() => { if (typeof window.updateBubblePreviewFn === 'function') window.updateBubblePreviewFn(); }, 50); }
-    // 打开「背景 & 陪伴」时刷新日记背景画廊
+    // 打开「背景 & 陪伴」时刷新日记背景画廊与红包封面预览
     if (panel === 'font-bg' || panel === 'background') {
         setTimeout(() => { if (typeof window.renderDiaryBgGallery === 'function') window.renderDiaryBgGallery(); }, 50);
         setTimeout(() => { if (typeof window.renderRedpacketCoverSettings === 'function') window.renderRedpacketCoverSettings(); }, 50);

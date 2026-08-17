@@ -13848,44 +13848,79 @@ body #user-sticker-picker .empty-sticker-tip {
     /* 生理期日历格 / emoji 格 / 动态图片为文本或 img 内容，保留自然高度（内容完整可见） */
 }
 
-/* ── 红包：聊天消息卡片（系统风格单卡片，仅显示祝福语）────── */
+/* ── 红包：聊天消息卡片（参照浅色极简红包卡片：红包标题 + 金额 + 祝福语 + 底部领取状态/时间）────── */
 .redpacket-card {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background: var(--secondary-bg);
+    width: 248px;
+    max-width: 76vw;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--primary-bg);
     border: 1px solid var(--border-color);
-    border-radius: 10px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     cursor: pointer;
-    max-width: 240px;
-    min-width: 160px;
     user-select: none;
     box-sizing: border-box;
 }
-.redpacket-card:active { opacity: 0.8; }
-.redpacket-card-ico {
-    width: 30px;
-    height: 30px;
-    flex: 0 0 30px;
-    border-radius: 7px;
+.redpacket-card:active { opacity: 0.85; }
+.redpacket-card-main {
+    position: relative;
+    padding: 20px 14px 10px;
+    background: linear-gradient(160deg, #fbeef0, #f6e2d4);
+    color: var(--text-primary);
+}
+.redpacket-card-main-cover {
     background-size: cover;
     background-position: center;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
+    background-repeat: no-repeat;
+}
+.redpacket-card-env {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    color: rgba(0,0,0,0.30);
     line-height: 1;
 }
-.redpacket-card-text {
-    font-weight: 600;
-    color: var(--text-primary);
-    font-size: 14px;
+.redpacket-card-title {
+    position: absolute;
+    top: 12px;
+    left: 14px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: rgba(0,0,0,0.38);
+}
+.redpacket-card-amount {
+    padding-top: 18px;
+    font-size: 27px;
+    font-weight: 700;
+    line-height: 1;
+    color: #9a6a55;
+}
+.redpacket-card-greeting {
+    margin-top: 7px;
+    font-size: 12.5px;
+    color: rgba(0,0,0,0.55);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
+.redpacket-card-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: var(--primary-bg);
+    border-top: 1px solid var(--border-color);
+}
+.redpacket-card-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+}
+.redpacket-card-check { color: #22b35b; font-weight: 700; }
+.redpacket-card-check.empty { color: var(--text-secondary); opacity: 0.6; }
+.redpacket-card-time { font-size: 11px; color: var(--text-secondary); opacity: 0.75; }
 .message-redpacket-bubble {
     background: transparent !important;
     border: none !important;
@@ -13895,49 +13930,26 @@ body #user-sticker-picker .empty-sticker-tip {
 .message-redpacket-bubble::before,
 .message-redpacket-bubble::after { display: none !important; }
 
-/* ── 红包：发送弹窗（跟随系统风格，横竖比 3:4）────────────── */
+/* ── 红包：发送弹窗（整体跟随系统主题）────────────── */
 .redpacket-send-content {
     width: 330px;
-    height: 440px;              /* 横竖比 3:4；固定宽高以兼容不支持 aspect-ratio 的旧 WebView */
     max-width: 92vw;
     display: flex;
     flex-direction: column;
     border-radius: 16px;
 }
-.redpacket-send-content .redpacket-send-cover {
-    flex: 0 0 36%;
-    position: relative;
-    background: linear-gradient(135deg, var(--secondary-bg), var(--message-received-bg));
-    background-size: cover;
-    background-position: center;
+.redpacket-send-head {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 10px;
+    padding: 14px 16px;
+    background: var(--secondary-bg);
+    border-bottom: 1px solid var(--border-color);
 }
-.redpacket-send-content .redpacket-send-cover.has-custom { background-size: cover; background-position: center; }
-.redpacket-send-cover-inner {
-    position: absolute;
-    left: 0; right: 0; bottom: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0 16px 16px;
-    color: var(--text-primary);
-}
-.redpacket-send-cover-top { font-size: 15px; font-weight: 600; letter-spacing: 1px; }
-.redpacket-send-cover-bot { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
-.redpacket-send-cny {
-    position: absolute;
-    top: 40%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 64px;
-    font-weight: 700;
-    color: var(--accent-color);
-    opacity: 0.5;
-    text-shadow: 0 2px 12px rgba(0,0,0,0.08);
-}
-.redpacket-send-content .redpacket-send-cover.has-custom .redpacket-send-cny { display: none; }
+.redpacket-send-head-ico { font-size: 26px; line-height: 1; }
+.redpacket-send-head-txt { display: flex; flex-direction: column; gap: 2px; }
+.redpacket-send-head-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.redpacket-send-head-sub { font-size: 11.5px; color: var(--text-secondary); }
 .redpacket-send-form { flex: 1; min-height: 0; overflow-y: auto; }
 .transfer-preset {
     padding: 6px 12px;
@@ -13955,17 +13967,6 @@ body #user-sticker-picker .empty-sticker-tip {
     color: #fff;
     border-color: var(--accent-color);
 }
-.rp-gold-btn {
-    background: var(--accent-color);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-weight: 700;
-    font-size: 14px;
-    letter-spacing: 0.5px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.18);
-}
-.rp-gold-btn:hover { filter: brightness(1.05); }
 
 /* ── 微信风格红包：打开小窗 ─────────────────────────────────── */
 .redpacket-open-modal {
@@ -13987,11 +13988,10 @@ body #user-sticker-picker .empty-sticker-tip {
     position: relative;
     border-radius: 18px;
     overflow: hidden;
-    background-image: linear-gradient(135deg, #db2828, #b31217);
-    background-size: cover;
-    background-position: center;
+    display: flex;
+    flex-direction: column;
+    background: var(--secondary-bg);
     color: #fff;
-    padding: 26px 20px 30px;
     text-align: center;
     box-shadow: 0 16px 48px rgba(0,0,0,0.4);
 }
@@ -14012,41 +14012,86 @@ body #user-sticker-picker .empty-sticker-tip {
     cursor: pointer;
 }
 .redpacket-open-close:hover { background: rgba(0,0,0,0.4); }
-.redpacket-open-top { padding: 6px 0 20px; }
-.redpacket-open-name { font-size: 13px; opacity: 0.9; }
-.redpacket-open-greeting { font-size: 12px; opacity: 0.75; margin-top: 4px; min-height: 16px; }
-.redpacket-open-target { font-size: 11px; opacity: 0.6; margin-top: 12px; letter-spacing: 2px; }
-.redpacket-open-center {
+.redpacket-open-body {
+    position: relative;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 42px 20px 24px;
+    min-height: 218px;
+    background: linear-gradient(160deg, #fbeef0, #f6e2d4);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+.redpacket-open-body-cover {
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+.redpacket-open-heart {
+    width: 66px;
+    height: 66px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.18);
+    margin-bottom: 14px;
+}
+.redpacket-open-heart svg { width: 34px; height: 34px; }
+.redpacket-open-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.redpacket-open-greeting {
+    font-size: 13px;
+    color: #fff;
+    margin-top: 8px;
+    min-height: 18px;
+    opacity: 0.96;
+}
+.redpacket-open-amount {
+    font-size: 30px;
+    font-weight: 700;
+    color: #e53935;
+    margin-top: 16px;
+    padding: 2px 10px;
+}
+.redpacket-open-foot {
+    flex: 0 0 auto;
+    background: var(--primary-bg);
+    border-top: 1px solid var(--border-color);
+    padding: 16px 20px 20px;
     display: flex;
     justify-content: center;
-    min-height: 84px;
-    align-items: flex-start;
 }
 .redpacket-open-btn {
-    width: 76px;
-    height: 76px;
+    width: 78px;
+    height: 78px;
     border-radius: 50%;
     border: none;
-    background-color: #f7c41a;
-    color: #b31217;
-    font-size: 34px;
+    background-color: var(--accent-color);
+    color: #fff;
+    font-size: 19px;
     font-weight: 700;
     cursor: pointer;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.25), inset 0 -2px 6px rgba(0,0,0,0.12);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
     transition: transform 0.15s ease;
 }
 .redpacket-open-btn:hover { transform: scale(1.06); }
 .redpacket-open-btn:active { transform: scale(0.95); }
-.redpacket-open-amount-wrap { display: none; flex-direction: column; align-items: center; margin-top: 20px; }
-.redpacket-open-amount {
-    font-size: 22px;
-    font-weight: 700;
-    background: rgba(255,255,255,0.15);
-    border-radius: 12px;
-    padding: 8px 18px;
-}
 
-/* ── 红包封面设置栏（与背景设置同风格）────────────────────── */
+/* ── 自定义红包封面设置栏（与背景设置同风格，仅作用于卡片浅米灰主区）────── */
 .rp-cover-rows { display: flex; flex-direction: column; gap: 12px; }
 .rp-cover-row {
     display: flex;
@@ -14062,15 +14107,14 @@ body #user-sticker-picker .empty-sticker-tip {
     height: 52px;
     flex: 0 0 52px;
     border-radius: 10px;
-    background: linear-gradient(135deg, #ff8a65, #e53935);
+    background: linear-gradient(160deg, #fbeef0, #f6e2d4);
     background-size: cover;
     background-position: center;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: inset 0 -2px 6px rgba(0,0,0,0.2);
 }
-.rp-cover-prev-emoji { font-size: 26px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3)); }
+.rp-cover-prev-emoji { font-size: 26px; }
 .rp-cover-meta { flex: 1; min-width: 0; }
 .rp-cover-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
 .rp-cover-desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
@@ -14079,4 +14123,135 @@ body #user-sticker-picker .empty-sticker-tip {
     padding: 4px 12px;
     font-size: 12px;
     white-space: nowrap;
+}
+.rp-cover-group-title {
+    margin: 14px 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.rp-cover-group-title:first-child { margin-top: 0; }
+/* ── 封面图片裁剪弹窗 ─────────────────────────────────── */
+.redpacket-crop-content {
+    width: 440px;
+    max-width: 92vw;
+    display: flex;
+    flex-direction: column;
+}
+.redpacket-crop-hint { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
+.redpacket-crop-stage {
+    position: relative;
+    overflow: hidden;
+    background: #000;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    width: 100%;
+    height: 320px;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.redpacket-crop-stage img {
+    position: absolute;
+    display: block;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: none;
+}
+.redpacket-crop-shade {
+    position: absolute;
+    inset: 0;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+    pointer-events: none;
+}
+.redpacket-crop-window {
+    position: absolute;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+    cursor: move;
+    box-sizing: border-box;
+}
+.redpacket-crop-zoom {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    color: var(--text-secondary);
+}
+.redpacket-crop-zoom input[type=range] { flex: 1; }
+
+/* ── 发红包入口选择弹窗：左右两卡片（参考高级功能按钮）────── */
+#rp-choice-modal .rp-choice-grid { display: flex; gap: 10px; }
+#rp-choice-modal .rp-choice-btn {
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 10px;
+    padding: 22px 12px;
+}
+#rp-choice-modal .rp-choice-btn::after { content: none; }
+#rp-choice-modal .rp-choice-btn i {
+    width: 54px;
+    height: 54px;
+    font-size: 24px;
+    border-radius: 18px;
+}
+#rp-choice-modal .rp-choice-btn span { font-size: 14px; font-weight: 600; }
+
+/* ── 红包记录列表 ───────────────────────────────────── */
+.rp-rec-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    margin-bottom: 8px;
+}
+.rp-rec-ico {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    border-radius: 12px;
+    background: rgba(var(--accent-color-rgb), 0.1);
+    color: var(--accent-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+.rp-rec-mid { flex: 1; min-width: 0; }
+.rp-rec-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.rp-rec-sub {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.rp-rec-side { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.rp-rec-amt { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.rp-rec-status { font-size: 11px; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+.rp-rec-status.done { background: rgba(var(--accent-color-rgb), 0.14); color: var(--accent-color); }
+.rp-rec-status.wait { background: var(--border-color); color: var(--text-secondary); }
+/* 发送弹窗头部的封面预览小方块（跟随用户封面，点击旁边的设置处可换） */
+.redpacket-send-cover-prev {
+    margin-left: auto;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: linear-gradient(160deg, #fbeef0, #f6e2d4);
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    line-height: 1;
 }

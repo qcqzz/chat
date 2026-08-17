@@ -290,9 +290,12 @@ autoSendInterval: 5,
         emojiMixEnabled: true,
         partnerRecallEnabled: true,
         partnerHangupEnabled: true,
-        // 自定义红包封面（dataURL 或 null；null 用内置封面）
-        redpacketMyCover: null,
-        redpacketPartnerCover: null
+        // 自定义红包封面（dataURL 或 null；null 用内置浅米灰渐变）
+        // card=购物卡片主区 / open=打开红包弹窗主区 各自独立，再按 我的/梦角 拆开
+        redpacketCardMyCover: null,
+        redpacketCardPartnerCover: null,
+        redpacketOpenMyCover: null,
+        redpacketOpenPartnerCover: null
             };
         }
 
@@ -1117,25 +1120,63 @@ function manageAutoSendTimer() {
             }, 60);
         };
 
-// 红包封面解析：按发送方取对应封面（dataURL），无则返回 ''（用内置渐变）
-function _redpacketCover(sender) {
+// 红包封面解析：按「场景(card/open) × 发送方(我的/梦角)」取对应封面（dataURL），无则返回 ''（用内置浅米灰渐变）
+function _redpacketCover(sender, scope) {
     try {
         const isUser = sender === 'user';
-        const c = isUser ? settings.redpacketMyCover : settings.redpacketPartnerCover;
-        return (typeof c === 'string' && c) ? c : '';
+        const key = (scope === 'open' ? 'redpacketOpen' : 'redpacketCard')
+            + (isUser ? 'MyCover' : 'PartnerCover');
+        const c = (typeof settings === 'object' && settings) ? settings[key] : null;
+        if (typeof c === 'string' && c) return c;
+        // 兼容旧字段：card/open 均回退到旧封面
+        const old = isUser ? settings.redpacketMyCover : settings.redpacketPartnerCover;
+        return (typeof old === 'string' && old) ? old : '';
     } catch (e) { return ''; }
 }
-// 红包消息在聊天气泡内的卡片 HTML（系统风格单卡片，仅显示祝福语）
+// 红包时间：跟随用户设置的时间戳样式（timeFormat），'off' 时不显示
+function _rpTime(t) {
+    try {
+        const fmt = (typeof settings === 'object' && settings && settings.timeFormat) || 'HH:mm';
+        if (fmt === 'off') return '';
+        const ts = new Date(t);
+        if (fmt === 'HH:mm:ss') return ts.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        if (fmt === 'h:mm AM/PM') return ts.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        if (fmt === 'h:mm:ss AM/PM') return ts.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+        return ts.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+    } catch (e) { return ''; }
+}
+// 信封轮廓图标（参照参考图左下角的线条信封）
+function _envelopeSVG() {
+    return '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7.5l9 6 9-6"/></svg>';
+}
+// 红包消息在聊天气泡内的卡片 HTML：浅米灰主区支持自定义封面，底部状态栏/时间不变
 function _redpacketCardHTML(msg) {
-    const cover = _redpacketCover(msg.sender);
+    const cover = _redpacketCover(msg.sender, 'card');
     const greeting = (msg && msg.text) ? String(msg.text) : '恭喜发财，大吉大利';
     const mid = String(msg.id).replace(/['"`\\]/g, '');
-    const coverStyle = cover
-        ? 'background-image:url("' + _escapeHtml(cover) + '");'
-        : 'background-image:linear-gradient(135deg,var(--primary-bg),var(--accent-color));';
+    const amount = '¥' + Number(msg && msg.amount || 0).toFixed(2);
+    const time = _rpTime(msg && msg.timestamp);
+    const self = !!(msg && msg.sender === 'user');
+    const opened = !!(msg && msg.opened);
+    const status = (self || opened)
+        ? '<span class="redpacket-card-check">✓</span>已领取'
+        : '<span class="redpacket-card-check empty">◌</span>待领取';
+    // 封面仅作用于主区背景；叠加浅色半透明遮罩保证文字可读，无封面时用 CSS 内置浅米灰渐变
+    const mainStyle = cover
+        ? 'background-image:linear-gradient(rgba(255,249,245,0.86),rgba(255,249,245,0.86)),url("' + _escapeHtml(cover) + '");'
+        : '';
+    const coverCls = cover ? ' redpacket-card-main-cover' : '';
     return '<div class="redpacket-card" data-id="' + _escapeHtml(mid) + '" data-mid="' + _escapeHtml(mid) + '" onclick="TransferFeature.openRedpacket(\'' + _escapeHtml(mid) + '\')">'
-        + '<span class="redpacket-card-ico" style="' + coverStyle + '">' + (cover ? '' : '🧧') + '</span>'
-        + '<span class="redpacket-card-text">' + _escapeHtml(greeting) + '</span>'
+        + '<div class="redpacket-card-main' + coverCls + '" style="' + mainStyle + '">'
+        +   '<span class="redpacket-card-env">' + _envelopeSVG() + '</span>'
+        +   '<span class="redpacket-card-title">红包</span>'
+        +   '<div class="redpacket-card-amount">' + _escapeHtml(amount) + '</div>'
+        +   '<div class="redpacket-card-greeting">' + _escapeHtml(greeting) + '</div>'
+        + '</div>'
+        + '<div class="redpacket-card-foot">'
+        +   '<span class="redpacket-card-status">' + status + '</span>'
+        +   '<span class="redpacket-card-time">' + _escapeHtml(time) + '</span>'
+        + '</div>'
         + '</div>';
 }
 

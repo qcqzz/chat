@@ -1486,40 +1486,68 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
             </div>
         </div>
 
-        <!-- 自定义红包封面管理 -->
+        <!-- 自定义红包封面：红包卡片 与 红包弹窗 分别设置（我的/梦角各一），上传时可自由裁剪 -->
         <div class="settings-section" id="redpacket-cover-section">
             <div class="settings-section-title">
                 <i class="fas fa-envelope-open-text"></i>自定义红包封面
-                <input type="file" id="redpacket-cover-input-me" accept="image/*" style="display:none;">
-                <input type="file" id="redpacket-cover-input-partner" accept="image/*" style="display:none;">
             </div>
             <div style="font-size:11px;color:var(--text-secondary);margin-bottom:10px;opacity:0.75;line-height:1.5;">
-                分别为你和对方设置红包封面，发送的红包与收到对方的红包都会用它显示。支持 JPG / PNG 图片。
+                红包卡片与打开红包弹窗的浅米灰区域可分别设置封面，各自区分「我」与「梦角」。上传图片时可自由选择裁剪范围，以贴合对应区域的尺寸比例。支持 JPG / PNG。
             </div>
+
+            <div class="rp-cover-group-title">红包卡片封面</div>
             <div class="rp-cover-rows">
                 <div class="rp-cover-row">
-                    <div class="rp-cover-prev" id="rp-cover-prev-me"><span class="rp-cover-prev-emoji">🧧</span></div>
+                    <div class="rp-cover-prev" id="rp-cover-prev-card-me"><span class="rp-cover-prev-emoji">🧧</span></div>
                     <div class="rp-cover-meta">
-                        <div class="rp-cover-name">我的红包封面</div>
-                        <div class="rp-cover-desc">发红包时用的封面</div>
+                        <div class="rp-cover-name">我的卡片封面</div>
+                        <div class="rp-cover-desc">发红包时卡片主区用的封面</div>
                     </div>
                     <div class="rp-cover-actions">
-                        <button class="modal-btn modal-btn-secondary rp-cover-btn" id="rp-cover-set-me">更换</button>
-                        <button class="modal-btn modal-btn-secondary rp-cover-btn" id="rp-cover-reset-me">恢复默认</button>
+                        <button class="modal-btn modal-btn-secondary rp-cover-btn" data-crop="redpacketCardMyCover">选择并裁剪</button>
+                        <button class="modal-btn modal-btn-secondary rp-cover-btn" data-reset="redpacketCardMyCover">恢复默认</button>
                     </div>
                 </div>
                 <div class="rp-cover-row">
-                    <div class="rp-cover-prev" id="rp-cover-prev-partner"><span class="rp-cover-prev-emoji">🧧</span></div>
+                    <div class="rp-cover-prev" id="rp-cover-prev-card-partner"><span class="rp-cover-prev-emoji">🧧</span></div>
                     <div class="rp-cover-meta">
-                        <div class="rp-cover-name">对方红包封面</div>
-                        <div class="rp-cover-desc">收到对方红包时用的封面</div>
+                        <div class="rp-cover-name">梦角卡片封面</div>
+                        <div class="rp-cover-desc">收到梦角红包时卡片主区用的封面</div>
                     </div>
                     <div class="rp-cover-actions">
-                        <button class="modal-btn modal-btn-secondary rp-cover-btn" id="rp-cover-set-partner">更换</button>
-                        <button class="modal-btn modal-btn-secondary rp-cover-btn" id="rp-cover-reset-partner">恢复默认</button>
+                        <button class="modal-btn modal-btn-secondary rp-cover-btn" data-crop="redpacketCardPartnerCover">选择并裁剪</button>
+                        <button class="modal-btn modal-btn-secondary rp-cover-btn" data-reset="redpacketCardPartnerCover">恢复默认</button>
                     </div>
                 </div>
             </div>
+
+            <div class="rp-cover-group-title">红包弹窗封面</div>
+            <div class="rp-cover-rows">
+                <div class="rp-cover-row">
+                    <div class="rp-cover-prev" id="rp-cover-prev-open-me"><span class="rp-cover-prev-emoji">🧧</span></div>
+                    <div class="rp-cover-meta">
+                        <div class="rp-cover-name">我的弹窗封面</div>
+                        <div class="rp-cover-desc">我的红包点开后的弹窗主区</div>
+                    </div>
+                    <div class="rp-cover-actions">
+                        <button class="modal-btn modal-btn-secondary rp-cover-btn" data-crop="redpacketOpenMyCover">选择并裁剪</button>
+                        <button class="modal-btn modal-btn-secondary rp-cover-btn" data-reset="redpacketOpenMyCover">恢复默认</button>
+                    </div>
+                </div>
+                <div class="rp-cover-row">
+                    <div class="rp-cover-prev" id="rp-cover-prev-open-partner"><span class="rp-cover-prev-emoji">🧧</span></div>
+                    <div class="rp-cover-meta">
+                        <div class="rp-cover-name">梦角弹窗封面</div>
+                        <div class="rp-cover-desc">梦角红包点开后的弹窗主区</div>
+                    </div>
+                    <div class="rp-cover-actions">
+                        <button class="modal-btn modal-btn-secondary rp-cover-btn" data-crop="redpacketOpenPartnerCover">选择并裁剪</button>
+                        <button class="modal-btn modal-btn-secondary rp-cover-btn" data-reset="redpacketOpenPartnerCover">恢复默认</button>
+                    </div>
+                </div>
+            </div>
+
+            <input type="file" id="redpacket-cover-crop-input" accept="image/*" style="display:none;">
         </div>
 
         <!-- 陪伴背景管理 -->
@@ -2957,14 +2985,48 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
         </div>
     </div>
 
+    <!-- 发红包入口选择弹窗：点左下角发红包按钮先弹出，发红包 / 红包记录 -->
+    <div class="modal" id="rp-choice-modal" onclick="if(event.target===this)TransferFeature.closeChoice && TransferFeature.closeChoice()">
+        <div class="modal-content" style="width:360px;max-width:92vw;">
+            <div class="modal-title"><i class="fas fa-gift"></i><span>红包</span></div>
+            <div class="rp-choice-grid">
+                <div class="settings-item rp-choice-btn" id="rp-choice-send" role="button">
+                    <i class="fas fa-paper-plane"></i><span>发红包</span>
+                </div>
+                <div class="settings-item rp-choice-btn" id="rp-choice-record" role="button">
+                    <i class="fas fa-history"></i><span>红包记录</span>
+                </div>
+            </div>
+            <div class="modal-buttons" style="justify-content:flex-end;">
+                <button class="modal-btn modal-btn-secondary" id="close-rp-choice">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 红包记录弹窗：风格跟随消息统计弹窗，梦角 / 我 切换，列表可滑动 -->
+    <div class="modal" id="rp-record-modal" onclick="if(event.target===this)TransferFeature.closeRecord && TransferFeature.closeRecord()">
+        <div class="modal-content">
+            <div class="modal-title"><i class="fas fa-gift"></i><span>红包记录</span></div>
+            <div class="stats-tab-bar" style="display:flex;gap:6px;margin-bottom:14px;background:var(--secondary-bg);border-radius:12px;padding:4px;">
+                <button class="stats-toggle-btn active" id="rp-record-tab-partner" onclick="TransferFeature.switchRecord && TransferFeature.switchRecord('partner')"><i class="fas fa-heart"></i> 梦角</button>
+                <button class="stats-toggle-btn" id="rp-record-tab-me" onclick="TransferFeature.switchRecord && TransferFeature.switchRecord('me')"><i class="fas fa-user"></i> 我</button>
+            </div>
+            <div id="rp-record-list" style="max-height:55vh;overflow-y:auto;min-height:120px;"></div>
+            <div class="modal-buttons" style="justify-content:flex-end;">
+                <button class="modal-btn modal-btn-secondary" id="close-rp-record">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal" id="transfer-modal">
         <div class="modal-content redpacket-send-content" style="width:330px; max-width:92vw; padding:0; overflow:hidden;">
-            <div class="redpacket-send-cover" id="rp-send-cover">
-                <div class="redpacket-send-cover-inner">
-                    <span class="redpacket-send-cover-top">恭喜发财</span>
-                    <span class="redpacket-send-cover-bot">大吉大利</span>
-                    <span class="redpacket-send-cny">¥</span>
+            <div class="redpacket-send-head">
+                <span class="redpacket-send-head-ico">🧧</span>
+                <div class="redpacket-send-head-txt">
+                    <div class="redpacket-send-head-title">发红包</div>
+                    <div class="redpacket-send-head-sub">输入金额与祝福语</div>
                 </div>
+                <div class="redpacket-send-cover-prev" id="rp-send-cover-prev"><span>🎁</span></div>
             </div>
             <div class="redpacket-send-form" style="background:var(--primary-bg);padding:14px 16px 18px;">
                 <div style="display:flex;align-items:baseline;justify-content:center;gap:4px;">
@@ -2983,7 +3045,7 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
                 </div>
                 <div class="modal-buttons" style="gap:10px;">
                     <button class="modal-btn modal-btn-secondary" id="transfer-cancel-btn" style="flex:1;">取消</button>
-                    <button class="modal-btn rp-gold-btn" id="transfer-confirm-btn" style="flex:2;">塞钱进红包</button>
+                    <button class="modal-btn modal-btn-primary" id="transfer-confirm-btn" style="flex:2;">塞钱进红包</button>
                 </div>
             </div>
         </div>
@@ -2993,16 +3055,36 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
     <div class="redpacket-open-modal" id="redpacket-open-modal" onclick="if(event.target===this)TransferFeature.closeOpen()">
         <div class="redpacket-open-inner" id="redpacket-open-inner">
             <button class="redpacket-open-close" onclick="TransferFeature.closeOpen()"><i class="fas fa-times"></i></button>
-            <div class="redpacket-open-top">
+            <div class="redpacket-open-body" id="redpacket-open-body">
+                <div class="redpacket-open-heart" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20.7S4.4 15.9 3 11.5C1.9 8 3.4 4.9 6.1 4.6c1.7-.2 3.2.5 4 1.9.8-1.4 2.3-2.1 4-1.9 2.7.3 4.2 3.4 3.1 6.9C19.6 15.9 12 20.7 12 20.7z"/></svg></div>
                 <div class="redpacket-open-name" id="rp-open-name"></div>
                 <div class="redpacket-open-greeting" id="rp-open-greeting"></div>
-                <div class="redpacket-open-target">查看红包</div>
+                <div class="redpacket-open-amount" id="rp-open-amount">¥0.00</div>
             </div>
-            <div class="redpacket-open-center">
+            <div class="redpacket-open-foot">
                 <button class="redpacket-open-btn" id="rp-open-btn" onclick="TransferFeature.openIt()">开</button>
-                <div class="redpacket-open-amount-wrap" id="rp-open-amount-wrap">
-                    <div class="redpacket-open-amount" id="rp-open-amount">¥0.00</div>
-                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 红包封面裁剪弹窗 -->
+    <div class="modal" id="redpacket-crop-modal" onclick="if(event.target===this)RedpacketCrop.cancel()">
+        <div class="modal-content redpacket-crop-content">
+            <div class="modal-title" style="flex-shrink:0;"><i class="fas fa-crop-alt"></i><span>裁剪封面</span></div>
+            <div class="redpacket-crop-hint" id="rp-crop-hint"></div>
+            <div class="redpacket-crop-stage" id="rp-crop-stage">
+                <img id="rp-crop-img" alt="">
+                <div class="redpacket-crop-shade" id="rp-crop-shade"></div>
+                <div class="redpacket-crop-window" id="rp-crop-window"></div>
+            </div>
+            <div class="redpacket-crop-zoom">
+                <i class="fas fa-search-minus"></i>
+                <input type="range" id="rp-crop-zoom" min="0.5" max="4" step="0.01" value="1">
+                <i class="fas fa-search-plus"></i>
+            </div>
+            <div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+                <button class="modal-btn modal-btn-secondary" onclick="RedpacketCrop.cancel()">取消</button>
+                <button class="modal-btn modal-btn-primary" onclick="RedpacketCrop.confirm()">确定</button>
             </div>
         </div>
     </div>
