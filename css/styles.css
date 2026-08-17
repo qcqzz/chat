@@ -13918,7 +13918,8 @@ body #user-sticker-picker .empty-sticker-tip {
     font-size: 11.5px;
     color: var(--text-secondary);
 }
-.redpacket-card-check { color: #22b35b; font-weight: 700; }
+.redpacket-card-check { color: var(--accent-color); font-weight: 700; }
+html[data-theme="dark"] .redpacket-card-check { color: var(--accent-color-dark); }
 .redpacket-card-check.empty { color: var(--text-secondary); opacity: 0.6; }
 .redpacket-card-time { font-size: 11px; color: var(--text-secondary); opacity: 0.75; }
 .message-redpacket-bubble {
