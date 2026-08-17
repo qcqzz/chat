@@ -13897,7 +13897,9 @@ body #user-sticker-picker .empty-sticker-tip {
 
 /* ── 红包：发送弹窗（跟随系统风格，横竖比 3:4）────────────── */
 .redpacket-send-content {
-    aspect-ratio: 3 / 4;
+    width: 330px;
+    height: 440px;              /* 横竖比 3:4；固定宽高以兼容不支持 aspect-ratio 的旧 WebView */
+    max-width: 92vw;
     display: flex;
     flex-direction: column;
     border-radius: 16px;

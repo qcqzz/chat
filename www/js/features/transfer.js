@@ -13,24 +13,6 @@
     var _modal, _amountInput, _amountLabel, _hint, _presets;
     var _openMsg = null;   // 当前正在查看的红包消息
 
-    // 梦角收到用户转账后的回复语（{amt} 会被替换为金额）
-    var USER_TRANSFER_REPLIES = [
-        '哇！你居然给我转了 {amt}，早知道你这么大方，我就多撒撒娇啦～',
-        '收到 {amt} 啦！心里暖暖的，今晚梦里都要笑出声',
-        '{amt} 已到账，我的余额里你永远排第一',
-        '你最好啦，{amt} 我收下了，回头请你吃小零食',
-        '{amt} 稳稳接住！不许反悔哦，我可要好好存起来'
-    ];
-
-    // 梦角主动给你转账时的开场语
-    var PARTNER_TRANSFER_LINES = [
-        '{amt} 悄悄转给你，记得对自己好一点',
-        '给你存了点零花钱 {amt}，拿去用',
-        '{amt} 到账～专属于你的快乐基金',
-        '心里惦记着你呢，{amt} 就当送你个小惊喜',
-        '辛苦啦，{amt} 是安慰你的大红包'
-    ];
-
     function _storeKey() {
         try {
             if (typeof getStorageKey === 'function') return getStorageKey(STORE_BASE);
@@ -57,24 +39,6 @@
     function _partnerName() {
         try { return (settings && settings.partnerName) ? settings.partnerName : '对方'; }
         catch (e) { return '对方'; }
-    }
-    function _random(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-    function _fill(line, amt) { return line.replace('{amt}', amt); }
-
-    function _pushMessage(sender, text, status) {
-        var push = window.addMessage || addMessage;
-        if (typeof push !== 'function') return;
-        push({
-            id: Date.now() + Math.random(),
-            sender: sender,
-            text: text,
-            timestamp: new Date(),
-            status: status || 'sent',
-            favorited: false,
-            note: null,
-            replyTo: null,
-            type: 'normal'
-        });
     }
 
     // 推送一条微信风格的红包消息（type:'redpacket'），金额等作为附加字段
@@ -202,6 +166,11 @@
     function openRedpacket(id) {
         var msg = _findMsgById(id);
         if (!msg) { if (typeof showNotification === 'function') showNotification('红包消息不存在', 'warning'); return; }
+        // 自己发出的红包不能拆开（与微信一致，仅作为对方领取提示）
+        if (msg.sender === 'user') {
+            if (typeof showNotification === 'function') showNotification('这是你发出的红包，不能拆开', 'info');
+            return;
+        }
         _openMsg = msg;
         var modal = document.getElementById('redpacket-open-modal');
         if (!modal) return;
