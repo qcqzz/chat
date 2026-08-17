@@ -11,6 +11,7 @@
     var STORE_BASE = 'transferData';              // 经 getStorageKey 按会话唯一化
 
     var _modal, _amountInput, _amountLabel, _hint, _presets;
+    var _openMsg = null;   // 当前正在查看的红包消息
 
     // 梦角收到用户转账后的回复语（{amt} 会被替换为金额）
     var USER_TRANSFER_REPLIES = [
@@ -76,6 +77,44 @@
         });
     }
 
+    // 推送一条微信风格的红包消息（type:'redpacket'），金额等作为附加字段
+    function _pushRedpacket(sender, greeting, amount) {
+        var push = window.addMessage || addMessage;
+        if (typeof push !== 'function') return;
+        push({
+            id: Date.now() + Math.random(),
+            sender: sender,
+            text: greeting || '恭喜发财，大吉大利',
+            amount: amount,
+            opened: false,
+            openedAt: null,
+            timestamp: new Date(),
+            status: sender === 'user' ? 'sent' : 'received',
+            favorited: false,
+            note: null,
+            replyTo: null,
+            type: 'redpacket'
+        });
+    }
+
+    // 红包封面解析（与 core.js 的 _redpacketCover 保持一致的取值规则）
+    function _coverFor(sender) {
+        try {
+            var c = sender === 'user' ? settings.redpacketMyCover : settings.redpacketPartnerCover;
+            return (typeof c === 'string' && c) ? c : '';
+        } catch (e) { return ''; }
+    }
+    function _fmtMoney(n) { return '¥' + Number(n || 0).toFixed(2); }
+    function _findMsgById(id) {
+        try {
+            var arr = messages || window.messages || [];
+            for (var i = arr.length - 1; i >= 0; i--) {
+                if (String(arr[i].id) === String(id)) return arr[i];
+            }
+        } catch (e) {}
+        return null;
+    }
+
     // ── 用户主动转账 ──────────────────────────────────────────────
     function openTransfer() {
         var modal = document.getElementById('transfer-modal');
@@ -84,11 +123,24 @@
             _amountInput.value = '';
             _amountInput.classList.remove('correct');
         }
-        _syncAmountLabel();
-        _setHint('');
-        _markPreset(null);
         if (typeof showModal === 'function') showModal(modal);
-        setTimeout(function () { if (_amountInput) _amountInput.focus(); }, 130);
+        setTimeout(function () {
+            if (_amountInput) _amountInput.focus();
+        }, 130);
+    }
+
+    // 让"发红包"弹窗的封面预览跟随用户设置的用户封面
+    function _refreshSendCoverPreview() {
+        var el = document.getElementById('rp-send-cover');
+        if (!el) return;
+        var cover = _coverFor('user');
+        if (cover) {
+            el.style.backgroundImage = 'url("' + cover + '")';
+            el.classList.add('has-custom');
+        } else {
+            el.style.backgroundImage = '';
+            el.classList.remove('has-custom');
+        }
     }
 
     function _parseAmount() {
@@ -122,12 +174,75 @@
         var modal = document.getElementById('transfer-modal');
         if (modal && typeof hideModal === 'function') hideModal(modal);
 
-        // 用户转出消息 → 梦角回复
-        _pushMessage('user', '我给你转了 ' + _fmt(amt) + ' 💌');
+        var greetingEl = document.getElementById('rp-send-greeting');
+        var greeting = (greetingEl && greetingEl.value.trim()) || '恭喜发财，大吉大利';
+
+        // 用户发出微信风格红包消息 → 梦角回复
+        _pushRedpacket('user', greeting, amt);
         setTimeout(function () {
             _pushMessage(_partnerName(), _fill(_random(USER_TRANSFER_REPLIES), _fmt(amt)), 'received');
         }, 1600);
     }
+
+    // ── 红包小窗：点击聊天里的红包消息后打开 ─────────────────────
+    function openRedpacket(id) {
+        var msg = _findMsgById(id);
+        if (!msg) { if (typeof showNotification === 'function') showNotification('红包消息不存在', 'warning'); return; }
+        _openMsg = msg;
+        var modal = document.getElementById('redpacket-open-modal');
+        if (!modal) return;
+        _populateOpenModal();
+        if (typeof showModal === 'function') showModal(modal);
+    }
+    window.redpacketOpenRedpacket = openRedpacket;
+
+    // 根据当前红包消息刷新小窗内容
+    function _populateOpenModal() {
+        var msg = _openMsg;
+        if (!msg) return;
+        var cover = _coverFor(msg.sender);
+        var name = msg.sender === 'user'
+            ? (settings.myName || '我')
+            : (settings.partnerName || msg.sender || '对方');
+        var greeting = msg.text || '恭喜发财，大吉大利';
+
+        var inner = document.getElementById('redpacket-open-inner');
+        if (inner) {
+            if (cover) { inner.style.backgroundImage = 'url("' + cover + '")'; }
+            else { inner.style.backgroundImage = ''; }
+        }
+        var nameEl = document.getElementById('rp-open-name');
+        if (nameEl) nameEl.textContent = (msg.sender === 'user' ? '' : '@') + name;
+        var greetingEl = document.getElementById('rp-open-greeting');
+        if (greetingEl) greetingEl.textContent = greeting;
+        var amtEl = document.getElementById('rp-open-amount');
+        if (amtEl) amtEl.textContent = _fmtMoney(msg.amount);
+        var hasOpened = !!msg.opened;
+        var btn = document.getElementById('rp-open-btn');
+        if (btn) btn.style.display = hasOpened ? 'none' : 'block';
+        var amountWrap = document.getElementById('rp-open-amount-wrap');
+        if (amountWrap) amountWrap.style.display = hasOpened ? 'flex' : 'none';
+    }
+
+    // 点击"开"按钮 → 拆开红包，显示金额
+    function openIt() {
+        var msg = _openMsg;
+        if (!msg) return;
+        if (!msg.opened) {
+            msg.opened = true;
+            msg.openedAt = Date.now();
+            try { if (typeof throttledSaveData === 'function') throttledSaveData(); } catch (e) {}
+            try { if (typeof renderMessages === 'function') renderMessages(); } catch (e) {}
+        }
+        _populateOpenModal();
+    }
+    window.redpacketOpenIt = openIt;
+    function closeOpen() {
+        var modal = document.getElementById('redpacket-open-modal');
+        if (modal && typeof hideModal === 'function') hideModal(modal);
+        _openMsg = null;
+    }
+    window.redpacketCloseOpen = closeOpen;
 
     // ── 梦角主动随机转账（每自然日 ≤ LIMIT_PER_DAY）──────────────
     function _busyWithCompanionOrCall() {
@@ -169,7 +284,8 @@
 
                 var amt = _randomAmount();
                 setTimeout(function () {
-                    _pushMessage(_partnerName(), _fill(_random(PARTNER_TRANSFER_LINES), _fmt(amt)), 'received');
+                    // 梦角发微信风格红包消息（金额规则沿用设定，封面用梦角封面）
+                    _pushRedpacket(_partnerName(), '恭喜发财，大吉大利', amt);
                     if (typeof showNotification === 'function') {
                         try { showNotification('梦角给你转账了 ' + _fmt(amt), 'info', 4000); } catch (e) {}
                     }
@@ -190,8 +306,16 @@
         var cancelBtn = document.getElementById('transfer-cancel-btn');
 
         if (btn) btn.addEventListener('click', openTransfer);
+        if (btn) btn.addEventListener('click', _refreshSendCoverPreview);
         if (_amountInput) {
             _amountInput.addEventListener('input', function () { _syncAmountLabel(); _markPreset(null); });
+        }
+        var greetingEl = document.getElementById('rp-send-greeting');
+        if (greetingEl) {
+            greetingEl.addEventListener('input', function () { _setHint(''); });
+            greetingEl.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); if (typeof doUserTransfer === 'function') doUserTransfer(); }
+            });
         }
         _presets.forEach(function (b) {
             b.addEventListener('click', function () {
@@ -216,9 +340,12 @@
         init();
     }
 
-    // 暴露测试/外部调用入口
+    // 暴露测试/外部调用入口（含红包小窗）
     window.TransferFeature = {
         open: openTransfer,
+        openRedpacket: openRedpacket,
+        openIt: openIt,
+        closeOpen: closeOpen,
         manualUserTransfer: doUserTransfer,
         getData: getData
     };

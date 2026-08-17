@@ -548,7 +548,29 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         if (b) b.textContent = t;
         // 闪退恢复用：节流写盘心跳
         tryHeartbeatCallSession();
+        // 梦角主动挂断：整通电话只评估一次（避免多档概率累积）。接通后惰性调度一个
+        // 随机的"对方动摇时刻"，到点只 roll 一次，按当时时长分档取概率：
+        // <1h:≤15% ｜ 1h~3h:≤35% ｜ >3h:≤45%
+        if (S.active && S.startTime && !S.partnerHangupScheduled) {
+            S.partnerHangupScheduled = true;
+            const lo = 2 * 60 * 1000;                    // 接通 2 分钟后才可能挂断
+            const hi = 4 * 60 * 60 * 1000;               // 最晚 4 小时内出决定
+            S.partnerHangupTimer = setTimeout(partnerHangupCheck, lo + Math.random() * (hi - lo));
+        }
         S.timerRAF = requestAnimationFrame(tick);
+    }
+
+    // 单次判断：只在对方决定挂断时调用一次，按当时通话时长分档
+    function partnerHangupCheck() {
+        if (!S.active || !S.startTime) return;
+        const dur = Date.now() - S.startTime;
+        if (dur < 2 * 60 * 1000) return;
+        const bucket = dur < 3600000 ? 1 : (dur < 10800000 ? 2 : 3);
+        const prob = bucket === 1 ? 0.15 : (bucket === 2 ? 0.35 : 0.45);
+        if ((typeof settings === 'object' && settings) && settings.partnerHangupEnabled !== false
+            && Math.random() < prob) {
+            partnerHangup();
+        }
     }
 
     // ─── 通话闪退恢复：live session 持久化 ─────────────
@@ -649,6 +671,8 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
     function startCall(isPartner) {
         if (!S.enabled) return;
         S.active = true; S.startTime = null; S.elapsed = 0;
+        S.partnerHangupScheduled = false;
+        if (S.partnerHangupTimer) { clearTimeout(S.partnerHangupTimer); S.partnerHangupTimer = null; }
         S.minimized = false; S.isPartnerCall = !!isPartner; S.immersive = false;
         document.getElementById('call-window')?.classList.remove('immersive');
 
@@ -703,12 +727,11 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         }
     }
 
-    function endCall() {
-        if (!S.active) return;
-        const dur = S.elapsed;
+    function _tearDown() {
+        if (!S.active) return false;
         S.active = false; S.startTime = null;
         cancelAnimationFrame(S.timerRAF);
-        clearTimeout(S.connectingTimer); clearTimeout(S.incomingTimer);
+        clearTimeout(S.connectingTimer); clearTimeout(S.incomingTimer); clearTimeout(S.partnerHangupTimer);
 
         // 清除闪退恢复用的 live session
         clearCallSession();
@@ -727,11 +750,27 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
 
         localStorage.setItem(KEY_POS,  JSON.stringify(S.pos));
         localStorage.setItem(KEY_SIZE, JSON.stringify(S.size));
+        return true;
+    }
+
+    function endCall() {
+        if (!_tearDown()) return;
+        const dur = S.elapsed;
         sendCallMsg(dur);
         if (typeof showNotification === 'function' && dur > 1500)
             showNotification(`通话结束 · ${fmt(dur)}`, 'info', 3000);
         else if (typeof showNotification === 'function' && dur <= 1500 && dur > 0)
             showNotification('通话已挂断', 'info', 2000);
+    }
+
+    // 梦角主动挂断：与用户手动挂断共用收尾，但插入一条"对方挂断"的通话记录
+    function partnerHangup() {
+        if (!_tearDown()) return;
+        const dur = S.elapsed || 0;
+        const who = getName();
+        sendCallEvent('fa-phone-slash', who + ' 挂断了通话', fmt(dur));
+        if (typeof showNotification === 'function' && dur > 0)
+            showNotification(who + ' 挂断了通话', 'info', 3000);
     }
 
     function showIncomingCall() {
@@ -1041,6 +1080,8 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
                 S.active = true;
                 S.startTime = session.startTs;  // 沿用真实开始时间，时长自动接续
                 S.elapsed = Date.now() - session.startTs;
+                S.partnerHangupScheduled = false;
+                if (S.partnerHangupTimer) { clearTimeout(S.partnerHangupTimer); S.partnerHangupTimer = null; }
                 S.minimized = !!session.minimized;
                 S.isPartnerCall = !!session.isPartnerCall;
                 S.immersive = !!session.immersive;

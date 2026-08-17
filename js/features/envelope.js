@@ -168,6 +168,7 @@ window.showAppearancePanel = function(panel) {
     // 打开「背景 & 陪伴」时刷新日记背景画廊
     if (panel === 'font-bg' || panel === 'background') {
         setTimeout(() => { if (typeof window.renderDiaryBgGallery === 'function') window.renderDiaryBgGallery(); }, 50);
+        setTimeout(() => { if (typeof window.renderRedpacketCoverSettings === 'function') window.renderRedpacketCoverSettings(); }, 50);
     }
 };
 window.hideAppearancePanel = function() {

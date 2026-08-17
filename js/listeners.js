@@ -1245,7 +1245,9 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
                 '#typing-indicator-toggle': {
                     prop: 'typingIndicatorEnabled', name: '正在输入'},
                     '#read-no-reply-toggle': { prop: 'allowReadNoReply', name: '已读不回' },
-                    '#emoji-mix-toggle': { prop: 'emojiMixEnabled', name: '表情混入消息' }
+                    '#emoji-mix-toggle': { prop: 'emojiMixEnabled', name: '表情混入消息' },
+                    '#partner-recall-toggle': { prop: 'partnerRecallEnabled', name: '梦角撤回消息' },
+                    '#partner-hangup-toggle': { prop: 'partnerHangupEnabled', name: '梦角主动挂断' }
 };
 
             for (const [selector, {
@@ -3633,5 +3635,67 @@ window.exitCollapseMode = function() {
         document.addEventListener('DOMContentLoaded', tryApply);
     } else {
         setTimeout(tryApply, 400);
+    }
+})();
+
+// ── 自定义红包封面：渲染预览 + 更换/恢复 ─────────────────────────
+(function initRedpacketCoverSettings() {
+    window.renderRedpacketCoverSettings = function () {
+        ['me', 'partner'].forEach(function (role) {
+            var key = role === 'me' ? 'redpacketMyCover' : 'redpacketPartnerCover';
+            var prev = document.getElementById('rp-cover-prev-' + role);
+            if (!prev) return;
+            var cover = (typeof settings !== 'undefined') ? settings[key] : null;
+            if (typeof cover === 'string' && cover) {
+                prev.style.backgroundImage = 'url("' + cover + '")';
+            } else {
+                prev.style.backgroundImage = '';
+            }
+        });
+    };
+
+    function readCover(fileInput, key, prevId) {
+        const file = fileInput.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) { if (typeof showNotification === 'function') showNotification('封面图片不能超过5MB', 'error'); return; }
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const base64 = e.target.result;
+            if (typeof settings !== 'undefined') settings[key] = base64;
+            if (typeof saveData === 'function') { try { saveData(); } catch (err) { console.warn('[cover] saveData failed', err); } }
+            if (typeof renderMessages === 'function') { try { renderMessages(); } catch (err) {} }
+            if (typeof window.renderRedpacketCoverSettings === 'function') window.renderRedpacketCoverSettings();
+            if (typeof showNotification === 'function') showNotification('红包封面已更新', 'success');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetCover(key) {
+        if (typeof settings !== 'undefined') settings[key] = null;
+        if (typeof saveData === 'function') { try { saveData(); } catch (err) {} }
+        if (typeof renderMessages === 'function') { try { renderMessages(); } catch (err) {} }
+        if (typeof window.renderRedpacketCoverSettings === 'function') window.renderRedpacketCoverSettings();
+        if (typeof showNotification === 'function') showNotification('已恢复默认封面', 'success');
+    }
+
+    function bind() {
+        const inputMe = document.getElementById('redpacket-cover-input-me');
+        const inputPartner = document.getElementById('redpacket-cover-input-partner');
+        if (inputMe) inputMe.addEventListener('change', function () { readCover(this, 'redpacketMyCover', 'rp-cover-prev-me'); });
+        if (inputPartner) inputPartner.addEventListener('change', function () { readCover(this, 'redpacketPartnerCover', 'rp-cover-prev-partner'); });
+        const setMe = document.getElementById('rp-cover-set-me');
+        const setPartner = document.getElementById('rp-cover-set-partner');
+        if (setMe) setMe.addEventListener('click', function () { if (inputMe) inputMe.click(); });
+        if (setPartner) setPartner.addEventListener('click', function () { if (inputPartner) inputPartner.click(); });
+        const resetMe = document.getElementById('rp-cover-reset-me');
+        const resetPartner = document.getElementById('rp-cover-reset-partner');
+        if (resetMe) resetMe.addEventListener('click', function () { resetCover('redpacketMyCover'); });
+        if (resetPartner) resetPartner.addEventListener('click', function () { resetCover('redpacketPartnerCover'); });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bind);
+    } else {
+        bind();
     }
 })();

@@ -1486,6 +1486,42 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
             </div>
         </div>
 
+        <!-- 自定义红包封面管理 -->
+        <div class="settings-section" id="redpacket-cover-section">
+            <div class="settings-section-title">
+                <i class="fas fa-envelope-open-text"></i>自定义红包封面
+                <input type="file" id="redpacket-cover-input-me" accept="image/*" style="display:none;">
+                <input type="file" id="redpacket-cover-input-partner" accept="image/*" style="display:none;">
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:10px;opacity:0.75;line-height:1.5;">
+                分别为你和对方设置红包封面，发送的红包与收到对方的红包都会用它显示。支持 JPG / PNG 图片。
+            </div>
+            <div class="rp-cover-rows">
+                <div class="rp-cover-row">
+                    <div class="rp-cover-prev" id="rp-cover-prev-me"><span class="rp-cover-prev-emoji">🧧</span></div>
+                    <div class="rp-cover-meta">
+                        <div class="rp-cover-name">我的红包封面</div>
+                        <div class="rp-cover-desc">发红包时用的封面</div>
+                    </div>
+                    <div class="rp-cover-actions">
+                        <button class="modal-btn modal-btn-secondary rp-cover-btn" id="rp-cover-set-me">更换</button>
+                        <button class="modal-btn modal-btn-secondary rp-cover-btn" id="rp-cover-reset-me">恢复默认</button>
+                    </div>
+                </div>
+                <div class="rp-cover-row">
+                    <div class="rp-cover-prev" id="rp-cover-prev-partner"><span class="rp-cover-prev-emoji">🧧</span></div>
+                    <div class="rp-cover-meta">
+                        <div class="rp-cover-name">对方红包封面</div>
+                        <div class="rp-cover-desc">收到对方红包时用的封面</div>
+                    </div>
+                    <div class="rp-cover-actions">
+                        <button class="modal-btn modal-btn-secondary rp-cover-btn" id="rp-cover-set-partner">更换</button>
+                        <button class="modal-btn modal-btn-secondary rp-cover-btn" id="rp-cover-reset-partner">恢复默认</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 陪伴背景管理 -->
         <div class="settings-section" id="companion-bg-section">
             <div class="settings-section-title">
@@ -1847,6 +1883,16 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
                             <span class="setting-pill-icon"><i class="fas fa-microphone"></i></span>
                             <span class="setting-pill-label">语音消息 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">开启后梦角有概率发送语音</span></span>
                             <div class="setting-pill-switch" id="fake-voice-switch"><div class="setting-pill-knob"></div></div>
+                        </div>
+                        <div class="setting-pill-row" id="partner-recall-toggle" style="border-top:1px solid var(--border-color);">
+                            <span class="setting-pill-icon"><i class="fas fa-undo"></i></span>
+                            <span class="setting-pill-label">梦角撤回消息 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">开启后梦角偶尔会撤回自己刚发的消息</span></span>
+                            <div class="setting-pill-switch"><div class="setting-pill-knob"></div></div>
+                        </div>
+                        <div class="setting-pill-row" id="partner-hangup-toggle" style="border-top:1px solid var(--border-color);">
+                            <span class="setting-pill-icon"><i class="fas fa-phone-slash"></i></span>
+                            <span class="setting-pill-label">梦角主动挂断电话 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">开启后梦角可能主动挂断长通话</span></span>
+                            <div class="setting-pill-switch"><div class="setting-pill-knob"></div></div>
                         </div>
                     </div>
 
@@ -2912,29 +2958,51 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
     </div>
 
     <div class="modal" id="transfer-modal">
-        <div class="modal-content" style="max-width:360px;">
-            <div class="modal-title">
-                <i class="fas fa-gift"></i><span>转账</span>
+        <div class="modal-content redpacket-send-content" style="max-width:360px; padding:0; overflow:hidden;">
+            <div class="redpacket-send-cover" id="rp-send-cover">
+                <div class="redpacket-send-cover-inner">
+                    <span class="redpacket-send-cover-top">恭喜发财</span>
+                    <span class="redpacket-send-cover-bot">大吉大利</span>
+                    <span class="redpacket-send-cny">¥</span>
+                </div>
             </div>
-            <div id="transfer-amount-display" style="text-align:center; padding:8px 0 2px;">
-                <div style="font-size:34px; font-weight:700; color:var(--accent-color); font-family:var(--font-family);" id="transfer-amount-label">¥0.00</div>
-                <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">输入金额，转给你的另一半</div>
+            <div style="background:var(--primary-bg);padding:14px 16px 18px;">
+                <div style="display:flex;align-items:baseline;justify-content:center;gap:4px;">
+                    <span style="font-size:16px;font-weight:600;color:var(--text-primary);">¥</span>
+                    <input class="modal-input" id="transfer-amount-input" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" style="text-align:center;font-size:34px;font-weight:700;color:var(--text-primary);border:none;background:transparent;padding:0 4px;" />
+                </div>
+                <div style="text-align:center;font-size:12px;color:var(--text-secondary);margin:2px 0 8px;" id="transfer-amount-label">¥0.00</div>
+                <input class="modal-input" id="rp-send-greeting" type="text" maxlength="20" placeholder="恭喜发财，大吉大利" style="text-align:center;font-size:14px;border:1px solid var(--border-color);border-radius:10px;background:var(--secondary-bg);" />
+                <div id="transfer-amount-hint" style="font-size:11.5px; color:var(--text-secondary); min-height:15px; text-align:center; margin:6px 0 8px;"></div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:14px;">
+                    <button class="transfer-preset" data-amt="6.66">6.66</button>
+                    <button class="transfer-preset" data-amt="8.88">8.88</button>
+                    <button class="transfer-preset" data-amt="52.00">52.00</button>
+                    <button class="transfer-preset" data-amt="520.00">520.00</button>
+                    <button class="transfer-preset" data-amt="1314.00">1314.00</button>
+                </div>
+                <div class="modal-buttons" style="gap:10px;">
+                    <button class="modal-btn modal-btn-secondary" id="transfer-cancel-btn" style="flex:1;">取消</button>
+                    <button class="modal-btn rp-gold-btn" id="transfer-confirm-btn" style="flex:2;">塞钱进红包</button>
+                </div>
             </div>
-            <div style="position:relative; margin:16px 0 6px;">
-                <span style="position:absolute; left:16px; top:50%; transform:translateY(-12px); font-size:18px; color:var(--text-secondary);">¥</span>
-                <input class="modal-input" id="transfer-amount-input" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" style="text-align:center; padding-left:34px; padding-right:12px; margin-bottom:4px;" />
+        </div>
+    </div>
+
+    <!-- 红包查看小窗（微信风格） -->
+    <div class="redpacket-open-modal" id="redpacket-open-modal" onclick="if(event.target===this)TransferFeature.closeOpen()">
+        <div class="redpacket-open-inner" id="redpacket-open-inner">
+            <button class="redpacket-open-close" onclick="TransferFeature.closeOpen()"><i class="fas fa-times"></i></button>
+            <div class="redpacket-open-top">
+                <div class="redpacket-open-name" id="rp-open-name"></div>
+                <div class="redpacket-open-greeting" id="rp-open-greeting"></div>
+                <div class="redpacket-open-target">查看红包</div>
             </div>
-            <div id="transfer-amount-hint" style="font-size:11.5px; color:var(--text-secondary); min-height:15px; text-align:center; margin-bottom:8px;"></div>
-            <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:16px;">
-                <button class="transfer-preset" data-amt="6.66">6.66</button>
-                <button class="transfer-preset" data-amt="8.88">8.88</button>
-                <button class="transfer-preset" data-amt="52.00">52.00</button>
-                <button class="transfer-preset" data-amt="520.00">520.00</button>
-                <button class="transfer-preset" data-amt="1314.00">1314.00</button>
-            </div>
-            <div class="modal-buttons">
-                <button class="modal-btn modal-btn-secondary" id="transfer-cancel-btn" style="flex:1;">取消</button>
-                <button class="modal-btn modal-btn-primary" id="transfer-confirm-btn" style="flex:1;">转账</button>
+            <div class="redpacket-open-center">
+                <button class="redpacket-open-btn" id="rp-open-btn" onclick="TransferFeature.openIt()">开</button>
+                <div class="redpacket-open-amount-wrap" id="rp-open-amount-wrap">
+                    <div class="redpacket-open-amount" id="rp-open-amount">¥0.00</div>
+                </div>
             </div>
         </div>
     </div>

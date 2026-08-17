@@ -287,7 +287,12 @@ autoSendInterval: 5,
         partnerPokeCustomSoundUrl: '',
         soundVolume: 0.15,
         bottomCollapseMode: false,
-        emojiMixEnabled: true
+        emojiMixEnabled: true,
+        partnerRecallEnabled: true,
+        partnerHangupEnabled: true,
+        // 自定义红包封面（dataURL 或 null；null 用内置封面）
+        redpacketMyCover: null,
+        redpacketPartnerCover: null
             };
         }
 
@@ -1050,7 +1055,9 @@ function manageAutoSendTimer() {
                 '#typing-indicator-toggle': 'typingIndicatorEnabled',
                 '#read-no-reply-toggle': 'allowReadNoReply',
                 '#emoji-mix-toggle': 'emojiMixEnabled',
-                '#auto-send-toggle': 'autoSendEnabled'
+                '#auto-send-toggle': 'autoSendEnabled',
+                '#partner-recall-toggle': 'partnerRecallEnabled',
+                '#partner-hangup-toggle': 'partnerHangupEnabled'
             };
             for (const [sel, prop] of Object.entries(_pillSyncMap)) {
                 const el = document.querySelector(sel);
@@ -1109,6 +1116,32 @@ function manageAutoSendTimer() {
                 setTimeout(() => { if (el2) el2.classList.remove('msg-highlight'); }, 1500);
             }, 60);
         };
+
+// 红包封面解析：按发送方取对应封面（dataURL），无则返回 ''（用内置渐变）
+function _redpacketCover(sender) {
+    try {
+        const isUser = sender === 'user';
+        const c = isUser ? settings.redpacketMyCover : settings.redpacketPartnerCover;
+        return (typeof c === 'string' && c) ? c : '';
+    } catch (e) { return ''; }
+}
+// 红包消息在聊天气泡内的卡片 HTML（微信风格）
+function _redpacketCardHTML(msg) {
+    const cover = _redpacketCover(msg.sender);
+    const greeting = (msg && msg.text) ? String(msg.text) : '恭喜发财，大吉大利';
+    const mid = String(msg.id).replace(/['"`\\]/g, '');
+    const sqStyle = cover
+        ? 'background-image:url("' + _escapeHtml(cover) + '");'
+        : 'background-image:linear-gradient(135deg,#ff8a65,#e53935);';
+    return '<div class="redpacket-card" data-id="' + _escapeHtml(mid) + '" data-mid="' + _escapeHtml(mid) + '" onclick="TransferFeature.openRedpacket(\'' + _escapeHtml(mid) + '\')">'
+        + '<div class="redpacket-sq" style="' + sqStyle + '">'
+        + (cover ? '' : '<span class="redpacket-sq-core">🧧</span>')
+        + '</div>'
+        + '<div class="redpacket-info">'
+        + '<div class="redpacket-greeting">' + _escapeHtml(greeting) + '</div>'
+        + '<div class="redpacket-label">微信红包</div>'
+        + '</div></div>';
+}
 
 function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
     const fragment = new DocumentFragment();
@@ -1259,9 +1292,15 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
         messageHTML += `<div class="reply-indicator" data-reply-id="${msg.replyTo.id || ''}" style="cursor:pointer;" onclick="scrollToQuotedMessage(this)"><span class="reply-indicator-sender">${repliedSender}</span><span class="reply-indicator-text">${repliedText}</span></div>`;
     }
 
+    const isRedpacket = msg.type === 'redpacket';
     const isImageOnly = !msg.text && !!msg.image;
-    let content = msg.text ? '<div>' + _escapeHtml(msg.text).replace(/\n/g, '<br>') + '</div>' : '';
-    if (msg.image) {
+    let content = '';
+    if (isRedpacket) {
+        content = _redpacketCardHTML(msg);
+    } else {
+        content = msg.text ? '<div>' + _escapeHtml(msg.text).replace(/\n/g, '<br>') + '</div>' : '';
+    }
+    if (msg.image && !isRedpacket) {
         // 阶段三B：识别 oss:// 走懒加载；识别 pending:// 走本地 base64 + 上传中角标
         const isCloudImg = typeof msg.image === 'string' && msg.image.indexOf('oss://') === 0;
         const isPendingImg = typeof msg.image === 'string' && msg.image.indexOf('pending://') === 0;
@@ -1282,7 +1321,9 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
     messageHTML += content;
 
     const messageDiv = document.createElement('div');
-    if (isImageOnly) {
+    if (isRedpacket) {
+        messageDiv.className = `message message-${msg.sender === 'user' ? 'sent' : 'received'} message-redpacket-bubble`;
+    } else if (isImageOnly) {
         messageDiv.className = `message message-${msg.sender === 'user' ? 'sent' : 'received'} message-image-bubble-none`;
     } else {
         messageDiv.className = `message message-${msg.sender === 'user' ? 'sent' : 'received'} ${settings.bubbleStyle}`;
@@ -1785,6 +1826,26 @@ const addMessage = (message) => {
             (function(){try{if(window._typingIndicatorAutoHideTimer){clearTimeout(window._typingIndicatorAutoHideTimer);window._typingIndicatorAutoHideTimer=null;}}catch(e){}var _tiW=document.getElementById('typing-indicator-wrapper');if(_tiW){var _tiInner=_tiW.querySelector('.typing-indicator');if(_tiInner){_tiInner.classList.add('hiding');setTimeout(function(){_tiW.style.display='none';if(_tiInner)_tiInner.classList.remove('hiding');},240);}else{_tiW.style.display='none';}}})();
         };
 
+        // ── 对方撤回消息核心逻辑：随机撤回一条梦角最近发出的普通消息 ──
+        window._triggerPartnerRecall = function() {
+            try {
+                if (!messages || !messages.length) return;
+                var candidates = [];
+                for (var i = messages.length - 1; i >= 0; i--) {
+                    var m = messages[i];
+                    if (m.sender === 'user' || m.type === 'system' || m.type === 'call-event') continue;
+                    if (m.recalled || !m.text) continue;
+                    candidates.push(m);
+                    if (candidates.length >= 5) break;
+                }
+                if (!candidates.length) return;
+                var target = candidates[Math.floor(Math.random() * candidates.length)];
+                target.recalled = true;
+                if (typeof throttledSaveData === 'function') throttledSaveData();
+                if (typeof renderMessages === 'function') renderMessages(true);
+            } catch (e) {}
+        };
+
         function sendMessage(textOverride = null, type = 'normal') {
             const text = textOverride || DOMElements.messageInput.value.trim();
             const imageFile = DOMElements.imageInput.files[0];
@@ -2096,6 +2157,11 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                      }
                      throttledSaveData();
                 }
+            }
+            if (settings.partnerRecallEnabled && Math.random() < 0.02) {
+                // ── 对方撤回消息：概率略低于拍一拍(3%)，用一个独立回复周期触发 ──
+                if (typeof window._triggerPartnerRecall === 'function') window._triggerPartnerRecall();
+                return;
             }
             if (Math.random() < 0.03) {
                 // ── 对方拍一拍：调用提取的通用函数（同时供 /测试拍一拍 指令使用）──
