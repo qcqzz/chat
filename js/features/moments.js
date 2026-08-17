@@ -7,7 +7,7 @@ let _momentsDataLoaded = false; // 只有loadMomentsData()成功跑完一次才�
 
 const _M_STORAGE_KEY  = 'momentsData';
 const _M_COOLDOWN_KEY = 'partnerLetterNextTime';
-const _M_CD_MIN  = 48 * 60 * 60 * 1000;
+const _M_CD_MIN  = 24 * 60 * 60 * 1000;
 const _M_CD_MAX  = 72 * 60 * 60 * 1000;
 const _M_PROB    = 0.40;
 const _M_DLY_MIN = 5  * 60 * 1000;

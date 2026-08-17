@@ -1156,6 +1156,19 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
         return fragment;
     }
 
+    // 已撤回的消息：以居中的系统样式显示"X撤回了一条消息"
+    if (msg.recalled) {
+        const recallDiv = document.createElement('div');
+        recallDiv.className = 'recall-message';
+        const who = msg.sender === 'user'
+            ? (settings.myName || '我')
+            : (settings.partnerName || '对方');
+        recallDiv.textContent = who + '撤回了一条消息';
+        fragment.appendChild(recallDiv);
+        lastSenderRef.current = 'system';
+        return fragment;
+    }
+
     let showTimestamp = true;
     if (settings.timeFormat === 'off') {
         showTimestamp = false;
@@ -1292,6 +1305,7 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
     if (settings.replyEnabled) actionsHTML += `<button class="meta-action-btn reply-btn" title="回复"><i class="fas fa-reply"></i></button>`;
     const starIcon = msg.favorited ? 'fas fa-star' : 'far fa-star';
     actionsHTML += `<button class="meta-action-btn favorite-action-btn ${msg.favorited ? 'favorited' : ''}" title="${msg.favorited ? '取消收藏' : '收藏'}"><i class="${starIcon}"></i></button>`;
+    if (msg.sender === 'user' && !msg.recalled) actionsHTML += `<button class="meta-action-btn recall-btn" title="撤回"><i class="fas fa-undo"></i></button>`;
     actionsHTML += `<button class="meta-action-btn delete-btn" title="删除"><i class="fas fa-trash-alt"></i></button>`;
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'message-meta-actions';
@@ -1640,6 +1654,8 @@ const addMessage = (message) => {
     }
 };
 
+        window.addMessage = addMessage; // 暴露给其他模块（转账/红包）向聊天注入消息
+
         window._addCallEvent = (icon, label, detail) => {
             addMessage({
                 id: Date.now() + Math.random(),
@@ -1762,6 +1778,10 @@ const addMessage = (message) => {
 
             addMessage({ id: Date.now(), text: pokeText, timestamp: new Date(), type: 'system' });
             if (typeof playSound === 'function') playSound('partner_poke');
+            // 拍一拍归属"普通消息"：弹普通通知
+            if (typeof window._sendPartnerNotification === 'function') {
+                window._sendPartnerNotification(settings.partnerName || '对方', pokeText);
+            }
             (function(){try{if(window._typingIndicatorAutoHideTimer){clearTimeout(window._typingIndicatorAutoHideTimer);window._typingIndicatorAutoHideTimer=null;}}catch(e){}var _tiW=document.getElementById('typing-indicator-wrapper');if(_tiW){var _tiInner=_tiW.querySelector('.typing-indicator');if(_tiInner){_tiInner.classList.add('hiding');setTimeout(function(){_tiW.style.display='none';if(_tiInner)_tiInner.classList.remove('hiding');},240);}else{_tiW.style.display='none';}}})();
         };
 

@@ -220,6 +220,19 @@ if (target.classList.contains('delete-btn')) {
     }
     return;
 }
+                if (target.classList.contains('recall-btn')) {
+                    if (window.confirm('确定要撤回这条消息吗？')) {
+                        const msg = messages.find(m => m.id === messageId);
+                        if (msg && msg.sender === 'user') {
+                            msg.recalled = true;
+                            throttledSaveData();
+                            renderMessages(true);
+                            playSound && playSound('send');
+                            showNotification('已撤回', 'success');
+                        }
+                    }
+                    return;
+                }
                 if (target.classList.contains('reply-btn')) {
                     currentReplyTo = {
                         id: message.id,

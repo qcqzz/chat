@@ -2289,6 +2289,11 @@
         _cinemaSendInviteCard('countered', movieTitle, dateStr, timeStr, negoId);
         _negoScheduleReminderCycle();
         _negoUpdateBadges();
+        // 梦角邀请看电影归属"普通消息"：弹普通通知
+        if (typeof window._sendPartnerNotification === 'function') {
+            var _cs = (globalSettings && globalSettings.partnerName) || '对方';
+            window._sendPartnerNotification(_cs, '想约你一起看《' + movieTitle + '》，有时间吗？');
+        }
     }
 
     // 挑电影：80% 从心愿单挑没看过的，10% 从"看过的池子"（心愿单勾了已看过的 +

@@ -9,16 +9,41 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.PowerManager;
+import android.util.Log;
 
 public class ForegroundService extends Service {
     private static final String CHANNEL_ID = "foreground_service";
     private static final int NOTIFICATION_ID = 1001;
     private static final String PREFS_NAME = "chuanxun_prefs";
     private static final String KEY_PARTNER_NAME = "partnerName";
+
+    // 保活续锁周期：每 15 分钟重新获取一次 WakeLock，避免单一 24h 锁被占用超时
+    private static final long WAKELOCK_RENEW_INTERVAL_MS = 15 * 60 * 1000L;
+    private static final long WAKELOCK_TIMEOUT_MS = 30 * 60 * 1000L;
+
     private PowerManager.WakeLock wakeLock = null;
     private String partnerName = "对方";
+    private Handler keepAliveHandler;
+    private final Runnable wakelockRenewRunnable = new Runnable() {
+        @Override
+        public void run() {
+            try {
+                if (wakeLock == null || !wakeLock.isHeld()) {
+                    acquireWakeLock();
+                    Log.i("ForegroundService", "WakeLock 已续期");
+                }
+                if (keepAliveHandler != null) {
+                    keepAliveHandler.postDelayed(this, WAKELOCK_RENEW_INTERVAL_MS);
+                }
+            } catch (Exception e) {
+                Log.w("ForegroundService", "续锁失败: " + e.getMessage());
+            }
+        }
+    };
 
     @Override
     public void onCreate() {
@@ -28,11 +53,12 @@ public class ForegroundService extends Service {
         partnerName = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .getString(KEY_PARTNER_NAME, "对方");
         acquireWakeLock();
+        startWakelockRenewLoop();
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        // WakeLock 可能已过期（24h 自动释放），重新获取
+        // WakeLock 可能已超时自动释放，重新获取
         if (wakeLock == null || !wakeLock.isHeld()) {
             acquireWakeLock();
         }
@@ -105,29 +131,61 @@ public class ForegroundService extends Service {
 
     /**
      * 获取 WakeLock 防止 CPU 休眠导致 WebView JavaScript 暂停
+     * 使用较短超时，由 Handler 定时续期，避免单一超长锁被系统回收
      */
     private void acquireWakeLock() {
         try {
             PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
             if (pm != null) {
-                wakeLock = pm.newWakeLock(
-                        PowerManager.PARTIAL_WAKE_LOCK,
-                        "chuanxun::foreground_wakelock"
-                );
-                wakeLock.acquire(24 * 60 * 60 * 1000L); // 最长 24 小时
+                if (wakeLock == null) {
+                    wakeLock = pm.newWakeLock(
+                            PowerManager.PARTIAL_WAKE_LOCK,
+                            "chuanxun::foreground_wakelock"
+                    );
+                }
+                if (!wakeLock.isHeld()) {
+                    wakeLock.acquire(WAKELOCK_TIMEOUT_MS); // 30 分钟超时
+                }
             }
         } catch (Exception e) {
             // 忽略
         }
     }
 
+    /**
+     * 启动 WakeLock 定时续期循环，确保长时间后台不被中断
+     */
+    private void startWakelockRenewLoop() {
+        if (keepAliveHandler != null) return;
+        keepAliveHandler = new Handler(Looper.getMainLooper());
+        keepAliveHandler.postDelayed(wakelockRenewRunnable, WAKELOCK_RENEW_INTERVAL_MS);
+    }
+
     @Override
     public void onDestroy() {
+        if (keepAliveHandler != null) {
+            keepAliveHandler.removeCallbacks(wakelockRenewRunnable);
+            keepAliveHandler = null;
+        }
         if (wakeLock != null && wakeLock.isHeld()) {
             try { wakeLock.release(); } catch (Exception e) {}
             wakeLock = null;
         }
         super.onDestroy();
+    }
+
+    /**
+     * 用户从最近任务中划掉 App 时，重新调度定时唤醒，防止保活机制丢失
+     */
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        super.onTaskRemoved(rootIntent);
+        try {
+            KeepAliveReceiver.scheduleNext(this);
+            Log.i("ForegroundService", "任务被划掉，已重新调度定时唤醒");
+        } catch (Exception e) {
+            Log.w("ForegroundService", "重新调度失败: " + e.getMessage());
+        }
     }
 
     @Override

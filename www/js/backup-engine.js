@@ -186,6 +186,8 @@
         if (!flags.inclAnn) p.push('anniversaries');
         if (!flags.inclThemes) p.push('customThemes', 'themeSchemes');
         if (!flags.inclDg) p.push('dg_custom_data', 'dg_status_pool', 'weekly_fortune', 'daily_fortune', 'customWeather_');
+        // 情侣空间：动态 / 相册 / 壁纸 / 影院 / 纪念日封面与设置（默认纳入，勾选关闭时排除）
+        if (flags.inclCS === false) p.push('momentsData', 'albumData', 'csSpaceSettings', 'csWallpaper', 'csWallpaperGallery', '_cinema', 'annMeetOverride', 'annPinnedId', 'annCoverBg_');
         return p;
     }
 
@@ -203,7 +205,7 @@
     async function buildBackupPayload(flags) {
         flags = flags || {
             inclMsgs: true, inclSet: true, inclCustom: true, inclAnn: true,
-            inclThemes: true, inclDg: true, inclStickers: false
+            inclThemes: true, inclDg: true, inclStickers: false, inclCS: true
         };
         var lfData = {};
         var keys = await localforage.keys();

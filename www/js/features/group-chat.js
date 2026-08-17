@@ -260,7 +260,7 @@ if (exportAllBtn) {
                     <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:4px;display:flex;align-items:center;gap:8px;">
                         <i class="fas fa-archive" style="color:var(--accent-color);font-size:14px;"></i>全量备份导出
                     </div>
-                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:16px;">默认导出为 <strong>ZIP</strong>：<code style="font-size:11px;">backup.json</code> 仅存结构与引用，大图在 <code style="font-size:11px;">media/</code>，避免单文件 JSON 过大导致无法解析。<br><span style="display:inline-block;margin-top:6px;color:var(--accent-color);">✓ 陪伴数据、陪伴日记、所有图片素材已自动包含</span></div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:16px;">默认导出为 <strong>ZIP</strong>：<code style="font-size:11px;">backup.json</code> 仅存结构与引用，大图在 <code style="font-size:11px;">media/</code>，避免单文件 JSON 过大导致无法解析。<br><span style="display:inline-block;margin-top:6px;color:var(--accent-color);">✓ 陪伴数据、陪伴日记、所有图片素材已自动包含；情侣空间数据默认一起备份</span></div>
                     <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:20px;">
                         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border:1px solid var(--border-color);border-radius:12px;background:var(--primary-bg);font-size:13px;color:var(--text-primary);">
                             <input type="checkbox" id="_bk_msgs" checked style="accent-color:var(--accent-color);width:15px;height:15px;">
@@ -293,6 +293,11 @@ if (exportAllBtn) {
                             <span>每日公告 / 心情数据</span>
                         </label>
                         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border:1px solid var(--border-color);border-radius:12px;background:var(--primary-bg);font-size:13px;color:var(--text-primary);">
+                            <input type="checkbox" id="_bk_cs" checked style="accent-color:var(--accent-color);width:15px;height:15px;">
+                            <i class="fas fa-home-heart" style="color:var(--accent-color);width:16px;text-align:center;"></i>
+                            <span>情侣空间（动态 / 相册 / 壁纸 / 影院 / 纪念日）</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border:1px solid var(--border-color);border-radius:12px;background:var(--primary-bg);font-size:13px;color:var(--text-primary);">
                             <input type="checkbox" id="_bk_stickers" style="accent-color:var(--accent-color);width:15px;height:15px;">
                             <i class="fas fa-sticky-note" style="color:var(--accent-color);width:16px;text-align:center;"></i>
                             <span>表情库 <span style="font-size:11px;color:var(--text-secondary);">(默认关，勾选后去重打包)</span></span>
@@ -320,9 +325,10 @@ if (exportAllBtn) {
                 const inclAnn     = document.getElementById('_bk_ann').checked;
                 const inclThemes  = document.getElementById('_bk_themes').checked;
                 const inclDg      = document.getElementById('_bk_dg').checked;
+                const inclCS      = document.getElementById('_bk_cs').checked;
                 const inclStickers = document.getElementById('_bk_stickers') && document.getElementById('_bk_stickers').checked;
 
-                if (!inclMsgs && !inclSet && !inclCustom && !inclAnn && !inclThemes && !inclDg && !inclStickers) {
+                if (!inclMsgs && !inclSet && !inclCustom && !inclAnn && !inclThemes && !inclDg && !inclCS && !inclStickers) {
                     showNotification('请至少选择一项', 'error');
                     return;
                 }
@@ -337,6 +343,7 @@ if (exportAllBtn) {
                             inclAnn: inclAnn,
                             inclThemes: inclThemes,
                             inclDg: inclDg,
+                            inclCS: inclCS,
                             inclStickers: inclStickers
                         });
                         const jsonString = ChatBackup.serializeBackupV4(payload);

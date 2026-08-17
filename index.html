@@ -396,6 +396,8 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
     <button id="collapse-expand-btn" title="展开更多" style="display:none;width:36px;height:36px;border:none;border-radius:50%;cursor:pointer;background:rgba(var(--accent-color-rgb),0.12);color:var(--accent-color);font-size:14px;transition:all 0.25s;flex-shrink:0;align-items:center;justify-content:center;" onclick="window.toggleCollapsedExtras && window.toggleCollapsedExtras()"><i class="fas fa-chevron-up"></i></button>
     <!-- 视频通话按钮（替代原麦克风位置）-->
     <button class="videocall-btn input-btn" id="videocall-btn" title="视频通话"><i class="fas fa-video"></i></button>
+    <!-- 转账按钮（聊天框左侧，简约红包样式）-->
+    <button class="transfer-btn input-btn" id="transfer-btn" title="转账"><i class="fas fa-gift" style="font-size:17px;"></i></button>
     <button class="attachment-btn input-btn collapse-hideable" id="attachment-btn" title="发送图片"><i class="fas fa-image"></i></button>
     
     <button class="combo-btn input-btn collapse-hideable" id="combo-btn" title="表情 & 拍一拍">
@@ -2909,6 +2911,34 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
         </div>
     </div>
 
+    <div class="modal" id="transfer-modal">
+        <div class="modal-content" style="max-width:360px;">
+            <div class="modal-title">
+                <i class="fas fa-gift"></i><span>转账</span>
+            </div>
+            <div id="transfer-amount-display" style="text-align:center; padding:8px 0 2px;">
+                <div style="font-size:34px; font-weight:700; color:var(--accent-color); font-family:var(--font-family);" id="transfer-amount-label">¥0.00</div>
+                <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">输入金额，转给你的另一半</div>
+            </div>
+            <div style="position:relative; margin:16px 0 6px;">
+                <span style="position:absolute; left:16px; top:50%; transform:translateY(-12px); font-size:18px; color:var(--text-secondary);">¥</span>
+                <input class="modal-input" id="transfer-amount-input" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" style="text-align:center; padding-left:34px; padding-right:12px; margin-bottom:4px;" />
+            </div>
+            <div id="transfer-amount-hint" style="font-size:11.5px; color:var(--text-secondary); min-height:15px; text-align:center; margin-bottom:8px;"></div>
+            <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:16px;">
+                <button class="transfer-preset" data-amt="6.66">6.66</button>
+                <button class="transfer-preset" data-amt="8.88">8.88</button>
+                <button class="transfer-preset" data-amt="52.00">52.00</button>
+                <button class="transfer-preset" data-amt="520.00">520.00</button>
+                <button class="transfer-preset" data-amt="1314.00">1314.00</button>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" id="transfer-cancel-btn" style="flex:1;">取消</button>
+                <button class="modal-btn modal-btn-primary" id="transfer-confirm-btn" style="flex:1;">转账</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal" id="anniversary-modal">
         <div class="modal-content">
             <div class="ann-header-card" id="ann-header-card" style="display: none;">
@@ -3394,6 +3424,7 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
     <script src="js/cloud-sync-ui.js"></script>
     <script src="js/app.js"></script>
     <script src="js/features/cinema.js"></script>
+    <script src="js/features/transfer.js"></script>
 <!-- 相册图片详情（全屏） -->
 <div id="al-view-detail" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;inset:0;z-index:6000;background:#000;flex-direction:column;">
     <div class="al-detail-topbar">

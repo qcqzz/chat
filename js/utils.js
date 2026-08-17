@@ -686,6 +686,12 @@ async function importAllData(file) {
                 localStorageNeedles: []
             },
             {
+                id: 'cs',
+                label: '情侣空间（动态 / 相册 / 壁纸 / 影院 / 纪念日封面）',
+                indexedDBNeedles: ['momentsData', 'albumData', 'csSpaceSettings', 'csWallpaper', 'csWallpaperGallery', '_cinema', 'annMeetOverride', 'annPinnedId', 'annCoverBg_'],
+                localStorageNeedles: []
+            },
+            {
                 id: 'mood',
                 label: '心晴手账',
                 indexedDBNeedles: ['moodCalendar', 'customMoodOptions', 'moodTrash'],
@@ -782,7 +788,7 @@ async function importAllData(file) {
 }
 
 // ====== 软件更新检查 ======
-var APP_VERSION = '1.5.1';
+var APP_VERSION = '1.6';
 var GITHUB_REPO = 'qcqzz/chat';
 var GITHUB_RELEASES_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest';
 var GITHUB_API_URL = 'https://api.github.com/repos/' + GITHUB_REPO + '/releases/latest';

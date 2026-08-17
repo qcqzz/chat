@@ -110,6 +110,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (typeof saveTimeout !== 'undefined') clearTimeout(saveTimeout);
                 } catch (e) {}
                 try { _backupCriticalData(); } catch (e) { console.warn('[visibilitychange] 紧急备份失败:', e); }
+                // 进入后台时重新拉起前台服务/定时唤醒，确保长时间后台保活
+                try {
+                    if (typeof ForegroundBridge !== 'undefined' && ForegroundBridge.isSupported()) {
+                        ForegroundBridge.start();
+                    }
+                } catch (e) { console.warn('[visibilitychange] 重新拉起保活失败:', e); }
                 try {
                     const p = saveData();
                     if (p && typeof p.catch === 'function') {

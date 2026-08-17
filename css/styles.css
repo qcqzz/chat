@@ -1203,6 +1203,38 @@
         .attachment-btn:hover, .continue-btn:hover, .batch-btn:hover, .coin-btn:hover, .poke-btn:hover, .combo-btn:hover {
             color: var(--text-primary);
         }
+        /* 转账按钮：简约红包样式，配色跟随系统主题变量 */
+        .transfer-btn {
+            background-color: var(--toolbar-btn-bg, var(--message-received-bg));
+            color: var(--toolbar-btn-color, var(--text-secondary));
+        }
+        .transfer-btn:hover {
+            color: var(--text-primary);
+            background-color: rgba(var(--accent-color-rgb), 0.15);
+        }
+        /* 转账快捷金额 */
+        .transfer-preset {
+            padding: 6px 14px;
+            border-radius: 50px;
+            border: 1px solid var(--border-color);
+            background-color: var(--primary-bg);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: var(--font-family);
+        }
+        .transfer-preset:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+            transform: translateY(-1px);
+        }
+        .transfer-preset.active {
+            border-color: var(--accent-color);
+            background-color: rgba(var(--accent-color-rgb), 0.1);
+            color: var(--accent-color);
+        }
 
         #reply-preview-container {
             padding: 0 15px;
@@ -1396,6 +1428,19 @@
         .system-message::after { left: 100%; transform: translateX(-8px) scaleX(-1); }
         @keyframes systemMsgPop {
             to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .recall-message {
+            align-self: center;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 12px;
+            padding: 5px 12px;
+            margin: 10px auto;
+            max-width: 80%;
+            text-align: center;
+            opacity: 0.85;
+            letter-spacing: 0.3px;
         }
 
         .call-event-message {
