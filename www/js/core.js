@@ -1018,7 +1018,7 @@ function manageAutoSendTimer() {
                 }
             }
 
-            DOMElements.html.setAttribute('data-theme', window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            DOMElements.html.setAttribute('data-theme', applyPreferredTheme());
             DOMElements.partner.name.textContent = settings.partnerName;
             DOMElements.me.name.textContent = settings.myName;
             DOMElements.partner.status.textContent = settings.partnerStatus || '在线';
@@ -3009,8 +3009,46 @@ window.initializeSession = async function() {
     await localforage.setItem(`${APP_PREFIX}lastSessionId`, SESSION_ID);
 }
 
-// 监听系统昼夜变化，实时更新 data-theme
+// ── 夜间模式：手动切换按钮 + 默认跟随系统 ──
+// themeNightPref：'dark' | 'light' | 缺省(空) = 跟随系统
+const THEME_NIGHT_PREF_KEY = 'themeNightPref';
+
+function applyPreferredTheme() {
+    var pref = localStorage.getItem(THEME_NIGHT_PREF_KEY);
+    if (pref === 'dark' || pref === 'light') return pref;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function syncThemeToggleIcon() {
+    var btn = document.getElementById('theme-toggle');
+    if (!btn) return;
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    var icon = dark ? 'fas fa-sun' : 'fas fa-moon';
+    var title = dark ? '切换白天模式' : '切换夜间模式';
+    var i = btn.querySelector('i');
+    if (!i) { i = document.createElement('i'); btn.appendChild(i); }
+    i.className = icon;
+    btn.title = title;
+}
+
+function toggleNightMode() {
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    var next = dark ? 'light' : 'dark';
+    localStorage.setItem(THEME_NIGHT_PREF_KEY, next);
+    document.documentElement.setAttribute('data-theme', next);
+    syncThemeToggleIcon();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    var btn = document.getElementById('theme-toggle');
+    if (btn) btn.addEventListener('click', toggleNightMode);
+    syncThemeToggleIcon();
+});
+
+// 监听系统昼夜变化，实时更新 data-theme（用户手动设置过时以手动为准）
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    if (localStorage.getItem(THEME_NIGHT_PREF_KEY) === 'dark' ||
+        localStorage.getItem(THEME_NIGHT_PREF_KEY) === 'light') return;
     document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
 });
 

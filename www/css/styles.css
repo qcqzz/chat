@@ -10878,10 +10878,9 @@
    首页改造 · 第一步：隐藏不需要的功能入口（代码保留）
    ──────────────────────────────────────────────────────────────── */
 
-/* 顶部栏：隐藏会话管理 + 群聊设置 + 昼夜切换（已改为跟随系统）*/
+/* 顶部栏：隐藏会话管理 + 群聊设置（昼夜切换按钮已恢复）*/
 #session-manager-btn,
-#group-chat-btn,
-#theme-toggle {
+#group-chat-btn {
     display: none !important;
 }
 
@@ -14099,46 +14098,20 @@ html[data-theme="dark"] .redpacket-send-head-ico i { color: var(--accent-color-d
 .redpacket-open-btn:hover { transform: scale(1.06); }
 .redpacket-open-btn:active { transform: scale(0.95); }
 
-/* ── 自定义红包封面设置栏（与背景设置同风格，仅作用于卡片浅米灰主区）────── */
-.rp-cover-rows { display: flex; flex-direction: column; gap: 12px; }
-.rp-cover-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    border-radius: 12px;
-    background: var(--message-received-bg);
-    border: 1px solid var(--border-color);
-}
-.rp-cover-prev {
-    width: 52px;
-    height: 52px;
-    flex: 0 0 52px;
-    border-radius: 10px;
-    background: linear-gradient(160deg, #fbeef0, #f6e2d4);
-    background-size: cover;
-    background-position: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.rp-cover-prev-emoji { font-size: 26px; }
-.rp-cover-meta { flex: 1; min-width: 0; }
-.rp-cover-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
-.rp-cover-desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
-.rp-cover-actions { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
-.rp-cover-btn {
-    padding: 4px 12px;
-    font-size: 12px;
-    white-space: nowrap;
-}
+/* ── 自定义红包封面设置栏（与聊天背景图库同风格，仅作用于卡片浅米灰主区）────── */
 .rp-cover-group-title {
-    margin: 14px 0 8px;
+    margin: 16px 0 6px;
     font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
 }
 .rp-cover-group-title:first-child { margin-top: 0; }
+.rp-cover-subname {
+    margin: 0 0 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    opacity: 0.8;
+}
 /* ── 封面图片裁剪弹窗 ─────────────────────────────────── */
 .redpacket-crop-content {
     width: 440px;
@@ -14176,7 +14149,7 @@ html[data-theme="dark"] .redpacket-send-head-ico i { color: var(--accent-color-d
     position: absolute;
     border: 2px solid #fff;
     box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
-    cursor: move;
+    cursor: grab;
     box-sizing: border-box;
 }
 .redpacket-crop-zoom {
@@ -14248,7 +14221,7 @@ html[data-theme="dark"] .redpacket-send-head-ico i { color: var(--accent-color-d
 .rp-rec-status.wait { background: var(--border-color); color: var(--text-secondary); }
 
 /* ── 小手机桌面：底部应用图标网格（功能稍后接入） ── */
-#phone-desktop{position:fixed;inset:0;z-index:900;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top, 0px) + 12px) 0 calc(env(safe-area-inset-bottom, 0px) + 22px);pointer-events:none;}
+#phone-desktop{position:fixed;inset:0;z-index:900;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top, 0px) + 12px) 0 calc(env(safe-area-inset-bottom, 0px) + 22px);pointer-events:none;background-color:var(--primary-bg, #f6f4ef);background-image:var(--desktop-bg-image, radial-gradient(circle at 50% 0%, rgba(255,255,255,.9), rgba(var(--accent-color-rgb),.12) 70%, rgba(var(--accent-color-rgb),.28)));background-size:cover;background-position:center;background-repeat:no-repeat;}
 
 /* ── 桌面/聊天视图切换：桌面视图隐藏聊天主体（保留承载桌面/子页面的 .main-chat-area）；聊天视图隐藏桌面 ── */
 body.dt-view .header,
@@ -14276,16 +14249,20 @@ body:not(.dt-view) #phone-desktop{display:none;}
 .dt-avatar{width:46px;height:46px;border-radius:50%;overflow:hidden;background:rgba(var(--accent-color-rgb),.22);border:2px solid rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;color:var(--accent-color);font-size:18px;box-shadow:0 3px 10px rgba(0,0,0,.18);flex-shrink:0;}
 .dt-avatar img{width:100%;height:100%;object-fit:cover;}
 .dt-name{font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:.5px;max-width:76px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1;}
-/* 两块头像之间的白色心跳心电图：两端与头像保持距离，任何背景都清晰可见 */
+/* 两块头像之间的心跳心电图：颜色跟随系统主题色（强调色），两端与头像保持距离 */
 .dt-heartbeat{position:absolute;top:4px;left:62px;right:62px;height:30px;pointer-events:none;z-index:1;}
 .dt-heartbeat svg{width:100%;height:100%;display:block;overflow:visible;}
 .dt-heartbeat .hb-line{fill:none;stroke-linecap:round;stroke-linejoin:round;}
-.dt-heartbeat .hb-shadow{stroke:rgba(0,0,0,.45);stroke-width:5;}
-.dt-heartbeat .hb-main{stroke:#ffffff;stroke-width:2.6;filter:drop-shadow(0 0 3px rgba(0,0,0,.6)) drop-shadow(0 0 6px rgba(255,255,255,.5));}
+.dt-heartbeat .hb-shadow{stroke:rgba(var(--accent-color-rgb),.22);stroke-width:5;}
+.dt-heartbeat .hb-main{stroke:var(--accent-color);stroke-width:2.4;filter:drop-shadow(0 1px 3px rgba(0,0,0,.18));}
 .dt-heartbeat .hb-run{stroke-dasharray:1200 1200;animation:hbFlow 3.2s linear infinite;}
 @keyframes hbFlow{0%{stroke-dashoffset:0;}100%{stroke-dashoffset:-2400;}}
-/* 深色主题 / 已设置顶部栏背景时：加深阴影保证白色心跳线清晰 */
-html[data-theme="dark"] .dt-heartbeat .hb-shadow{stroke:rgba(0,0,0,.75);}
+/* 深色主题：加深阴影保证强调色心跳线清晰可读 */
+html[data-theme="dark"] .dt-heartbeat .hb-shadow{stroke:rgba(var(--accent-color-rgb),.5);}
+html[data-theme="dark"] .dt-heartbeat .hb-main{stroke:var(--accent-color);filter:drop-shadow(0 0 4px rgba(0,0,0,.5));}
+/* 已设置顶部栏背景图片时：同样跟随强调色，仅加深阴影避免被背景吞掉 */
+.dt-topbar-card.dt-has-bg .dt-heartbeat .hb-shadow{stroke:rgba(var(--accent-color-rgb),.5);}
+.dt-topbar-card.dt-has-bg .dt-heartbeat .hb-main{stroke:var(--accent-color);filter:drop-shadow(0 0 3px rgba(0,0,0,.5));}
 /* 深色主题：卡片与文字转深色系 */
 html[data-theme="dark"] .dt-topbar-card{border-color:rgba(255,255,255,.12);background:linear-gradient(150deg,rgba(24,28,40,.6),rgba(24,28,40,.42));}
 html[data-theme="dark"] .dt-sig,html[data-theme="dark"] .dt-name{color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.35);}
@@ -14307,13 +14284,13 @@ html[data-theme="dark"] .app-grid{background:rgba(24,28,40,.5);border-color:rgba
 /* ── 桌面中部内容：拍立得相册 + 纪念日方块 ── */
 .dt-content{pointer-events:auto;width:100%;max-width:600px;padding:0 16px;box-sizing:border-box;display:flex;align-items:stretch;justify-content:center;gap:16px;margin-top:14px;}
 /* 拍立得：三层相纸堆叠，点击切换顺序 */
-.dt-polaroid{position:relative;width:150px;height:144px;flex:0 0 150px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;}
-.dt-polaroid-card{position:absolute;top:0;left:0;width:100%;height:100%;box-sizing:border-box;background:#fdfdfb;border-radius:7px;padding:8px 8px 22px;box-shadow:0 8px 18px rgba(0,0,0,.18);display:flex;flex-direction:column;border:1px solid rgba(0,0,0,.05);transition:transform .38s cubic-bezier(.2,.7,.3,1.2),opacity .3s ease;transform-origin:50% 100%;}
-.dt-polaroid-card img{flex:1;min-height:0;width:100%;display:block;object-fit:cover;border-radius:4px;background:#e6e2da;}
-.dt-polaroid-card span{height:16px;flex:0 0 16px;display:block;background:transparent;}
+.dt-polaroid{position:relative;width:200px;height:254px;flex:0 0 200px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;}
+.dt-polaroid-card{position:absolute;top:0;left:0;width:100%;height:100%;box-sizing:border-box;background:#fdfdfb;border-radius:8px;padding:10px 10px 40px;box-shadow:0 10px 22px rgba(0,0,0,.22);display:flex;flex-direction:column;border:1px solid rgba(0,0,0,.05);transition:transform .38s cubic-bezier(.2,.7,.3,1.2),opacity .3s ease;transform-origin:50% 100%;}
+.dt-polaroid-card img{flex:1;min-height:0;width:100%;display:block;object-fit:cover;border-radius:5px;background:#e6e2da;}
+.dt-polaroid-card span{height:20px;flex:0 0 20px;display:block;background:transparent;}
 .dt-polaroid .pl-1{transform:rotate(.5deg) translate(0,0);z-index:3;}
-.dt-polaroid .pl-2{transform:rotate(7deg) translate(-6px,6px);z-index:2;}
-.dt-polaroid .pl-3{transform:rotate(-8deg) translate(7px,10px);z-index:1;}
+.dt-polaroid .pl-2{transform:rotate(3deg) translate(-8px,1px);z-index:2;}
+.dt-polaroid .pl-3{transform:rotate(-3deg) translate(9px,3px);z-index:1;}
 .dt-polaroid.flip .dt-polaroid-card{transform:scale(.985) rotate(2deg);opacity:.92;}
 .dt-polaroid .pl-hint{position:absolute;left:0;right:0;bottom:-24px;text-align:center;font-size:11px;color:var(--text-secondary);letter-spacing:1px;opacity:.85;pointer-events:none;}
 .pl-hint i{margin-right:3px;}

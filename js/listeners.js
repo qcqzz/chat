@@ -1431,6 +1431,7 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
                 hideModal(DOMElements.settingsModal.modal);
                 window.hideAppearancePanel && window.hideAppearancePanel();
                 renderBackgroundGallery();
+                if (typeof window.renderRedpacketCoverSettings === 'function') window.renderRedpacketCoverSettings();
                 renderThemeSchemesList();
                 if (typeof window.renderDiaryBgGallery === 'function') window.renderDiaryBgGallery();
                 
@@ -3645,26 +3646,51 @@ window.exitCollapseMode = function() {
 // ── 自定义红包封面：卡片/弹窗 × 我的/梦角 四组，上传时按区域比例自由裁剪 ──
 (function initRedpacketCoverSettings() {
     const COVER_ITEMS = [
-        { key: 'redpacketCardMyCover',      prevId: 'rp-cover-prev-card-me' },
-        { key: 'redpacketCardPartnerCover', prevId: 'rp-cover-prev-card-partner' },
-        { key: 'redpacketOpenMyCover',      prevId: 'rp-cover-prev-open-me' },
-        { key: 'redpacketOpenPartnerCover', prevId: 'rp-cover-prev-open-partner' }
+        { key: 'redpacketCardMyCover',      galleryId: 'rp-cover-gallery-card-me',      ratio: 2.6 },
+        { key: 'redpacketCardPartnerCover', galleryId: 'rp-cover-gallery-card-partner', ratio: 2.6 },
+        { key: 'redpacketOpenMyCover',      galleryId: 'rp-cover-gallery-open-me',      ratio: 1.37 },
+        { key: 'redpacketOpenPartnerCover', galleryId: 'rp-cover-gallery-open-partner', ratio: 1.37 }
     ];
-    const KEY2RATIO = {
-        redpacketCardMyCover: 2.6,
-        redpacketCardPartnerCover: 2.6,
-        redpacketOpenMyCover: 1.37,
-        redpacketOpenPartnerCover: 1.37
-    };
 
     const $ = (id) => document.getElementById(id);
 
     window.renderRedpacketCoverSettings = function () {
         COVER_ITEMS.forEach(function (d) {
-            var prev = $(d.prevId);
-            if (!prev) return;
+            var list = $(d.galleryId);
+            if (!list) return;
+            list.innerHTML = '';
+
+            // 添加按钮：选择并裁剪
+            var add = document.createElement('div');
+            add.className = 'bg-item bg-add-btn';
+            add.innerHTML = '<i class="fas fa-plus"></i><span></span>';
+            add.title = '选择并裁剪';
+            add.onclick = function () {
+                _cropKey = d.key;
+                _ratio = d.ratio;
+                var hint = $('rp-crop-hint');
+                if (hint) hint.textContent = '在固定框内：单指拖动图片，双指捏合（或下方滑杆）缩放，选择要保留的区域';
+                var input = $('redpacket-cover-crop-input');
+                if (input) { input.value = ''; input.click(); }
+            };
+            list.appendChild(add);
+
             var c = (typeof settings !== 'undefined') ? settings[d.key] : null;
-            prev.style.backgroundImage = (typeof c === 'string' && c) ? 'url("' + c + '")' : '';
+            if (typeof c === 'string' && c) {
+                var el = document.createElement('div');
+                el.className = 'bg-item active';
+                el.innerHTML = '<img src="' + c + '" loading="lazy" alt="cover">';
+                var reset = document.createElement('div');
+                reset.className = 'bg-delete-btn';
+                reset.innerHTML = '<i class="fas fa-trash"></i>';
+                reset.title = '恢复默认';
+                reset.onclick = function (e) {
+                    e.stopPropagation();
+                    resetCover(d.key);
+                };
+                el.appendChild(reset);
+                list.appendChild(el);
+            }
         });
     };
 
@@ -3683,7 +3709,10 @@ window.exitCollapseMode = function() {
     let _Sw = 0, _Sh = 0, _base = 0, _zoom = 1;
     let _imgX = 0, _imgY = 0, _dispW = 0, _dispH = 0;
     let _cropX = 0, _cropY = 0, _cropW = 0, _cropH = 0;
+    let _minZoom = 1;
     let _drag = null;
+    let _ptrs = {};
+    let _pinch = null;
 
     function clamp(v, mn, mx) { return v < mn ? mn : (v > mx ? mx : v); }
 
@@ -3713,12 +3742,7 @@ window.exitCollapseMode = function() {
     }
 
     function clampWindowInImage() {
-        const mnX = Math.max(0, _imgX);
-        const mxX = Math.min(_Sw - _cropW, _imgX + _dispW - _cropW);
-        const mnY = Math.max(0, _imgY);
-        const mxY = Math.min(_Sh - _cropH, _imgY + _dispH - _cropH);
-        if (mxX >= mnX) _cropX = clamp(_cropX, mnX, mxX); else _cropX = mnX;
-        if (mxY >= mnY) _cropY = clamp(_cropY, mnY, mxY); else _cropY = mnY;
+        // 固定框模式下裁剪窗居中且不可移动，保留空实现（兼容旧调用）
     }
 
     function initAfterShow() {
@@ -3735,9 +3759,10 @@ window.exitCollapseMode = function() {
         _cropH = _cropW / _ratio;
         _cropX = (_Sw - _cropW) / 2;
         _cropY = (_Sh - _cropH) / 2;
-        clampWindowInImage();
+        // 固定框模式：最小缩放保证图片始终覆盖住裁剪框
+        _minZoom = Math.max(1, _cropW / (_Wn * _base), _cropH / (_Hn * _base));
         redraw();
-        const z = $('rp-crop-zoom'); if (z) z.value = '1';
+        const z = $('rp-crop-zoom'); if (z) { z.min = '1'; z.value = String(_zoom); }
     }
 
     function onFileChange() {
@@ -3768,7 +3793,7 @@ window.exitCollapseMode = function() {
             _cropKey = key;
             _ratio = ratio || 2.6;
             const hint = $('rp-crop-hint');
-            if (hint) hint.textContent = '拖动裁剪框或移动图片，用下方滑杆缩放，选择要保留的区域';
+            if (hint) hint.textContent = '在固定框内：单指拖动图片，双指捏合（或下方滑杆）缩放，选择要保留的区域';
             const input = $('redpacket-cover-crop-input');
             if (input) { input.value = ''; input.click(); }
         },
@@ -3802,6 +3827,16 @@ window.exitCollapseMode = function() {
                 _cropKey = null;
                 return;
             }
+            if (_cropKey === 'desktopBackground') {
+                // 桌面背景：交给桌面模块处理（独立图库 + 应用）
+                if (window.DesktopBg && typeof window.DesktopBg.accept === 'function') {
+                    window.DesktopBg.accept(dataURL);
+                }
+                const modal = $('redpacket-crop-modal');
+                if (modal && typeof hideModal === 'function') hideModal(modal);
+                _cropKey = null;
+                return;
+            }
             if (typeof settings === 'object' && settings) settings[_cropKey] = dataURL;
             if (typeof saveData === 'function') { try { saveData(); } catch (err) {} }
             if (typeof renderMessages === 'function') { try { renderMessages(); } catch (err) {} }
@@ -3813,68 +3848,71 @@ window.exitCollapseMode = function() {
         }
     };
 
-    // 拖拽：窗内移动裁剪窗，窗外移动图片
-    function onStageDown(e) {
-        if (e.target.closest('input,button')) return;
-        const r = $('rp-crop-stage').getBoundingClientRect();
-        const x = e.clientX - r.left, y = e.clientY - r.top;
-        const inWin = x >= _cropX && x <= _cropX + _cropW && y >= _cropY && y <= _cropY + _cropH;
-        _drag = {
-            mode: inWin ? 'win' : 'img',
-            startX: e.clientX, startY: e.clientY,
-            origX: inWin ? _cropX : _imgX,
-            origY: inWin ? _cropY : _imgY
-        };
-        e.preventDefault();
-        window.addEventListener('pointermove', onStageMove);
-        window.addEventListener('pointerup', onStageUp);
-    }
-    function onStageMove(e) {
-        if (!_drag) return;
-        const dx = e.clientX - _drag.startX, dy = e.clientY - _drag.startY;
-        if (_drag.mode === 'win') {
-            _cropX = clamp(_drag.origX + dx, 0, _Sw - _cropW);
-            _cropY = clamp(_drag.origY + dy, 0, _Sh - _cropH);
-            clampWindowInImage();
-        } else {
-            _imgX = clamp(_drag.origX + dx, _cropX - _dispW + _cropW, _cropX);
-            _imgY = clamp(_drag.origY + dy, _cropY - _dispH + _cropH, _cropY);
-        }
-        redraw();
-    }
-    function onStageUp() {
-        _drag = null;
-        window.removeEventListener('pointermove', onStageMove);
-        window.removeEventListener('pointerup', onStageUp);
-    }
-    // 缩放：以裁剪窗中心为锚点
-    function onZoom(e) {
-        _zoom = Number(e.target.value) || 1;
+    // 固定框裁剪：裁剪窗居中固定，单指拖动图片移动，双指捏合缩放图片（滑杆可作为额外缩放手段）
+    function _dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+    function applyZoom(z) {
+        z = clamp(z, _minZoom, 5);
+        _zoom = z;
         const cx = _cropX + _cropW / 2, cy = _cropY + _cropH / 2;
         _dispW = _Wn * _base * _zoom;
         _dispH = _Hn * _base * _zoom;
         _imgX = clamp(cx - _dispW / 2, _cropX - _dispW + _cropW, _cropX);
         _imgY = clamp(cy - _dispH / 2, _cropY - _dispH + _cropH, _cropY);
+        const zEl = $('rp-crop-zoom');
+        if (zEl) zEl.value = String(_zoom);
         redraw();
-        clampWindowInImage();
-        redraw();
+    }
+
+    function onStageDown(e) {
+        if (e.target.closest('input,button')) return;
+        e.preventDefault();
+        _ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+        const ids = Object.keys(_ptrs);
+        if (ids.length >= 2) {
+            const p1 = _ptrs[ids[0]], p2 = _ptrs[ids[1]];
+            _pinch = { dist: _dist(p1, p2), zoom: _zoom };
+        } else {
+            _pinch = null;
+            _drag = { startX: e.clientX, startY: e.clientY, origX: _imgX, origY: _imgY };
+        }
+        window.addEventListener('pointermove', onStageMove);
+        window.addEventListener('pointerup', onStageUp);
+        window.addEventListener('pointercancel', onStageUp);
+    }
+    function onStageMove(e) {
+        if (!(e.pointerId in _ptrs)) return;
+        _ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+        const ids = Object.keys(_ptrs);
+        if (ids.length >= 2 && _pinch) {
+            const p1 = _ptrs[ids[0]], p2 = _ptrs[ids[1]];
+            const d = _dist(p1, p2);
+            if (_pinch.dist > 0) applyZoom(_pinch.zoom * (d / _pinch.dist));
+        } else if (_drag) {
+            const dx = e.clientX - _drag.startX, dy = e.clientY - _drag.startY;
+            _imgX = clamp(_drag.origX + dx, _cropX - _dispW + _cropW, _cropX);
+            _imgY = clamp(_drag.origY + dy, _cropY - _dispH + _cropH, _cropY);
+            redraw();
+        }
+    }
+    function onStageUp(e) {
+        if (e.pointerId in _ptrs) delete _ptrs[e.pointerId];
+        _drag = null;
+        _pinch = null;
+        if (Object.keys(_ptrs).length === 0) {
+            window.removeEventListener('pointermove', onStageMove);
+            window.removeEventListener('pointerup', onStageUp);
+            window.removeEventListener('pointercancel', onStageUp);
+        }
+    }
+    // 滑杆缩放：以固定裁剪框中心为锚点
+    function onZoom(e) {
+        applyZoom(Number(e.target.value) || 1);
     }
 
     function bind() {
         const input = $('redpacket-cover-crop-input');
         if (input) input.addEventListener('change', onFileChange);
-        document.querySelectorAll('[data-crop]').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                _cropKey = btn.getAttribute('data-crop');
-                _ratio = KEY2RATIO[_cropKey] || 2.6;
-                const hint = $('rp-crop-hint');
-                if (hint) hint.textContent = '拖动裁剪框或移动图片，用下方滑杆缩放，选择要保留的区域';
-                if (input) { input.value = ''; input.click(); }
-            });
-        });
-        document.querySelectorAll('[data-reset]').forEach(function (btn) {
-            btn.addEventListener('click', function () { resetCover(btn.getAttribute('data-reset')); });
-        });
         const z = $('rp-crop-zoom');
         if (z) z.addEventListener('input', onZoom);
         const stage = $('rp-crop-stage');

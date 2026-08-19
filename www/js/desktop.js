@@ -25,7 +25,7 @@
         if (!el) return;
         var sig = '';
         try { sig = localStorage.getItem(SIG_KEY) || ''; } catch (e) {}
-        el.textContent = sig && sig.trim() ? sig : '爱能克服远距离';
+        el.textContent = sig && sig.trim() ? sig : '两颗缠绕的心，会走同一条路';
     }
 
     function openSignature() {
@@ -151,12 +151,25 @@
     // ── 拍立得：三层相纸，点击轮换展示顺序 ──
     var _plOrder = ['p1.jpg', 'p2.jpg', 'p3.jpg'];   // 下标 0 = 最前（pl-1）
     var _plFronts = ['pl-1', 'pl-2', 'pl-3'];
+    // 未设置拍立得 / 图片缺失时，照片区显示的灰色占位图片
+    var _plPlaceholder = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">' +
+        '<rect width="200" height="200" fill="#e6e2da"/>' +
+        '</svg>'
+    );
     function renderPolaroid() {
         var cards = document.querySelectorAll('#dt-polaroid .dt-polaroid-card');
         if (!cards.length) return;
         for (var i = 0; i < cards.length; i++) {
             var img = cards[i].querySelector('img');
-            if (img) img.src = 'desktop-pl/' + _plOrder[i];
+            if (img) {
+                img.onerror = function () {
+                    // 图片缺失/未设置：展示灰底占位，且不再重复触发
+                    this.onerror = null;
+                    this.src = _plPlaceholder;
+                };
+                img.src = 'desktop-pl/' + _plOrder[i];
+            }
             cards[i].className = 'dt-polaroid-card ' + _plFronts[i];
         }
     }
@@ -238,8 +251,95 @@
         },
         refresh: function () {
             renderSignature(); syncTopbarUsers(); renderTopbarBgGallery();
-            renderPolaroid(); renderAnniversary();
+            renderPolaroid(); renderAnniversary(); renderDesktopBgGallery();
         }
+    };
+
+    // ── 桌面背景：独立图库，样式跟随聊天背景，上传按固定框裁剪后应用到桌面页 ──
+    var DKGALLERY_KEY = 'tiDesktopBgGallery';
+    var DKACTIVE_KEY = 'tiDesktopBgActive';
+
+    function getDkGallery() {
+        try { return JSON.parse(localStorage.getItem(DKGALLERY_KEY)) || []; } catch (e) { return []; }
+    }
+    function saveDkGallery(arr) {
+        try { localStorage.setItem(DKGALLERY_KEY, JSON.stringify(arr)); } catch (e) {}
+    }
+    function getDkActive() { try { return localStorage.getItem(DKACTIVE_KEY) || ''; } catch (e) { return ''; } }
+
+    function applyDesktopBg(value) {
+        var pd = document.getElementById('phone-desktop');
+        if (!pd) return;
+        if (value && value.indexOf('data:') === 0) {
+            document.documentElement.style.setProperty('--desktop-bg-image', 'url("' + value + '")');
+        } else {
+            document.documentElement.style.setProperty('--desktop-bg-image', '');
+        }
+        try { localStorage.setItem(DKACTIVE_KEY, value || ''); } catch (e) {}
+    }
+
+    function renderDesktopBgGallery() {
+        var list = document.getElementById('desktop-bg-gallery-list');
+        if (!list) return;
+        list.innerHTML = '';
+
+        var add = document.createElement('div');
+        add.className = 'bg-item bg-add-btn';
+        add.innerHTML = '<i class="fas fa-plus"></i><span></span>';
+        add.title = '选择并裁剪';
+        add.onclick = function () {
+            var ratio = window.innerWidth / Math.max(1, window.innerHeight);
+            if (window.RedpacketCrop && window.RedpacketCrop.start) {
+                window.RedpacketCrop.start('desktopBackground', ratio);
+            }
+        };
+        list.appendChild(add);
+
+        var arr = getDkGallery();
+        var active = getDkActive();
+        arr.forEach(function (item, i) {
+            var el = document.createElement('div');
+            el.className = 'bg-item' + (active && active === item.value ? ' active' : '');
+            el.innerHTML = '<img src="' + item.value + '" loading="lazy" alt="bg">';
+            el.onclick = function () {
+                applyDesktopBg(item.value);
+                renderDesktopBgGallery();
+                showNotification && showNotification('桌面背景已应用', 'success');
+            };
+            var del = document.createElement('div');
+            del.className = 'bg-delete-btn';
+            del.innerHTML = '<i class="fas fa-trash"></i>';
+            del.title = '删除此背景';
+            del.onclick = function (e) {
+                e.stopPropagation();
+                if (!confirm('确定删除这张桌面背景吗？')) return;
+                arr.splice(i, 1);
+                saveDkGallery(arr);
+                if (active === item.value) applyDesktopBg('');
+                renderDesktopBgGallery();
+            };
+            el.appendChild(del);
+            list.appendChild(el);
+        });
+    }
+
+    function resetDesktopBg() {
+        applyDesktopBg('');
+        renderDesktopBgGallery();
+        showNotification && showNotification('已恢复默认桌面背景', 'success');
+    }
+
+    window.DesktopBg = {
+        accept: function (dataURL) {
+            if (!dataURL || dataURL.indexOf('data:') !== 0) return;
+            var arr = getDkGallery();
+            arr.push({ id: 'user-' + Date.now(), value: dataURL, type: 'image', created: Date.now() });
+            saveDkGallery(arr);
+            applyDesktopBg(dataURL);
+            renderDesktopBgGallery();
+            showNotification && showNotification('桌面背景已更新', 'success');
+        },
+        refresh: function () { renderDesktopBgGallery(); }
     };
 
     // ── 桌面 / 聊天视图切换 ──
@@ -276,6 +376,9 @@
         var reset = $('reset-default-topbar-bg');
         if (reset) reset.addEventListener('click', resetTopbarBg);
 
+        var dkReset = $('reset-desktop-bg');
+        if (dkReset) dkReset.addEventListener('click', resetDesktopBg);
+
         var pl = $('dt-polaroid');
         if (pl) pl.addEventListener('click', cyclePolaroid);
         var ann = $('dt-anniversary');
@@ -285,6 +388,8 @@
         syncTopbarUsers();
         renderTopbarBgGallery();
         applyTopbarBg(getActive());
+        renderDesktopBgGallery();
+        applyDesktopBg(getDkActive());
         renderPolaroid();
         renderAnniversary();
 

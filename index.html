@@ -248,6 +248,7 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
                 </button>
                 <button id="companion-btn" class="action-btn" title="陪伴"><i class="fas fa-hand-holding-heart"></i></button>
                 <button id="daily-greeting-btn" class="action-btn" title="今日公告" onclick="reopenDailyGreeting()"><i class="fas fa-newspaper"></i></button>
+                <button id="theme-toggle" class="action-btn" title="切换夜间模式"></button>
             </div>
              <div class="user-info">
                 <div class="username" id="my-name">
@@ -523,7 +524,7 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
         <div class="dt-topbar-card" id="dt-topbar-card">
             <div class="dt-bg" id="dt-bg"></div>
             <div class="dt-overlay"></div>
-            <div class="dt-sig" id="dt-signature" title="点击修改个性签名">爱能克服远距离</div>
+            <div class="dt-sig" id="dt-signature" title="点击修改个性签名">两颗缠绕的心，会走同一条路</div>
             <div class="dt-users">
                 <div class="dt-user dt-user-partner">
                     <div class="dt-avatar" id="dt-avatar-partner"><i class="fas fa-user"></i></div>
@@ -1566,6 +1567,22 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
             </div>
         </div>
 
+        <!-- 桌面背景（独立图库，样式跟随聊天背景，上传按固定框裁剪后应用到桌面页） -->
+        <div class="settings-section" id="desktop-bg-section">
+            <div class="settings-section-title">
+                <i class="fas fa-desktop"></i>桌面背景
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;opacity:0.75;line-height:1.5;">
+                设置桌面页的背景图。点击 <i class="fas fa-plus" style="font-size:10px;"></i> 添加，上传后在固定框内裁剪。支持 JPG / PNG。
+            </div>
+            <div class="bg-gallery" id="desktop-bg-gallery-list"></div>
+            <div style="text-align: center; margin-top: 10px;">
+                <button class="modal-btn modal-btn-secondary" id="reset-desktop-bg" style="font-size: 12px; padding: 6px 12px;">
+                    <i class="fas fa-undo"></i> 恢复默认桌面背景
+                </button>
+            </div>
+        </div>
+
         <!-- 顶部栏背景（独立图库，上传自动按固定比例裁剪） -->
         <div class="settings-section" id="topbar-bg-section">
             <div class="settings-section-title">
@@ -1593,56 +1610,16 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
             </div>
 
             <div class="rp-cover-group-title">红包卡片封面</div>
-            <div class="rp-cover-rows">
-                <div class="rp-cover-row">
-                    <div class="rp-cover-prev" id="rp-cover-prev-card-me"><span class="rp-cover-prev-emoji">🧧</span></div>
-                    <div class="rp-cover-meta">
-                        <div class="rp-cover-name">我的卡片封面</div>
-                        <div class="rp-cover-desc">发红包时卡片主区用的封面</div>
-                    </div>
-                    <div class="rp-cover-actions">
-                        <button class="modal-btn modal-btn-secondary rp-cover-btn" data-crop="redpacketCardMyCover">选择并裁剪</button>
-                        <button class="modal-btn modal-btn-secondary rp-cover-btn" data-reset="redpacketCardMyCover">恢复默认</button>
-                    </div>
-                </div>
-                <div class="rp-cover-row">
-                    <div class="rp-cover-prev" id="rp-cover-prev-card-partner"><span class="rp-cover-prev-emoji">🧧</span></div>
-                    <div class="rp-cover-meta">
-                        <div class="rp-cover-name">梦角卡片封面</div>
-                        <div class="rp-cover-desc">收到梦角红包时卡片主区用的封面</div>
-                    </div>
-                    <div class="rp-cover-actions">
-                        <button class="modal-btn modal-btn-secondary rp-cover-btn" data-crop="redpacketCardPartnerCover">选择并裁剪</button>
-                        <button class="modal-btn modal-btn-secondary rp-cover-btn" data-reset="redpacketCardPartnerCover">恢复默认</button>
-                    </div>
-                </div>
-            </div>
+            <div class="rp-cover-subname">我的卡片封面 · 发红包时卡片主区</div>
+            <div class="bg-gallery" id="rp-cover-gallery-card-me"></div>
+            <div class="rp-cover-subname">梦角卡片封面 · 收到梦角红包时卡片主区</div>
+            <div class="bg-gallery" id="rp-cover-gallery-card-partner"></div>
 
             <div class="rp-cover-group-title">红包弹窗封面</div>
-            <div class="rp-cover-rows">
-                <div class="rp-cover-row">
-                    <div class="rp-cover-prev" id="rp-cover-prev-open-me"><span class="rp-cover-prev-emoji">🧧</span></div>
-                    <div class="rp-cover-meta">
-                        <div class="rp-cover-name">我的弹窗封面</div>
-                        <div class="rp-cover-desc">我的红包点开后的弹窗主区</div>
-                    </div>
-                    <div class="rp-cover-actions">
-                        <button class="modal-btn modal-btn-secondary rp-cover-btn" data-crop="redpacketOpenMyCover">选择并裁剪</button>
-                        <button class="modal-btn modal-btn-secondary rp-cover-btn" data-reset="redpacketOpenMyCover">恢复默认</button>
-                    </div>
-                </div>
-                <div class="rp-cover-row">
-                    <div class="rp-cover-prev" id="rp-cover-prev-open-partner"><span class="rp-cover-prev-emoji">🧧</span></div>
-                    <div class="rp-cover-meta">
-                        <div class="rp-cover-name">梦角弹窗封面</div>
-                        <div class="rp-cover-desc">梦角红包点开后的弹窗主区</div>
-                    </div>
-                    <div class="rp-cover-actions">
-                        <button class="modal-btn modal-btn-secondary rp-cover-btn" data-crop="redpacketOpenPartnerCover">选择并裁剪</button>
-                        <button class="modal-btn modal-btn-secondary rp-cover-btn" data-reset="redpacketOpenPartnerCover">恢复默认</button>
-                    </div>
-                </div>
-            </div>
+            <div class="rp-cover-subname">我的弹窗封面 · 我的红包点开后的弹窗主区</div>
+            <div class="bg-gallery" id="rp-cover-gallery-open-me"></div>
+            <div class="rp-cover-subname">梦角弹窗封面 · 梦角红包点开后的弹窗主区</div>
+            <div class="bg-gallery" id="rp-cover-gallery-open-partner"></div>
 
             <input type="file" id="redpacket-cover-crop-input" accept="image/*" style="display:none;">
         </div>
