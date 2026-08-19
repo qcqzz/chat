@@ -1,13 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 深色启动主题：消除 Capacitor 浅色窗口导致的启动白屏。
-     颜色与网页开屏画面 (var --welcome-bg) #0A0A12 保持一致。 -->
+<!-- Android 12+ (API 31) 启动主题：覆盖系统自动开屏背景色，避免默认浅色导致白屏 -->
 <resources>
-    <color name="launch_window_bg">#0A0A12</color>
-
     <style name="AppThemeLaunch" parent="@style/AppTheme.NoActionBarLaunch">
         <item name="android:windowBackground">@color/launch_window_bg</item>
         <item name="android:background">@color/launch_window_bg</item>
         <item name="android:statusBarColor">@color/launch_window_bg</item>
         <item name="android:navigationBarColor">@color/launch_window_bg</item>
+        <item name="android:windowSplashScreenBackground">@color/launch_window_bg</item>
     </style>
 </resources>
