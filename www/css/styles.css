@@ -14221,7 +14221,7 @@ html[data-theme="dark"] .redpacket-send-head-ico i { color: var(--accent-color-d
 .rp-rec-status.wait { background: var(--border-color); color: var(--text-secondary); }
 
 /* ── 小手机桌面：底部应用图标网格（功能稍后接入） ── */
-#phone-desktop{position:fixed;inset:0;z-index:900;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top, 0px) + 12px) 0 calc(env(safe-area-inset-bottom, 0px) + 22px);pointer-events:none;background-color:var(--primary-bg, #f6f4ef);background-image:var(--desktop-bg-image, radial-gradient(circle at 50% 0%, rgba(255,255,255,.9), rgba(var(--accent-color-rgb),.12) 70%, rgba(var(--accent-color-rgb),.28)));background-size:cover;background-position:center;background-repeat:no-repeat;}
+#phone-desktop{position:fixed;inset:0;z-index:900;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:calc(env(safe-area-inset-top, 0px) + 12px) 0 calc(env(safe-area-inset-bottom, 0px) + 22px);pointer-events:none;background-color:var(--primary-bg, #f6f4ef);background-image:var(--desktop-bg-image, radial-gradient(circle at 50% 0%, rgba(255,255,255,.9), rgba(var(--accent-color-rgb),.12) 70%, rgba(var(--accent-color-rgb),.28)));background-size:cover;background-position:center;background-repeat:no-repeat;}
 
 /* ── 桌面/聊天视图切换：桌面视图隐藏聊天主体（保留承载桌面/子页面的 .main-chat-area）；聊天视图隐藏桌面 ── */
 body.dt-view .header,
@@ -14274,7 +14274,7 @@ html[data-theme="dark"] .dt-avatar{background:rgba(255,255,255,.5);border-color:
 /* 个性签名编辑弹窗 */
 .signature-modal-content .modal-input{max-width:100%;}
 .sig-counter{text-align:right;font-size:11px;color:var(--text-secondary);margin-top:4px;}
-.app-grid{pointer-events:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;width:min(360px,90%);padding:16px 18px;background:rgba(255,255,255,.30);backdrop-filter:blur(20px) saturate(1.3);-webkit-backdrop-filter:blur(20px) saturate(1.3);border:1px solid rgba(255,255,255,.55);border-radius:30px;box-shadow:0 12px 40px rgba(0,0,0,.14);}
+.app-grid{margin-top:auto;pointer-events:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;width:min(360px,90%);padding:16px 18px;background:rgba(255,255,255,.30);backdrop-filter:blur(20px) saturate(1.3);-webkit-backdrop-filter:blur(20px) saturate(1.3);border:1px solid rgba(255,255,255,.55);border-radius:30px;box-shadow:0 12px 40px rgba(0,0,0,.14);}
 .app-cell{display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;}
 .app-cell:active{transform:scale(.92);}
 .app-icon{width:56px;height:56px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff;background:linear-gradient(145deg,rgba(var(--accent-color-rgb),.75),rgba(var(--accent-color-rgb),.45));box-shadow:0 6px 16px rgba(var(--accent-color-rgb),.28);}
@@ -14282,13 +14282,13 @@ html[data-theme="dark"] .dt-avatar{background:rgba(255,255,255,.5);border-color:
 html[data-theme="dark"] .app-grid{background:rgba(24,28,40,.5);border-color:rgba(255,255,255,.10);box-shadow:0 12px 40px rgba(0,0,0,.45);}
 
 /* ── 桌面中部内容：拍立得相册 + 纪念日方块 ── */
-.dt-content{pointer-events:auto;width:100%;max-width:600px;padding:0 16px;box-sizing:border-box;display:flex;align-items:stretch;justify-content:center;gap:16px;margin-top:8px;}
+.dt-content{pointer-events:auto;width:100%;max-width:600px;padding:0 16px;box-sizing:border-box;display:flex;align-items:stretch;justify-content:center;gap:14px;margin-top:6px;}
 /* 拍立得设置：三张照片分别上传（复用聊天背景的圆形图库排版） */
 .pl-set-group{margin-bottom:16px;}
 .pl-set-label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-bottom:4px;letter-spacing:.3px;}
 .pl-set-label i{opacity:.75;font-size:11px;}
 /* 拍立得：三层相纸堆叠，点击切换顺序 */
-.dt-polaroid{position:relative;width:200px;height:254px;flex:0 0 200px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;}
+.dt-polaroid{position:relative;width:150px;height:190px;flex:0 0 150px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;}
 .dt-polaroid-card{position:absolute;top:0;left:0;width:100%;height:100%;box-sizing:border-box;background:#fdfdfb;border-radius:8px;padding:14px 14px 44px;box-shadow:0 10px 22px rgba(0,0,0,.22);display:flex;flex-direction:column;border:1px solid rgba(0,0,0,.05);transition:transform .38s cubic-bezier(.2,.7,.3,1.2),opacity .3s ease;transform-origin:50% 100%;}
 .dt-polaroid-card img{flex:1;min-height:0;width:100%;display:block;object-fit:cover;border-radius:5px;background:#e6e2da;}
 .dt-polaroid-card span{height:20px;flex:0 0 20px;display:block;background:transparent;}
@@ -14299,7 +14299,7 @@ html[data-theme="dark"] .app-grid{background:rgba(24,28,40,.5);border-color:rgba
 .dt-polaroid .pl-hint{position:absolute;left:0;right:0;bottom:-24px;text-align:center;font-size:11px;color:var(--text-secondary);letter-spacing:1px;opacity:.85;pointer-events:none;}
 .pl-hint i{margin-right:3px;}
 /* 纪念日方块 */
-.dt-anniversary{flex:1;height:254px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border-radius:22px;background:rgba(255,255,255,.42);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);border:1px solid rgba(255,255,255,.6);box-shadow:0 10px 30px rgba(0,0,0,.12);padding:16px 12px;color:var(--text-primary);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;position:relative;}
+.dt-anniversary{flex:1;height:190px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border-radius:22px;background:rgba(255,255,255,.42);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);border:1px solid rgba(255,255,255,.6);box-shadow:0 10px 30px rgba(0,0,0,.12);padding:16px 12px;color:var(--text-primary);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;position:relative;}
 .dt-anniversary:active{transform:scale(.97);}
 .dt-ann-badge{position:absolute;top:9px;right:10px;font-size:10px;font-weight:700;color:#fff;background:rgba(var(--accent-color-rgb),.85);border-radius:10px;padding:2px 6px;letter-spacing:.5px;line-height:1;}
 .dt-ann-badge:empty{display:none;}

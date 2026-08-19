@@ -24,6 +24,7 @@
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/companion.css">
     <link rel="stylesheet" href="css/cinema.css">
+    <link rel="stylesheet" href="css/musichall.css">
 
     <style id="css-live-preview-style"></style>
     <style>
@@ -68,14 +69,15 @@
 html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle at 50% 36%,rgba(45,45,45,.95),rgba(30,30,30,.9) 30%,rgba(18,18,18,.98) 72%),#121212;}
 </style>
 <style id="chat-transition-styles">
-/* ── 进入聊天页动画：轻薄云雾 + 中央立体爱心跳动，颜色跟随系统 ── */
+/* ── 进入聊天页动画：白底 + 漂浮云雾 + 中央银色爱心(参照图) + 两侧系统色翅膀 ── */
 #chat-transition-overlay{
-  --ct-ov-bg: radial-gradient(120% 92% at 50% 28%, rgba(255,214,224,.6), rgba(255,244,240,.34) 48%, rgba(244,231,240,.6) 100%), #f7edf4;
-  --ct-cloud-a: rgba(255,255,255,.6);
-  --ct-cloud-b: rgba(255,255,255,.38);
-  --ct-cloud-c: rgba(255,255,255,.2);
-  --ct-heart-top:#ffcdd8; --ct-heart-mid:#ff8ba3; --ct-heart-deep:#e84772;
-  --ct-heart-glow:#ff9fb8; --ct-heart-high:#ffffff; --ct-heart-shadow:rgba(120,40,70,.20);
+  --ct-ov-bg: #ffffff;
+  --ct-cloud-a: rgba(var(--accent-color-rgb),.42);
+  --ct-cloud-b: rgba(var(--accent-color-rgb),.28);
+  --ct-cloud-c: rgba(var(--accent-color-rgb),.18);
+  --ct-heart-top:#fcfdfe; --ct-heart-mid:#e7eaf0; --ct-heart-deep:#b3bac6;
+  --ct-heart-high:#ffffff; --ct-heart-shadow:rgba(138,150,165,.30);
+  --ct-heart-glow:rgba(var(--accent-color-rgb),.30);
 
   position:fixed; top:0; right:0; bottom:0; left:0; inset:0; z-index:1600;
   display:none; align-items:center; justify-content:center;
@@ -85,7 +87,7 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
 #chat-transition-overlay.ct-show{display:flex; pointer-events:all;}
 #chat-transition-overlay.ct-visible{opacity:1;}
 
-/* 轻薄云雾（全幅漂移）*/
+/* 漂浮云雾（系统色低透明度，全幅漂移）*/
 #chat-transition-overlay .ct-clouds{position:absolute; top:0; left:0; width:100%; height:100%;}
 #chat-transition-overlay .ct-cloud{transition:opacity 1s ease;}
 #chat-transition-overlay .ct-c1{fill:var(--ct-cloud-a); animation:ctDrift 15s ease-in-out infinite;}
@@ -93,24 +95,49 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
 #chat-transition-overlay .ct-c3{fill:var(--ct-cloud-c); animation:ctDrift 27s ease-in-out infinite; animation-delay:-12s;}
 @keyframes ctDrift{0%{transform:translateX(-40px);}50%{transform:translateX(40px);}100%{transform:translateX(-40px);}}
 
-/* 中央立体爱心 */
-#chat-transition-overlay .ct-heart-wrap{position:relative; width:56vw; max-width:360px; aspect-ratio:1; display:flex; align-items:center; justify-content:center;}
+/* 两侧翅膀：跟随系统强调色，轻微浮动 */
+#chat-transition-overlay .ct-wing{pointer-events:none; animation:ctWingBreathe 3.4s ease-in-out infinite;}
+#chat-transition-overlay .ct-w1{fill:var(--accent-color);}
+#chat-transition-overlay .ct-w2{fill:var(--accent-color); opacity:.5;}
+#chat-transition-overlay .ct-w3{fill:var(--accent-color); opacity:.3;}
+#chat-transition-overlay .ct-ws{fill:none; stroke:var(--accent-color); stroke-linecap:round;}
+@keyframes ctWingBreathe{0%,100%{opacity:.9;transform:translateY(0);}50%{opacity:1;transform:translateY(-3px);}}
+
+/* 中央银色爱心（参照图）+ 立体层次 */
+#chat-transition-overlay .ct-heart-wrap{position:relative; width:74vw; max-width:480px; aspect-ratio:480/230; display:flex; align-items:center; justify-content:center;}
 #chat-transition-overlay .ct-heart-err{transform-box:fill-box; transform-origin:center 62%;}
 #chat-transition-overlay .ct-h-glow{transform-box:fill-box; transform-origin:center; animation:ctGlow 2.6s cubic-bezier(.3,.7,.3,1) infinite;}
 #chat-transition-overlay .ct-h-main{transform-box:fill-box; transform-origin:center 62%; animation:ctBeat 2.6s cubic-bezier(.3,.7,.3,1) infinite;}
 #chat-transition-overlay .ct-h-eye{transform-box:fill-box; transform-origin:center; animation:ctBeat 2.6s cubic-bezier(.3,.7,.3,1) infinite;}
-@keyframes ctBeat{0%,42%,100%{transform:scale(1);}10%{transform:scale(1.18) translateY(-4px);}20%{transform:scale(.94);}30%{transform:scale(1.1) translateY(-2px);}}
-@keyframes ctGlow{0%,42%,100%{transform:scale(.9);opacity:.5;}10%{transform:scale(1.32);opacity:.9;}20%{transform:scale(.9);opacity:.55;}30%{transform:scale(1.24);opacity:.8;}}
+@keyframes ctBeat{0%,42%,100%{transform:scale(1);}10%{transform:scale(1.16) translateY(-4px);}20%{transform:scale(.95);}30%{transform:scale(1.09) translateY(-2px);}}
+@keyframes ctGlow{0%,42%,100%{transform:scale(.9);opacity:.5;}10%{transform:scale(1.28);opacity:.9;}20%{transform:scale(.9);opacity:.55;}30%{transform:scale(1.2);opacity:.8;}}
 
 @media(prefers-reduced-motion:reduce){#chat-transition-overlay *{animation-play-state:paused!important;}}
 html[data-theme="dark"] #chat-transition-overlay{
-  --ct-ov-bg: radial-gradient(120% 92% at 50% 28%, rgba(78,38,54,.62), rgba(42,22,32,.42) 48%, rgba(20,10,18,.62) 100%), #200f1a;
-  --ct-cloud-a: rgba(136,118,128,.32);
-  --ct-cloud-b: rgba(136,118,128,.2);
-  --ct-cloud-c: rgba(136,118,128,.12);
-  --ct-heart-top:#ff9db1; --ct-heart-mid:#f25b82; --ct-heart-deep:#c02052;
-  --ct-heart-glow:#ff5f86; --ct-heart-high:#ffe4ec; --ct-heart-shadow:rgba(0,0,0,.38);
+  --ct-ov-bg: #ffffff;
+  --ct-cloud-a: rgba(var(--accent-color-rgb),.40);
+  --ct-cloud-b: rgba(var(--accent-color-rgb),.26);
+  --ct-cloud-c: rgba(var(--accent-color-rgb),.16);
+  --ct-heart-shadow:rgba(96,106,120,.38);
+  --ct-heart-glow:rgba(var(--accent-color-rgb),.36);
 }
+</style>
+<style id="ent-transition-styles">
+/* ── 进入娱乐页动画：白底 + 闪烁银色四芒星(白色光晕) + 中央黑白小猫玩浅粉色毛线球 ── */
+#ent-transition-overlay{position:fixed;top:0;right:0;bottom:0;left:0;inset:0;z-index:1600;display:none;align-items:center;justify-content:center;background:#ffffff;opacity:0;transition:opacity .5s ease;pointer-events:none;overflow:hidden;}
+#ent-transition-overlay.ent-show{display:flex;pointer-events:all;}
+#ent-transition-overlay.ent-visible{opacity:1;}
+#ent-transition-overlay .ent-inner{width:92vw;max-width:560px;aspect-ratio:800/480;}
+@supports not (aspect-ratio:800/480){#ent-transition-overlay .ent-inner{padding-bottom:60%;}}
+#ent-transition-overlay svg{width:100%;height:auto;display:block;overflow:visible;}
+#ent-transition-overlay .ent-star{transform-box:fill-box;transform-origin:center;animation:entTwinkle 2.8s ease-in-out infinite;}
+#ent-transition-overlay .ent-cat{transform-box:fill-box;transform-origin:center bottom;animation:entCatBob 2.2s ease-in-out infinite;}
+#ent-transition-overlay .ent-catR{animation-delay:.18s;}
+#ent-transition-overlay .ent-ball{transform-box:fill-box;transform-origin:center;animation:entBall 3.6s ease-in-out infinite;}
+@keyframes entTwinkle{0%,100%{opacity:.32;transform:scale(.7);}50%{opacity:1;transform:scale(1.25);}}
+@keyframes entCatBob{0%,100%{transform:translateY(0);}30%{transform:translateY(-6px);}55%{transform:translateY(0);}}
+@keyframes entBall{0%,100%{transform:rotate(-6deg) translateY(0);}50%{transform:rotate(6deg) translateY(-4px);}}
+@media(prefers-reduced-motion:reduce){#ent-transition-overlay *{animation-play-state:paused!important;}}
 </style>
 </head>
 <body>
@@ -582,7 +609,7 @@ html[data-theme="dark"] #chat-transition-overlay{
     </g>
   </svg>
   <div class="ct-heart-wrap">
-    <svg class="ct-heart-err" viewBox="0 0 200 200" width="200" height="200" style="filter:drop-shadow(0 14px 24px var(--ct-heart-shadow));">
+    <svg class="ct-heart-err" viewBox="0 0 480 230" width="480" height="230" style="filter:drop-shadow(0 16px 26px var(--ct-heart-shadow));">
       <defs>
         <linearGradient id="ctHeartG" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="var(--ct-heart-top)"/>
@@ -590,16 +617,40 @@ html[data-theme="dark"] #chat-transition-overlay{
           <stop offset="1" stop-color="var(--ct-heart-deep)"/>
         </linearGradient>
         <radialGradient id="ctHeartGlowG" x1="0.5" y1="0.5" x2="0.5" y2="0.5">
-          <stop offset="0" stop-color="var(--ct-heart-glow)" stop-opacity=".9"/>
+          <stop offset="0" stop-color="var(--ct-heart-glow)" stop-opacity="1"/>
           <stop offset="1" stop-color="var(--ct-heart-glow)" stop-opacity="0"/>
         </radialGradient>
       </defs>
-      <ellipse class="ct-h-glow" cx="100" cy="100" rx="92" ry="88" fill="url(#ctHeartGlowG)"/>
-      <g class="ct-h-main" fill="url(#ctHeartG)">
-        <path d="M100 152 C 66 122 40 98 40 64 C 40 36 66 18 94 18 C 101 18 100 30 100 30 C 100 30 100 18 106 18 C 134 18 160 36 160 64 C 160 98 134 122 100 152 Z"/>
+      <ellipse class="ct-h-glow" cx="240" cy="118" rx="130" ry="105" fill="url(#ctHeartGlowG)"/>
+
+      <!-- 左翼：系统色 -->
+      <g>
+        <g class="ct-wing">
+          <path class="ct-w1" d="M214,124 C176,68 122,46 56,62 C80,84 88,106 90,128 C122,118 168,122 210,132 Z"/>
+          <path class="ct-w2" d="M206,132 C186,94 148,80 112,88 C124,100 130,114 132,130 C152,126 178,130 202,136 Z"/>
+          <path class="ct-w3" d="M212,96 C196,60 156,36 108,22 C124,48 128,74 128,102 Z"/>
+          <path class="ct-ws" d="M206,110 C182,86 148,72 108,64"/>
+          <path class="ct-ws" d="M204,124 C176,106 140,100 104,100"/>
+        </g>
       </g>
-      <path class="ct-h-eye" d="M78 52 C 70 46 58 52 62 62 C 66 70 78 74 78 66 Z" fill="var(--ct-heart-high)" opacity=".85"/>
-      <path class="ct-h-main" d="M100 152 C 66 122 40 98 40 64 C 40 36 66 18 94 18 C 101 18 100 30 100 30 C 100 30 100 18 106 18 C 134 18 160 36 160 64 C 160 98 134 122 100 152 Z" fill="none" stroke="var(--ct-heart-high)" stroke-opacity=".5" stroke-width="3"/>
+      <!-- 右翼：镜像（镜像在外层，动画在内层，避免 transform 冲突） -->
+      <g transform="translate(480,0) scale(-1,1)">
+        <g class="ct-wing">
+          <path class="ct-w1" d="M214,124 C176,68 122,46 56,62 C80,84 88,106 90,128 C122,118 168,122 210,132 Z"/>
+          <path class="ct-w2" d="M206,132 C186,94 148,80 112,88 C124,100 130,114 132,130 C152,126 178,130 202,136 Z"/>
+          <path class="ct-w3" d="M212,96 C196,60 156,36 108,22 C124,48 128,74 128,102 Z"/>
+          <path class="ct-ws" d="M206,110 C182,86 148,72 108,64"/>
+          <path class="ct-ws" d="M204,124 C176,106 140,100 104,100"/>
+        </g>
+      </g>
+
+      <!-- 中央银色爱心（参照图） -->
+      <g class="ct-h-main">
+        <path d="M240,170 C202,156 178,145 178,130 C178,115 190,104 205,104 C220,104 240,117 240,133 C240,117 260,104 275,104 C290,104 302,115 302,130 C302,145 278,156 240,170 Z" fill="url(#ctHeartG)"/>
+        <path d="M240,170 C202,156 178,145 178,130 C178,115 190,104 205,104 C220,104 240,117 240,133 C240,117 260,104 275,104 C290,104 302,115 302,130 C302,145 278,156 240,170 Z" fill="none" stroke="var(--ct-heart-mid)" stroke-opacity=".55" stroke-width="2.5"/>
+      </g>
+      <ellipse class="ct-h-eye" cx="222" cy="122" rx="19" ry="23" fill="#ffffff" opacity=".5"/>
+      <ellipse class="ct-h-eye" cx="219" cy="116" rx="6" ry="8" fill="#ffffff" opacity=".95"/>
     </svg>
   </div>
 </div>
@@ -618,8 +669,8 @@ html[data-theme="dark"] #chat-transition-overlay{
                 </div>
                 <div class="dt-heartbeat" aria-hidden="true">
                     <svg viewBox="0 0 1000 100" preserveAspectRatio="none">
-                        <path class="hb-line hb-shadow" vector-effect="non-scaling-stroke" d="M6,60 L296,60 C312,60 314,45 328,45 C342,45 344,60 360,60 L430,60 C438,60 442,67 450,67 C456,67 458,22 464,8 C470,-6 480,4 482,26 C484,44 488,58 492,64 C498,76 508,72 512,60 C516,44 520,22 526,22 C532,22 536,60 552,60 L620,60 C630,60 634,76 652,76 C670,76 674,60 700,60 C708,40 720,20 738,18 C766,16 786,28 790,42 C792,26 810,12 838,16 C864,20 874,42 862,58 C850,72 824,76 812,78 C798,76 782,66 780,56 C778,48 786,42 798,46 C796,54 800,58 808,60 L992,60"/>
-                        <path class="hb-line hb-main hb-run" vector-effect="non-scaling-stroke" d="M6,60 L296,60 C312,60 314,45 328,45 C342,45 344,60 360,60 L430,60 C438,60 442,67 450,67 C456,67 458,22 464,8 C470,-6 480,4 482,26 C484,44 488,58 492,64 C498,76 508,72 512,60 C516,44 520,22 526,22 C532,22 536,60 552,60 L620,60 C630,60 634,76 652,76 C670,76 674,60 700,60 C708,40 720,20 738,18 C766,16 786,28 790,42 C792,26 810,12 838,16 C864,20 874,42 862,58 C850,72 824,76 812,78 C798,76 782,66 780,56 C778,48 786,42 798,46 C796,54 800,58 808,60 L992,60"/>
+                        <path class="hb-line hb-shadow" vector-effect="non-scaling-stroke" d="M6,60 L296,60 C312,60 314,45 328,45 C342,45 344,60 360,60 L430,60 C438,60 442,67 450,67 C456,67 458,22 464,8 C470,-6 480,4 482,26 C484,44 488,58 492,64 C498,76 508,72 512,60 C516,44 520,22 526,22 C532,22 536,60 552,60 L620,60 C630,60 634,76 652,76 C670,76 674,60 700,60 L742,60 M790,62 C764,48 746,40 746,28 C746,18 756,10 770,10 C784,10 790,20 790,34 C790,20 796,10 810,10 C824,10 834,18 834,28 C834,40 816,48 790,62 Z"/>
+                        <path class="hb-line hb-main hb-run" vector-effect="non-scaling-stroke" d="M6,60 L296,60 C312,60 314,45 328,45 C342,45 344,60 360,60 L430,60 C438,60 442,67 450,67 C456,67 458,22 464,8 C470,-6 480,4 482,26 C484,44 488,58 492,64 C498,76 508,72 512,60 C516,44 520,22 526,22 C532,22 536,60 552,60 L620,60 C630,60 634,76 652,76 C670,76 674,60 700,60 L742,60 M790,62 C764,48 746,40 746,28 C746,18 756,10 770,10 C784,10 790,20 790,34 C790,20 796,10 810,10 C824,10 834,18 834,28 C834,40 816,48 790,62 Z"/>
                     </svg>
                 </div>
                 <div class="dt-user dt-user-me">
@@ -821,6 +872,119 @@ html[data-theme="dark"] #chat-transition-overlay{
 
 </div>
 
+<!-- 进入娱乐页动画：白底 + 闪烁银色四芒星(白色光晕) + 黑白小猫玩浅粉色毛线球 -->
+<div id="ent-transition-overlay">
+  <div class="ent-inner">
+    <svg viewBox="0 0 800 480" role="img" aria-label="两只小猫与浅粉色毛线球">
+      <defs>
+        <radialGradient id="entBallG" cx="0.5" cy="0.4" r="0.75">
+          <stop offset="0" stop-color="#ffe3e4"/><stop offset="0.55" stop-color="#ffc9cc"/><stop offset="1" stop-color="#ffacb4"/>
+        </radialGradient>
+        <clipPath id="entBallClip"><circle cx="400" cy="306" r="44"/></clipPath>
+        <radialGradient id="entHalo" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="entStarGlow" x="-150%" y="-150%" width="400%" height="400%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="entSoft" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#9aa0ad" flood-opacity=".28"/>
+        </filter>
+      </defs>
+
+      <!-- 地面柔影 -->
+      <ellipse cx="400" cy="392" rx="150" ry="16" fill="#e2e4ea" opacity=".7"/>
+
+      <!-- 银色四芒星：散发白色光晕，闪烁（外层 translate，内层动画避免 transform 冲突） -->
+      <g>
+        <g transform="translate(96,72) scale(1.1)"><g class="ent-star" style="animation-delay:0s"><circle cx="0" cy="0" r="30" fill="url(#entHalo)"/><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
+        <g transform="translate(216,96) scale(.7)"><g class="ent-star" style="animation-delay:.4s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
+        <g transform="translate(368,60) scale(.95)"><g class="ent-star" style="animation-delay:.9s"><circle cx="0" cy="0" r="28" fill="url(#entHalo)"/><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
+        <g transform="translate(560,84) scale(.75)"><g class="ent-star" style="animation-delay:1.3s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
+        <g transform="translate(712,92) scale(1.1)"><g class="ent-star" style="animation-delay:.6s"><circle cx="0" cy="0" r="30" fill="url(#entHalo)"/><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
+        <g transform="translate(60,220) scale(.55)"><g class="ent-star" style="animation-delay:1.8s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
+        <g transform="translate(744,214) scale(.6)"><g class="ent-star" style="animation-delay:.2s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
+        <g transform="translate(118,330) scale(.5)"><g class="ent-star" style="animation-delay:1.1s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
+        <g transform="translate(704,336) scale(.52)"><g class="ent-star" style="animation-delay:1.5s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
+        <g transform="translate(180,428) scale(.65)"><g class="ent-star" style="animation-delay:.7s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
+        <g transform="translate(330,436) scale(.55)"><g class="ent-star" style="animation-delay:1.7s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
+        <g transform="translate(478,438) scale(.6)"><g class="ent-star" style="animation-delay:.3s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
+        <g transform="translate(644,424) scale(.7)"><g class="ent-star" style="animation-delay:1.4s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
+        <g transform="translate(52,404) scale(.4)"><g class="ent-star" style="animation-delay:.5s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
+        <g transform="translate(756,398) scale(.42)"><g class="ent-star" style="animation-delay:1.9s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
+      </g>
+
+      <!-- 松散毛线 -->
+      <path d="M404,352 C420,398 340,394 288,376" fill="none" stroke="#ff9aa6" stroke-width="4" stroke-linecap="round"/>
+      <path d="M396,352 C380,398 460,398 512,376" fill="none" stroke="#ff9aa6" stroke-width="4" stroke-linecap="round"/>
+
+      <!-- 浅粉色毛线球 -->
+      <g class="ent-ball" filter="url(#entSoft)">
+        <circle cx="400" cy="306" r="44" fill="url(#entBallG)"/>
+        <g clip-path="url(#entBallClip)">
+          <path d="M358,300 C376,284 424,284 442,300" fill="none" stroke="#ff9faa" stroke-width="6" stroke-linecap="round"/>
+          <path d="M360,312 C380,330 420,330 440,312" fill="none" stroke="#ff8f9b" stroke-width="6" stroke-linecap="round"/>
+          <path d="M360,326 C378,344 422,344 440,326" fill="none" stroke="#ffc2c8" stroke-width="5" stroke-linecap="round"/>
+          <path d="M376,286 C362,318 362,342 380,360" fill="none" stroke="#ffb9c0" stroke-width="5" stroke-linecap="round"/>
+          <path d="M424,286 C436,312 436,332 424,356" fill="none" stroke="#ff9faa" stroke-width="5" stroke-linecap="round"/>
+          <ellipse cx="384" cy="286" rx="11" ry="8" fill="#ffffff" opacity=".5" transform="rotate(-28 384 286)"/>
+        </g>
+      </g>
+
+      <!-- 小黑猫（左） -->
+      <g class="ent-cat ent-catL" filter="url(#entSoft)">
+        <path d="M272,352 C300,360 318,344 314,318" fill="none" stroke="#26262e" stroke-width="13" stroke-linecap="round"/>
+        <ellipse cx="250" cy="336" rx="50" ry="44" fill="#26262e"/>
+        <path d="M282,318 C298,320 312,328 322,338" fill="none" stroke="#26262e" stroke-width="16" stroke-linecap="round"/>
+        <ellipse cx="306" cy="352" rx="15" ry="10" fill="#26262e" transform="rotate(20 306 352)"/>
+        <ellipse cx="318" cy="330" rx="12" ry="8" fill="#26262e" transform="rotate(-18 318 330)"/>
+        <circle cx="250" cy="272" r="39" fill="#26262e"/>
+        <polygon points="214,242 208,194 242,233" fill="#26262e"/>
+        <polygon points="288,242 294,194 260,233" fill="#26262e"/>
+        <polygon points="218,233 213,204 232,231" fill="#8d7b85"/>
+        <polygon points="284,233 289,204 270,231" fill="#8d7b85"/>
+        <ellipse cx="233" cy="270" rx="7" ry="8.5" fill="#ffffff"/>
+        <circle cx="234" cy="269" r="3.6" fill="#1b1b22"/><circle cx="232" cy="266" r="1.2" fill="#ffffff"/>
+        <ellipse cx="267" cy="270" rx="7" ry="8.5" fill="#ffffff"/>
+        <circle cx="266" cy="269" r="3.6" fill="#1b1b22"/><circle cx="264" cy="266" r="1.2" fill="#ffffff"/>
+        <polygon points="247,284 250,291 253,284" fill="#ffb3b3"/>
+        <path d="M240 300 Q247 304 250 301 Q253 304 260 300" fill="none" stroke="#1b1b22" stroke-width="2.2" stroke-linecap="round"/>
+        <g stroke="#1b1b22" stroke-width="1.8" stroke-linecap="round">
+          <path d="M210 286 L182 280"/><path d="M208 294 L180 294"/><path d="M210 302 L184 308"/>
+          <path d="M290 286 L318 280"/><path d="M292 294 L320 294"/><path d="M290 302 L316 308"/>
+        </g>
+      </g>
+
+      <!-- 小白猫（右） -->
+      <g class="ent-cat ent-catR" filter="url(#entSoft)">
+        <path d="M528,352 C500,360 482,344 486,318" fill="none" stroke="#e2e2ea" stroke-width="14" stroke-linecap="round"/>
+        <path d="M528,352 C500,360 482,344 486,318" fill="none" stroke="#fbfbfd" stroke-width="10" stroke-linecap="round"/>
+        <ellipse cx="550" cy="336" rx="50" ry="44" fill="#fbfbfd" stroke="#e2e2ea" stroke-width="2"/>
+        <path d="M518,318 C502,320 488,328 478,338" fill="none" stroke="#e2e2ea" stroke-width="18" stroke-linecap="round"/>
+        <path d="M518,318 C502,320 488,328 478,338" fill="none" stroke="#fbfbfd" stroke-width="14" stroke-linecap="round"/>
+        <ellipse cx="492" cy="352" rx="15" ry="10" fill="#fbfbfd" stroke="#e2e2ea" stroke-width="2" transform="rotate(-20 492 352)"/>
+        <ellipse cx="480" cy="330" rx="12" ry="8" fill="#fbfbfd" stroke="#e2e2ea" stroke-width="2" transform="rotate(18 480 330)"/>
+        <circle cx="550" cy="272" r="39" fill="#fbfbfd" stroke="#e2e2ea" stroke-width="2"/>
+        <polygon points="586,242 592,194 558,233" fill="#fbfbfd" stroke="#e2e2ea" stroke-width="2"/>
+        <polygon points="512,242 506,194 540,233" fill="#fbfbfd" stroke="#e2e2ea" stroke-width="2"/>
+        <polygon points="582,233 587,204 568,231" fill="#ffd0d4"/>
+        <polygon points="516,233 511,204 530,231" fill="#ffd0d4"/>
+        <ellipse cx="533" cy="270" rx="6.5" ry="8" fill="#1b1b22"/>
+        <circle cx="532" cy="266" r="1.5" fill="#ffffff"/>
+        <ellipse cx="567" cy="270" rx="6.5" ry="8" fill="#1b1b22"/>
+        <circle cx="566" cy="266" r="1.5" fill="#ffffff"/>
+        <polygon points="547,284 550,291 553,284" fill="#ffb3b3"/>
+        <path d="M540 300 Q547 304 550 301 Q553 304 560 300" fill="none" stroke="#8f8f9c" stroke-width="2.2" stroke-linecap="round"/>
+        <g stroke="#8f8f9c" stroke-width="1.8" stroke-linecap="round">
+          <path d="M590 286 L618 280"/><path d="M592 294 L620 294"/><path d="M590 302 L616 308"/>
+          <path d="M510 286 L482 280"/><path d="M508 294 L480 294"/><path d="M510 302 L484 308"/>
+        </g>
+      </g>
+    </svg>
+  </div>
+</div>
+
 <!-- 娱乐页：承载电影院功能（从情侣空间整体迁移而来） -->
 <div id="entertainment-page">
 
@@ -851,6 +1015,7 @@ html[data-theme="dark"] #chat-transition-overlay{
             <div class="cs-pills">
                 <button class="cs-pill cs-pill-on"   id="ent-pill-cinema" onclick="window._entSwitchPill('cinema')" title="电影时光"><i class="fas fa-film"></i></button>
                 <button class="cs-pill"               id="ent-pill-log"    onclick="window._entSwitchPill('log')"    title="影日志"><i class="fas fa-book-open"></i></button>
+                <button class="cs-pill"               id="ent-pill-music"  onclick="window._entSwitchPill('music')"  title="音乐厅"><i class="fas fa-music"></i></button>
             </div>
         </div>
     </div>
@@ -860,6 +1025,35 @@ html[data-theme="dark"] #chat-transition-overlay{
 
         <div class="cs-panel cs-panel-active" id="cs-panel-cinema">
             <!-- 内容由 cinema.js 动态填充 -->
+        </div>
+
+        <div class="cs-panel" id="cs-panel-musichall">
+            <!-- 内容由 musichall.js 动态填充 -->
+        </div>
+
+        <!-- 音乐厅歌单页（全屏覆盖，与电影院档案页一致）：左边歌单，右边设置 -->
+        <div class="music-playlist-page" id="music-playlist-page">
+            <div class="music-playlist-topbar">
+                <button class="cs-icon-btn music-playlist-back-btn" onclick="window._mhClosePlaylistPage()">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span class="music-playlist-title">歌单</span>
+                <span class="music-playlist-title-spacer"></span>
+            </div>
+            <div class="music-playlist-body">
+                <div class="music-playlist-col music-playlist-col--list">
+                    <div class="music-playlist-col-title">歌单</div>
+                    <div class="mh-list-wrap" id="mh-list-wrap"></div>
+                </div>
+                <div class="music-playlist-col music-playlist-col--settings">
+                    <div class="music-playlist-col-title">设置</div>
+                    <div class="mh-settings-scroll">
+                        <div id="mh-setting-import"></div>
+                        <div id="mh-setting-vinyl"></div>
+                        <div id="mh-setting-lines"></div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- 档案页（全屏覆盖，陪伴日记风格）
@@ -3793,6 +3987,7 @@ html[data-theme="dark"] #chat-transition-overlay{
     <script src="js/app.js"></script>
     <script src="js/desktop.js"></script>
     <script src="js/features/cinema.js"></script>
+    <script src="js/features/musichall.js"></script>
     <script src="js/features/transfer.js"></script>
 <!-- 相册图片详情（全屏） -->
 <div id="al-view-detail" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;inset:0;z-index:6000;background:#000;flex-direction:column;">

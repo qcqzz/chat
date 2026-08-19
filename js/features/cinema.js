@@ -1859,14 +1859,24 @@
         if (sm && typeof hideModal === 'function') hideModal(sm);
         var page = document.getElementById('entertainment-page');
         if (!page) return;
-        page.style.display = 'flex';
-        requestAnimationFrame(function () {
+        var ov = document.getElementById('ent-transition-overlay');
+        function direct() {
+            page.style.display = 'flex';
             requestAnimationFrame(function () {
-                page.classList.add('cs-open');
-                if (typeof window._entSyncHeader === 'function') window._entSyncHeader();
-                if (typeof window._cinemaInit === 'function') window._cinemaInit();
+                requestAnimationFrame(function () {
+                    page.classList.add('cs-open');
+                    if (typeof window._entSyncHeader === 'function') window._entSyncHeader();
+                    if (typeof window._cinemaInit === 'function') window._cinemaInit();
+                });
             });
-        });
+        }
+        if (!ov) { direct(); return; }
+        // 进入动画：白色 overlay（闪烁银色四芒星 + 黑白小猫玩浅粉色毛线球）先播放，再淡出露出娱乐页
+        ov.classList.add('ent-show');
+        requestAnimationFrame(function () { requestAnimationFrame(function () { ov.classList.add('ent-visible'); }); });
+        setTimeout(function () { direct(); }, 2300);
+        setTimeout(function () { ov.classList.remove('ent-visible'); }, 2750);
+        setTimeout(function () { ov.classList.remove('ent-show'); }, 3250);
     };
     window.closeEntertainment = window.closeEntertainmentFn = function () {
         var page = document.getElementById('entertainment-page');

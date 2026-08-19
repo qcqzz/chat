@@ -1,0 +1,667 @@
+/* ═══════════════════════════════════════════════════════════════
+   音乐厅（娱乐板块）样式
+   白字唱片播放器卡片 + 心跳线/进度线 + 音乐厅聊天框 + 歌单页
+   ═══════════════════════════════════════════════════════════════ */
+
+#cs-panel-musichall {
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+}
+#cs-panel-musichall.cs-panel-active {
+    display: flex !important;
+}
+
+/* 线条颜色：由 musichall.js 按设置动态覆盖 */
+#cs-panel-musichall {
+    --mh-hb-c: #ff9f9d;
+    --mh-prog-c: #c5a47e;
+}
+
+/* ── 顶部：左上角音乐厅，右上角音符图标（进入歌单） ── */
+.mh-hd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 16px 10px;
+    flex-shrink: 0;
+}
+.mh-hd-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--accent-color);
+    padding-bottom: 2px;
+}
+.mh-playlist-btn {
+    color: var(--accent-color);
+    font-size: 16px;
+}
+
+/* ── 音乐厅主体：上半播放器卡片 + 下半聊天框 ── */
+.mh-body {
+    flex: 1;
+    min-height: 0;
+    padding: 0 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+    flex-shrink: 1;
+}
+
+/* ═══ 上半：唱片播放器卡片 ═══ */
+.mh-player {
+    flex-shrink: 0;
+    background: var(--surface-color, #fff);
+    border: 1px solid var(--border-color, rgba(128,128,128,.15));
+    border-radius: 18px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.08);
+}
+.mh-vinyl-wrap {
+    flex-shrink: 0;
+    position: relative;
+}
+.mh-vinyl {
+    position: relative;
+    width: 132px;
+    height: 132px;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 50% 50%, #1e1e24 0 6%, #2c2c34 7% 22%, #212127 23% 48%, #2a2a32 49% 100%);
+    box-shadow: 0 10px 28px rgba(0,0,0,.4), inset 0 0 12px rgba(255,255,255,.12);
+}
+/* 唱片纹路 */
+.mh-vinyl-grooves {
+    position: absolute;
+    inset: 16%;
+    border-radius: 50%;
+    background: repeating-radial-gradient(
+        circle at 50% 50%,
+        rgba(255,255,255,.05) 0 2px,
+        rgba(0,0,0,.18) 2px 4px
+    );
+    pointer-events: none;
+}
+/* 唱片中间图片（可自定义，默认为灰色） */
+.mh-vinyl-label {
+    position: absolute;
+    inset: 30%;
+    border-radius: 50%;
+    background: #b9bcc4; /* 默认灰色 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 18px;
+    box-shadow: 0 0 0 2px rgba(0,0,0,.25), inset 0 0 8px rgba(0,0,0,.3);
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+    overflow: hidden;
+}
+.mh-vinyl-label i { pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.mh-vinyl-label.has-img i { display: none; }
+@keyframes mhSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.mh-vinyl.mh-spinning .mh-vinyl-grooves,
+.mh-vinyl.mh-spinning .mh-vinyl-label {
+    animation: mhSpin 12s linear infinite;
+}
+
+.mh-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.mh-song-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* 心跳线（样式参照情侣空间/娱乐页的心跳线） */
+.mh-hb-line {
+    width: 100%;
+    color: var(--mh-hb-c);
+}
+.mh-hb-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 34px;
+}
+.mh-progress {
+    width: 100%;
+    height: 6px;
+    border-radius: 6px;
+    background: rgba(var(--accent-color-rgb), .15);
+    overflow: hidden;
+}
+.mh-progress-fill {
+    height: 100%;
+    border-radius: 6px;
+    background: var(--mh-prog-c);
+    transition: width .25s linear;
+}
+.mh-time {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+.mh-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    margin-top: 2px;
+}
+.mh-ctrl {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px;
+    transition: transform .12s, color .12s;
+}
+.mh-ctrl:active { transform: scale(.9); }
+.mh-ctrl-star {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    color: #fff;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 16px rgba(var(--accent-color-rgb), .45);
+}
+/* 播放模式切换：随机 / 单曲循环 / 歌单循环 */
+.mh-mode-switch {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+}
+.mh-mode-btn {
+    border: 1px solid var(--border-color, rgba(128,128,128,.25));
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all .15s;
+}
+.mh-mode-btn.active {
+    background: rgba(var(--accent-color-rgb), .14);
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    font-weight: 600;
+}
+
+/* ═══ 下半：音乐厅聊天框（边听歌边聊天） ═══ */
+.mh-chat-panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-color, #fff);
+    border: 1px solid var(--border-color, rgba(128,128,128,.15));
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0,0,0,.05);
+}
+.mh-chat-area {
+    flex: 1;
+    min-height: 90px;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.mh-chat-empty {
+    margin: auto;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 12px;
+    opacity: .8;
+}
+.mh-chat-empty i { font-size: 22px; margin-bottom: 6px; opacity: .7; }
+.mh-msg {
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+    max-width: 82%;
+}
+.mh-msg--me { align-self: flex-end; }
+.mh-msg--partner { align-self: flex-start; }
+.mh-msg-av {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(var(--accent-color-rgb), .25);
+    color: var(--accent-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+.mh-msg-bubble {
+    padding: 8px 12px;
+    border-radius: 14px;
+    font-size: 13px;
+    line-height: 1.45;
+    background: var(--bubble-incoming-bg, rgba(var(--accent-color-rgb), .12));
+    color: var(--text-primary);
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+.mh-msg--me .mh-msg-bubble {
+    background: var(--bubble-outgoing-bg, var(--accent-color));
+    color: #fff;
+    border-bottom-right-radius: 4px;
+}
+.mh-msg--partner .mh-msg-bubble {
+    border-bottom-left-radius: 4px;
+}
+.mh-chat-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--border-color, rgba(128,128,128,.15));
+    align-items: center;
+}
+.mh-chat-input {
+    flex: 1;
+    border: 1px solid var(--border-color, rgba(128,128,128,.25));
+    border-radius: 20px;
+    padding: 8px 12px;
+    font-size: 13px;
+    background: var(--bg-color, #fff);
+    color: var(--text-primary);
+    outline: none;
+}
+.mh-chat-send {
+    border: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    color: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+/* ═══ 歌单页（全屏覆盖，左边歌单/右边设置） ═══ */
+.music-playlist-page {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    inset: 0;
+    z-index: 1560;
+    background: var(--bg-color, #fff);
+    display: none;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform .3s ease;
+    box-sizing: border-box;
+}
+.music-playlist-page.music-playlist-open {
+    display: flex;
+    transform: translateX(0);
+}
+.music-playlist-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border-color, rgba(128,128,128,.15));
+}
+.music-playlist-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.music-playlist-title-spacer { width: 28px; }
+.music-playlist-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+.music-playlist-col--list {
+    flex: 1;
+    min-width: 0;
+    border-right: 1px solid var(--border-color, rgba(128,128,128,.12));
+    display: flex;
+    flex-direction: column;
+}
+.music-playlist-col--settings {
+    width: 52%;
+    max-width: 340px;
+    min-width: 230px;
+    display: flex;
+    flex-direction: column;
+}
+.music-playlist-col-title {
+    padding: 12px 14px 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+.mh-list-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.mh-song-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    cursor: pointer;
+    background: rgba(var(--accent-color-rgb), .06);
+    transition: background .15s;
+}
+.mh-song-row:active { background: rgba(var(--accent-color-rgb), .14); }
+.mh-song-row.is-cur { outline: 1px solid var(--accent-color); }
+.mh-song-ico {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(var(--accent-color-rgb), .18);
+    color: var(--accent-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+.mh-song-meta { flex: 1; min-width: 0; }
+.mh-song-name {
+    font-size: 13px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.mh-song-sub {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.mh-song-del {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px;
+    flex-shrink: 0;
+}
+.mh-list-empty {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 12px;
+    padding: 30px 0;
+    opacity: .85;
+}
+
+/* 设置滚动区 */
+.mh-settings-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 14px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.mh-set-section {
+    background: var(--surface-color, #fff);
+    border: 1px solid var(--border-color, rgba(128,128,128,.15));
+    border-radius: 14px;
+    padding: 12px;
+}
+.mh-set-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.mh-set-title i { color: var(--accent-color); }
+
+/* 音乐导入（排版同悬浮播放器"添加自定义歌曲"） */
+.mh-import-field {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--border-color, rgba(128,128,128,.25));
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 12px;
+    background: var(--bg-color, #fff);
+    color: var(--text-primary);
+    outline: none;
+    margin-bottom: 8px;
+}
+.mh-import-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.mh-import-row .mh-import-field { flex: 1; margin-bottom: 0; }
+.mh-import-file-btn {
+    border: 1px dashed var(--border-color, rgba(128,128,128,.4));
+    background: transparent;
+    color: var(--accent-color);
+    border-radius: 10px;
+    padding: 0 10px;
+    cursor: pointer;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+.mh-import-go {
+    width: 100%;
+    background: var(--accent-color);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 9px 0;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+/* 自定义唱片（排版同设置"聊天背景" gallery） */
+.mh-vinyl-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.mh-vinyl-thumb {
+    width: 58px;
+    height: 58px;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    background: #b9bcc4;
+    border: 1px solid var(--border-color, rgba(128,128,128,.3));
+    background-size: cover !important;
+    background-position: center !important;
+}
+.mh-vinyl-thumb--add {
+    border: 1px dashed var(--border-color, rgba(128,128,128,.4));
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-color);
+    font-size: 16px;
+}
+.mh-vinyl-thumb.sel { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+.mh-set-reset {
+    margin-top: 10px;
+    font-size: 12px;
+    padding: 6px 12px;
+}
+
+/* 线条设置：颜色 swatch（上五下五）+ 自定义色轮 */
+.mh-line-group { margin-bottom: 12px; }
+.mh-line-group-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+.mh-line-swatches {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    justify-items: center;
+}
+.mh-line-swatch {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform .12s, border-color .12s;
+    box-sizing: border-box;
+}
+.mh-line-swatch.sel { border-color: #000; transform: scale(1.15); }
+.mh-line-swatch--custom {
+    position: relative;
+    background: conic-gradient(#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+}
+.mh-line-swatch--custom::after {
+    content: '✚';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 14px;
+    text-shadow: 0 1px 2px rgba(0,0,0,.5);
+}
+/* 歌曲播放进度线样式容器 */
+.mh-line-demo {
+    margin-top: 8px;
+    border-radius: 8px;
+    padding: 10px;
+    background: rgba(var(--accent-color-rgb), .06);
+}
+.mh-line-demo-hb {
+    color: var(--mh-hb-c);
+}
+.mh-line-demo-hb svg { display: block; width: 100%; height: auto; max-height: 30px; }
+.mh-line-demo-prog {
+    height: 6px;
+    border-radius: 6px;
+    margin-top: 6px;
+    background: rgba(0,0,0,.1);
+    overflow: hidden;
+}
+.mh-line-demo-prog-fill {
+    width: 55%;
+    height: 100%;
+    border-radius: 6px;
+    background: var(--mh-prog-c);
+}
+
+/* ═══ 主聊天里的 MUSIC 邀请卡片 ═══ */
+.music-invite-msg-wrap .message-content-wrapper { max-width: 76%; }
+.music-invite-card {
+    background: #fff;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 8px 26px rgba(0,0,0,.14);
+    border: 1px solid rgba(128,128,128,.12);
+    width: 250px;
+}
+.music-invite-banner {
+    background: linear-gradient(135deg, #b9bcc4, #8f94a3);
+    color: #fff;
+    text-align: center;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: 6px;
+    padding: 18px 0 10px;
+    text-shadow: 0 2px 4px rgba(0,0,0,.25);
+}
+.music-invite-line {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: #333;
+    padding: 10px 14px 2px;
+}
+.music-invite-song {
+    text-align: center;
+    font-size: 12px;
+    color: #ff8f9b;
+    font-weight: 600;
+    padding: 2px 14px 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.music-invite-divider {
+    height: 1px;
+    background: rgba(0,0,0,.08);
+    margin: 0 14px 10px;
+}
+.music-invite-actions {
+    display: flex;
+    gap: 8px;
+    padding: 0 14px 14px;
+}
+.music-invite-btn {
+    flex: 1;
+    border: none;
+    border-radius: 20px;
+    padding: 8px 0;
+    font-size: 13px;
+    cursor: pointer;
+}
+.music-invite-btn--later {
+    background: #f0f0f2;
+    color: #777;
+}
+.music-invite-btn--go {
+    background: #ff8f9b;
+    color: #fff;
+    font-weight: 600;
+}
+.music-invite-status {
+    text-align: center;
+    color: #777;
+    font-size: 12px;
+    padding: 0 14px 14px;
+}
