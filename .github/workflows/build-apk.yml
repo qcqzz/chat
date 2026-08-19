@@ -59,9 +59,9 @@ jobs:
       - name: 设置版本号
         run: |
           # 更新 versionCode 和 versionName（覆盖 Capacitor 默认值）
-          sed -i 's/versionCode 1/versionCode 15/' android/app/build.gradle
+          sed -i 's/versionCode 1/versionCode 16/' android/app/build.gradle
           sed -i 's/versionName "1.0"/versionName "2.0"/' android/app/build.gradle
-          echo "Updated versionCode to 15, versionName to 2.0"
+          echo "Updated versionCode to 16, versionName to 2.0"
 
       - name: 注入前台服务保活代码
         run: |
