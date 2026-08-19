@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 深色启动主题：消除 Capacitor 浅色窗口导致的启动白屏。
-     颜色与网页开屏画面 (var --welcome-bg) #0A0A12 保持一致。 -->
+     颜色与网页开屏底色 #0A0A12 保持一致。 -->
 <resources>
     <color name="launch_window_bg">#0A0A12</color>
 

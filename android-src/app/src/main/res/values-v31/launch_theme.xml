@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 12+ (API 31) 启动主题：覆盖系统自动开屏背景色，避免默认浅色导致白屏 -->
+<!-- Android 12+ (API 31) 启动主题：覆盖系统自动开屏背景色，避免默认浅色导致白屏。 -->
 <resources>
     <style name="AppThemeLaunch" parent="@style/AppTheme.NoActionBarLaunch">
         <item name="android:windowBackground">@color/launch_window_bg</item>
