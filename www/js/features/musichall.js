@@ -51,7 +51,7 @@
         panel.style.setProperty('--mh-prog-c', conf.progColor);
 
         var btn = panel.querySelector('#mh-playlist-btn');
-        if (btn) btn.addEventListener('click', function () { openPlaylistPage(); });
+        if (btn) btn.addEventListener('click', function () { window._mhOpenPlaylistPage(); });
 
         audio = panel.querySelector('#mh-audio');
         audio.addEventListener('timeupdate', onTimeUpdate);
@@ -79,8 +79,8 @@
             '<div class="mh-info">' +
                 '<div class="mh-song-title" id="mh-song-title">' + (song ? esc(song.title) : '未选择歌曲') + '</div>' +
                 '<div class="mh-hb-line">' +
-                    '<svg viewBox="0 0 140 44" class="mh-hb-svg">' +
-                        '<polyline points="0,22 18,22 26,8 34,36 42,12 50,30 58,22 80,22 88,8 96,36 104,14 112,28 120,22 140,22" fill="none" stroke="var(--mh-hb-c)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+                    '<svg viewBox="0 0 372 165" class="mh-hb-svg" preserveAspectRatio="none">' +
+                        '<path id="mh-hb-path" class="mh-hb-path" d="M0,82 L16,82 L18,82 L26,40 L34,124 L42,48 L50,84 L58,82 L98,82 L104,40 L110,124 L116,44 L124,84 L132,82 L170,82 L176,38 L182,124 L190,40 L198,84 L206,82 L246,82 L252,38 L258,124 L264,48 L272,84 L280,82 L320,82 L326,40 L332,124 L338,50 L346,84 L354,82 L372,82" fill="none" stroke="var(--mh-hb-c)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
                     '</svg>' +
                 '</div>' +
                 '<div class="mh-progress"><div class="mh-progress-fill" id="mh-progress-fill" style="width:0%"></div></div>' +
@@ -95,10 +95,25 @@
                         '<i class="fas fa-pause" id="mh-ico-pause" style="display:none"></i>' +
                     '</button>' +
                     '<button class="mh-ctrl" id="mh-next" title="下一首"><i class="fas fa-step-forward"></i></button>' +
+                    '<button class="mh-ctrl mh-mode-ctrl" id="mh-mode" title="播放模式">' + _modeIcon() + '</button>' +
                 '</div>' +
-                '<div class="mh-mode-switch">' + _modeHTML() + '</div>' +
             '</div>' +
         '</div>';
+    }
+
+    // 播放模式图标：随机 / 单曲循环 / 歌单循环（与常见音乐 App 一致）
+    var modeTitles = { shuffle: '随机模式', single: '单曲循环', list: '歌单循环' };
+    function _modeIcon() {
+        if (mode === 'shuffle') return '<i class="fas fa-random"></i>';
+        if (mode === 'single') return '<i class="fas fa-repeat"></i><span class="mh-mode-num">1</span>';
+        return '<i class="fas fa-repeat"></i>';
+    }
+    function _cycleMode() {
+        // list → single → shuffle → list
+        mode = (mode === 'list') ? 'single' : (mode === 'single') ? 'shuffle' : 'list';
+        var btn = document.getElementById('mh-mode');
+        if (btn) { btn.innerHTML = _modeIcon(); btn.title = modeTitles[mode]; }
+        return btn;
     }
 
     function _vinylHTML() {
@@ -107,13 +122,6 @@
             '<div class="mh-vinyl-grooves"></div>' +
             '<div class="mh-vinyl-label' + (conf.vinylLabel ? ' has-img' : '') + '" style="' + style + '"><i class="fas fa-music"></i></div>' +
         '</div>';
-    }
-
-    function _modeHTML() {
-        var list = [{ k: 'shuffle', t: '随机' }, { k: 'single', t: '单曲循环' }, { k: 'list', t: '歌单循环' }];
-        return list.map(function (m) {
-            return '<button class="mh-mode-btn' + (mode === m.k ? ' active' : '') + '" data-mode="' + m.k + '">' + m.t + '</button>';
-        }).join('');
     }
 
     function _chatHTML() {
@@ -179,6 +187,8 @@
     function syncVinylSpin() {
         var v = document.querySelector('#cs-panel-musichall .mh-vinyl');
         if (v) v.classList.toggle('mh-spinning', playing);
+        var hb = document.querySelector('#cs-panel-musichall #mh-hb-path');
+        if (hb) hb.classList.toggle('mh-hb-beat', playing);
     }
     function onTimeUpdate() {
         if (!audio) return;
@@ -207,11 +217,10 @@
         if (play) play.addEventListener('click', togglePlay);
         if (prev) prev.addEventListener('click', function () { if (!songs.length) return; loadSong(cur - 1); playCur(); });
         if (next) next.addEventListener('click', function () { if (!songs.length) return; var n = nextIdx(); loadSong(n); playCur(); });
-        panel.querySelectorAll('.mh-mode-btn').forEach(function (b) {
-            b.addEventListener('click', function () {
-                mode = b.getAttribute('data-mode');
-                panel.querySelectorAll('.mh-mode-btn').forEach(function (x) { x.classList.toggle('active', x === b); });
-            });
+        var modeBtn = panel.querySelector('#mh-mode');
+        if (modeBtn) modeBtn.addEventListener('click', function () {
+            var b = _cycleMode();
+            if (b) showNotification(modeTitles[mode], 'success');
         });
     }
     function syncPlayerUI() {
@@ -268,7 +277,7 @@
     // ── 播放指定（供邀请卡"现在听"） ────────────────────
     window._menuPlaySong = function (title) {
         var i = title ? findSongByTitle(title) : -1;
-        if (i >= 0) { loadSong(i); playCur(); } else { openPlaylistPage(); }
+        if (i >= 0) { loadSong(i); playCur(); } else { window._mhOpenPlaylistPage(); }
     };
 
     // ── 歌单页 ───────────────────────────────────────────
@@ -442,7 +451,7 @@
                 _lineGroup('心跳线颜色', 'hb', conf.hbColor) +
                 _lineGroup('播放进度线颜色', 'prog', conf.progColor) +
                 '<div class="mh-line-demo">' +
-                    '<div class="mh-line-demo-hb"><svg viewBox="0 0 140 44"><polyline points="0,22 18,22 26,8 34,36 42,12 50,30 58,22 80,22 88,8 96,36 104,14 112,28 120,22 140,22" fill="none" stroke="var(--mh-hb-c)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
+                    '<div class="mh-line-demo-hb"><svg viewBox="0 0 372 165" preserveAspectRatio="none"><path d="M0,82 L16,82 L18,82 L26,40 L34,124 L42,48 L50,84 L58,82 L98,82 L104,40 L110,124 L116,44 L124,84 L132,82 L170,82 L176,38 L182,124 L190,40 L198,84 L206,82 L246,82 L252,38 L258,124 L264,48 L272,84 L280,82 L320,82 L326,40 L332,124 L338,50 L346,84 L354,82 L372,82" fill="none" stroke="var(--mh-hb-c)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
                     '<div class="mh-line-demo-prog"><div class="mh-line-demo-prog-fill"></div></div>' +
                 '</div>' +
             '</div>';

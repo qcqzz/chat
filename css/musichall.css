@@ -68,37 +68,50 @@
 }
 .mh-vinyl {
     position: relative;
-    width: 132px;
-    height: 132px;
+    width: 150px;
+    height: 150px;
     border-radius: 50%;
     background:
-        radial-gradient(circle at 50% 50%, #1e1e24 0 6%, #2c2c34 7% 22%, #212127 23% 48%, #2a2a32 49% 100%);
-    box-shadow: 0 10px 28px rgba(0,0,0,.4), inset 0 0 12px rgba(255,255,255,.12);
+        radial-gradient(circle at 50% 50%,
+            #dcebff 0 8%,
+            #bfd9f7 9% 22%,
+            #a8c8f0 23% 42%,
+            #93b8ea 43% 62%,
+            #7fa9e2 63% 100%);
+    box-shadow:
+        inset 0 0 18px rgba(255,255,255,.65),
+        inset 0 -12px 28px rgba(90,130,190,.45),
+        0 10px 28px rgba(60,100,170,.35);
 }
-/* 唱片纹路 */
+/* 唱片纹路（参考图：浅蓝/白色同心环高光） */
 .mh-vinyl-grooves {
     position: absolute;
-    inset: 16%;
+    inset: 14%;
     border-radius: 50%;
     background: repeating-radial-gradient(
         circle at 50% 50%,
-        rgba(255,255,255,.05) 0 2px,
-        rgba(0,0,0,.18) 2px 4px
+        rgba(255,255,255,.45) 0 2px,
+        rgba(120,160,215,.28) 2px 4px
     );
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 58%, #000 59% 100%);
+            mask-image: radial-gradient(circle at 50% 50%, transparent 0 58%, #000 59% 100%);
     pointer-events: none;
 }
-/* 唱片中间图片（可自定义，默认为灰色） */
+/* 唱片中心标签：外圈金属环 + 中央图片（默认灰色唱片中心） */
 .mh-vinyl-label {
     position: absolute;
     inset: 30%;
     border-radius: 50%;
-    background: #b9bcc4; /* 默认灰色 */
+    background: #c3ccd8; /* 默认灰色 */
     display: flex;
     align-items: center;
     justify-content: center;
     color: #ffffff;
     font-size: 18px;
-    box-shadow: 0 0 0 2px rgba(0,0,0,.25), inset 0 0 8px rgba(0,0,0,.3);
+    box-shadow:
+        0 0 0 3px rgba(255,255,255,.85),
+        0 0 0 5px rgba(120,150,195,.5),
+        inset 0 0 8px rgba(0,0,0,.2);
     background-size: cover !important;
     background-position: center !important;
     background-repeat: no-repeat !important;
@@ -127,16 +140,30 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-/* 心跳线（样式参照情侣空间/娱乐页的心跳线） */
+/* 心跳线（参考图：双基线 EKG 波形，播放时律动） */
 .mh-hb-line {
     width: 100%;
     color: var(--mh-hb-c);
+    position: relative;
 }
 .mh-hb-svg {
     display: block;
     width: 100%;
-    height: auto;
-    max-height: 34px;
+    height: 40px;
+}
+.mh-hb-path {
+    stroke-dasharray: 420;
+    stroke-dashoffset: 420;
+}
+/* 播放音乐时心电图律动：从起点向右生长并循环 */
+.mh-hb-path.mh-hb-beat {
+    animation: mhHBBeat 3.2s ease-in-out infinite;
+}
+@keyframes mhHBBeat {
+    0%   { stroke-dashoffset: 420; opacity: 1; }
+    60%  { stroke-dashoffset: 0;   opacity: 1; }
+    82%  { stroke-dashoffset: 0;   opacity: .85; }
+    100% { stroke-dashoffset: 0;   opacity: 0; }
 }
 .mh-progress {
     width: 100%;
@@ -186,27 +213,20 @@
     justify-content: center;
     box-shadow: 0 6px 16px rgba(var(--accent-color-rgb), .45);
 }
-/* 播放模式切换：随机 / 单曲循环 / 歌单循环 */
-.mh-mode-switch {
-    display: flex;
-    justify-content: center;
-    gap: 6px;
-}
-.mh-mode-btn {
-    border: 1px solid var(--border-color, rgba(128,128,128,.25));
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 11px;
-    padding: 4px 10px;
-    border-radius: 20px;
-    cursor: pointer;
-    transition: all .15s;
-}
-.mh-mode-btn.active {
-    background: rgba(var(--accent-color-rgb), .14);
-    border-color: var(--accent-color);
+/* 播放模式切换图标：随机 / 单曲循环 / 歌单循环（位于"下一首"右侧，单击循环） */
+.mh-mode-ctrl {
+    position: relative;
     color: var(--accent-color);
-    font-weight: 600;
+    font-size: 15px;
+}
+.mh-mode-num {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--accent-color);
 }
 
 /* ═══ 下半：音乐厅聊天框（边听歌边聊天） ═══ */
