@@ -384,13 +384,13 @@ const tourSteps = [
         position: 'bottom'
     },
     {
-        element: '#moments-header-btn',
+        element: '#app-space',
         title: "🏠 你们的空间",
         content: "点击进入你们的专属空间，里面有：<br>• <b>动态</b>：一起分享日常和照片<br>• <b>心情手账</b>：一起记录每天的心情<br>• <b>纪念日</b>：一起倒数重要的日子<br>• <b>电影院</b>：约定时间一起看电影 🎬",
         position: 'bottom'
     },
     {
-        element: '#settings-btn',
+        element: '#app-setting',
         title: "⚙️ 设置中心",
         content: "所有个性化配置都在这个设置按钮里，我们点进去看一下！",
         position: 'bottom',
@@ -431,6 +431,10 @@ const tourSteps = [
 ];
 
 function startTour() {
+    // 首次引导针对聊天页功能，先切到聊天视图再高亮
+    if (window.DesktopTopbar && typeof window.DesktopTopbar.openChat === 'function') {
+        window.DesktopTopbar.openChat();
+    }
     isTourActive = true;
     tourOverlay.style.display = 'block';
     setTimeout(() => tourOverlay.classList.add('active'), 10);
@@ -450,6 +454,10 @@ function endTour() {
     }, 300);
     localforage.setItem(APP_PREFIX + 'tour_seen', 'true');
     document.querySelectorAll('.modal').forEach(m => hideModal(m));
+    // 引导结束后回到桌面页首页
+    if (window.DesktopTopbar && typeof window.DesktopTopbar.showDesktop === 'function') {
+        setTimeout(function () { window.DesktopTopbar.showDesktop(); }, 400);
+    }
     setTimeout(function() {
         if (typeof window.tryShowDailyGreeting === 'function') {
             window.tryShowDailyGreeting();

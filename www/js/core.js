@@ -290,6 +290,7 @@ autoSendInterval: 5,
         emojiMixEnabled: true,
         partnerRecallEnabled: true,
         partnerHangupEnabled: true,
+        partnerRedpacketEnabled: true,
         // 自定义红包封面（dataURL 或 null；null 用内置浅米灰渐变）
         // card=购物卡片主区 / open=打开红包弹窗主区 各自独立，再按 我的/梦角 拆开
         redpacketCardMyCover: null,
@@ -1060,7 +1061,8 @@ function manageAutoSendTimer() {
                 '#emoji-mix-toggle': 'emojiMixEnabled',
                 '#auto-send-toggle': 'autoSendEnabled',
                 '#partner-recall-toggle': 'partnerRecallEnabled',
-                '#partner-hangup-toggle': 'partnerHangupEnabled'
+                '#partner-hangup-toggle': 'partnerHangupEnabled',
+                '#partner-redpacket-toggle': 'partnerRedpacketEnabled'
             };
             for (const [sel, prop] of Object.entries(_pillSyncMap)) {
                 const el = document.querySelector(sel);
@@ -2194,8 +2196,8 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                      throttledSaveData();
                 }
             }
-            if (settings.partnerRecallEnabled && Math.random() < 0.02) {
-                // ── 对方撤回消息：概率略低于拍一拍(3%)，用一个独立回复周期触发 ──
+            if (settings.partnerRecallEnabled && Math.random() < 0.03) {
+                // ── 对方撤回消息：触发概率 3%，用一个独立回复周期触发 ──
                 if (typeof window._triggerPartnerRecall === 'function') window._triggerPartnerRecall();
                 return;
             }

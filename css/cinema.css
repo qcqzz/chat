@@ -3,16 +3,30 @@
    ════════════════════════════════════════════════════ */
 
 /* ════════════════════════════════════════════════════
+   娱乐页容器：#entertainment-page（电影院已从情侣空间迁入娱乐，
+   沿用情侣空间同款全屏叠层与淡入动画，保证功能与视觉一致）
+   ════════════════════════════════════════════════════ */
+#entertainment-page {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 1520;
+    display: none; flex-direction: column;
+    background: var(--primary-bg);
+    opacity: 0;
+    transition: opacity 0.28s ease;
+    pointer-events: none;
+}
+#entertainment-page.cs-open { opacity: 1; pointer-events: all; }
+
+/* ════════════════════════════════════════════════════
    观影模式：沉浸式暗色主题（强制暗色，不受系统明暗设置影响）
    ════════════════════════════════════════════════════ */
-#couple-space-page.cinema-theater-mode {
+#entertainment-page.cinema-theater-mode {
     background: #000;
 }
-#couple-space-page.cinema-theater-mode #cs-topbar,
-#couple-space-page.cinema-theater-mode #cs-outer-header {
+#entertainment-page.cinema-theater-mode #ent-topbar,
+#entertainment-page.cinema-theater-mode #cs-outer-header {
     display: none !important;
 }
-#couple-space-page.cinema-theater-mode #cs-panel-cinema {
+#entertainment-page.cinema-theater-mode #cs-panel-cinema {
     --primary-bg: #000;
     --secondary-bg: #1c1c1e;
     --text-primary: #f2f2f2;
@@ -1726,7 +1740,7 @@ html[data-theme="dark"] .cinema-invite-card-status--declined {
    ══════════════════════════════════════════ */
 
 /* 1. 档案页（影评/心愿单）：90% 透明底色 */
-#couple-space-page.cs-with-bg .cinema-archive-page {
+#entertainment-page.cs-with-bg .cinema-archive-page {
     background: rgba(var(--primary-bg-rgb), 0.9);
 }
 
@@ -1735,12 +1749,12 @@ html[data-theme="dark"] .cinema-invite-card-status--declined {
     margin-top: 0;
 }
 /* 2b. 约定卡片：90% 透明底色（上面的幕布黑框不动）*/
-#couple-space-page.cs-with-bg .cinema-appt-card {
+#entertainment-page.cs-with-bg .cinema-appt-card {
     background: rgba(var(--secondary-bg-rgb), 0.9);
 }
 
 /* 3. 嵌入观影模式（非沉浸）：工具栏 + 聊天区加 90% 黑底，保证可读性 */
-#couple-space-page.cs-with-bg:not(.cinema-theater-mode) .cinema-watch-toolbar,
-#couple-space-page.cs-with-bg:not(.cinema-theater-mode) .cinema-body-watch {
+#entertainment-page.cs-with-bg:not(.cinema-theater-mode) .cinema-watch-toolbar,
+#entertainment-page.cs-with-bg:not(.cinema-theater-mode) .cinema-body-watch {
     background: rgba(0, 0, 0, 0.9);
 }

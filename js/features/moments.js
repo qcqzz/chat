@@ -238,7 +238,10 @@ async function _checkAction(){
 function getMomentsUnreadCount(){let n=0;for(const p of momentsData.posts){if(p.isNewForUser)n++;for(const c of p.comments)if(c.authorType==='partner'&&c.isNew)n++;}return n;}
 function markPostRead(postId){const p=momentsData.posts.find(p=>p.id===postId);if(!p)return;p.isNewForUser=false;p.comments.forEach(c=>{c.isNew=false;});saveMomentsData();_updateBadge();}
 function _updateBadge(){
-    const b=document.getElementById('moments-header-badge');if(b)b.style.display=getMomentsUnreadCount()>0?'inline-block':'none';
+    const spaceIcon=document.getElementById('app-space');
+    let b=document.getElementById('moments-header-badge');
+    if(spaceIcon&&!b){b=document.createElement('span');b.id='moments-header-badge';b.style.cssText='position:absolute;top:2px;right:2px;width:9px;height:9px;background:var(--accent-color);border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.7);display:none;pointer-events:none;';spaceIcon.style.position='relative';spaceIcon.appendChild(b);}
+    if(b)b.style.display=getMomentsUnreadCount()>0?'block':'none';
     const bell=document.getElementById('cs-bell-dot');if(bell)bell.style.display=(momentsData.notifications||[]).some(n=>!n.read)?'block':'none';
 }
 
@@ -529,6 +532,8 @@ function _updateBigAvatars(){
 // ─── 主入口 ───
 window.openCoupleSpace=window.openMomentsModal=function(scrollToPostId){
     const page=document.getElementById('couple-space-page');if(!page)return;
+    // 打开情侣空间前，先收起娱乐页，避免两个全屏页叠加
+    if(typeof window.closeEntertainment==='function')window.closeEntertainment();
     page.style.display='flex';
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
         // 页面动画前先把 header 放好（此时整页还在 translateY(100%) 不可见）
@@ -599,10 +604,11 @@ window.csSwitchTab=function(tab){
     }
 };
 function _csSetTab(tab){
-    document.querySelectorAll('.cs-panel').forEach(p=>p.classList.remove('cs-panel-active'));
+    const page=document.getElementById('couple-space-page');
+    (page||document).querySelectorAll('.cs-panel').forEach(p=>p.classList.remove('cs-panel-active'));
     const panel=document.getElementById('cs-panel-'+tab);
     if(panel)panel.classList.add('cs-panel-active');
-    document.querySelectorAll('.cs-pill').forEach(b=>b.classList.remove('cs-pill-on'));
+    (page||document).querySelectorAll('.cs-pill').forEach(b=>b.classList.remove('cs-pill-on'));
     const btn=document.getElementById('csp-'+tab);
     if(btn)btn.classList.add('cs-pill-on');
 }

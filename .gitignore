@@ -1,4 +1,5 @@
 node_modules/
 android/
 *.apk
+release-assets/
 .DS_Store

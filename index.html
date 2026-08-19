@@ -18,8 +18,8 @@
     <link rel="apple-touch-icon" href="https://file.youtochat.com/images/20260216/1771224856844_qdqqd.jpeg">
     <meta name="apple-mobile-web-app-title" content="ʚ𝑳𝑶𝑽𝑬ɞ">
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/companion.css">
@@ -239,6 +239,7 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
                 </div>
             </div>
             <div class="header-actions">
+                <button id="dt-back-btn" class="action-btn" title="返回桌面" onclick="window.DesktopTopbar&&DesktopTopbar.showDesktop&&DesktopTopbar.showDesktop()"><i class="fas fa-home"></i></button>
                 <button id="session-manager-btn" class="action-btn" title="会话管理"><i class="fas fa-comments"></i></button>
                 <button id="group-chat-btn" class="action-btn" title="群聊设置"><i class="fas fa-users"></i></button>
                 <button id="envelope-header-btn" class="action-btn" title="信箱" style="position:relative;">
@@ -246,12 +247,7 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
                     <span id="env-entry-badge" style="display:none;position:absolute;top:3px;right:3px;width:7px;height:7px;background:var(--accent-color);border-radius:50%;border:1.5px solid var(--primary-bg);pointer-events:none;"></span>
                 </button>
                 <button id="companion-btn" class="action-btn" title="陪伴"><i class="fas fa-hand-holding-heart"></i></button>
-                <button id="moments-header-btn" class="action-btn" title="情侣空间" onclick="openMomentsWithTransition()" style="position:relative;">
-                    <i class="ti ti-home-heart" style="font-size:19px;"></i>
-                    <span id="moments-header-badge" style="display:none;position:absolute;top:3px;right:3px;width:7px;height:7px;background:var(--accent-color);border-radius:50%;border:1.5px solid var(--primary-bg);pointer-events:none;"></span>
-                </button>
                 <button id="daily-greeting-btn" class="action-btn" title="今日公告" onclick="reopenDailyGreeting()"><i class="fas fa-newspaper"></i></button>
-                <button id="settings-btn" class="action-btn" title="设置"><i class="fas fa-cog"></i></button>
             </div>
              <div class="user-info">
                 <div class="username" id="my-name">
@@ -520,6 +516,67 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
     </svg>
   </div>
 </div>
+<!-- ── 小手机桌面：顶部栏 + 底部应用图标网格 ── -->
+<div id="phone-desktop">
+    <!-- 桌面顶部栏（个性签名 + 两侧头像昵称，无右上角小图标） -->
+    <div class="dt-topbar" id="dt-topbar">
+        <div class="dt-topbar-card" id="dt-topbar-card">
+            <div class="dt-bg" id="dt-bg"></div>
+            <div class="dt-overlay"></div>
+            <div class="dt-sig" id="dt-signature" title="点击修改个性签名">爱能克服远距离</div>
+            <div class="dt-users">
+                <div class="dt-user dt-user-partner">
+                    <div class="dt-avatar" id="dt-avatar-partner"><i class="fas fa-user"></i></div>
+                    <span class="dt-name" id="dt-name-partner">梦角</span>
+                </div>
+                <div class="dt-heartbeat" aria-hidden="true">
+                    <svg viewBox="0 0 600 40" preserveAspectRatio="none">
+                        <path class="hb-line hb-shadow" vector-effect="non-scaling-stroke" d="M0,22 L136,22 L154,22 L162,34 L178,10 L190,22 L266,22 L284,22 L294,30 L306,12 L318,22 L600,22"/>
+                        <path class="hb-line hb-main hb-run" vector-effect="non-scaling-stroke" d="M0,22 L136,22 L154,22 L162,34 L178,10 L190,22 L266,22 L284,22 L294,30 L306,12 L318,22 L600,22"/>
+                    </svg>
+                </div>
+                <div class="dt-user dt-user-me">
+                    <div class="dt-avatar" id="dt-avatar-me"><i class="fas fa-user"></i></div>
+                    <span class="dt-name" id="dt-name-me">我</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 桌面中部内容：拍立得相册 + 纪念日方块 -->
+    <div class="dt-content">
+        <div class="dt-polaroid" id="dt-polaroid" title="点击切换照片顺序">
+            <div class="dt-polaroid-card pl-3"><img src="desktop-pl/p3.jpg" alt=""><span></span></div>
+            <div class="dt-polaroid-card pl-2"><img src="desktop-pl/p2.jpg" alt=""><span></span></div>
+            <div class="dt-polaroid-card pl-1"><img src="desktop-pl/p1.jpg" alt=""><span></span></div>
+            <div class="pl-hint"><i class="fas fa-sync-alt"></i> 点击翻看</div>
+        </div>
+        <div class="dt-anniversary" id="dt-anniversary" title="点击切换重要日">
+            <span class="dt-ann-badge" id="dt-ann-badge"></span>
+            <div class="dt-ann-icon"><i class="fas fa-heart"></i></div>
+            <div class="dt-ann-days" id="dt-ann-days">—</div>
+            <div class="dt-ann-label">纪念日</div>
+            <div class="dt-ann-meta" id="dt-ann-meta">一起走过的日子</div>
+        </div>
+    </div>
+    <div class="app-grid">
+        <div class="app-cell" data-app="chat" id="app-chat" onclick="(function(){if(typeof window.closeEntertainment==='function')window.closeEntertainment();if(typeof closeCoupleSpace==='function')closeCoupleSpace();var sm=document.getElementById('settings-modal');if(sm&&typeof hideModal==='function')hideModal(sm);if(window.DesktopTopbar&&typeof DesktopTopbar.openChat==='function')DesktopTopbar.openChat();})()">
+            <div class="app-icon"><i class="fas fa-comments"></i></div>
+            <span class="app-name">聊天</span>
+        </div>
+        <div class="app-cell" data-app="space" id="app-space" onclick="openMomentsModal()">
+            <div class="app-icon"><i class="fas fa-heart"></i></div>
+            <span class="app-name">空间</span>
+        </div>
+        <div class="app-cell" data-app="entertain" id="app-entertain" onclick="openEntertainment()">
+            <div class="app-icon"><i class="fas fa-gamepad"></i></div>
+            <span class="app-name">娱乐</span>
+        </div>
+        <div class="app-cell" data-app="settings" id="app-setting" onclick="showModal(document.getElementById('settings-modal'))">
+            <div class="app-icon"><i class="fas fa-cog"></i></div>
+            <span class="app-name">设置</span>
+        </div>
+    </div>
+</div>
 <div id="couple-space-page">
 
     <!-- 顶部操作栏 -->
@@ -551,7 +608,6 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
                 <button class="cs-pill"             id="csp-album"   onclick="csSwitchTab('album')"  title="相册"><span class="cs-pill-icon"></span></button>
                 <button class="cs-pill"             id="csp-mood"    onclick="csSwitchTab('mood')"   title="心情手账"><span class="cs-pill-icon"></span></button>
                 <button class="cs-pill"             id="csp-ann"     onclick="csSwitchTab('ann')"    title="纪念日"><span class="cs-pill-icon"></span></button>
-                <button class="cs-pill"             id="csp-cinema"  onclick="csSwitchTab('cinema')" title="电影院"><span class="cs-pill-icon"></span></button>
             </div>
         </div>
     </div>
@@ -668,7 +724,30 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
                 <div class="ann-detail-body" id="ann-detail-body"></div>
             </div>
         </div>
-        <div class="cs-panel" id="cs-panel-cinema">
+
+    </div>
+
+    <!-- 发帖悬浮按钮 FAB（动态 tab 专用） -->
+    <button id="cs-feed-fab" onclick="openCsCompose()" title="发动态">
+        <i class="fas fa-plus"></i>
+    </button>
+
+</div>
+
+<!-- 娱乐页：承载电影院功能（从情侣空间整体迁移而来） -->
+<div id="entertainment-page">
+
+    <!-- 顶部操作栏 -->
+    <div class="cs-topbar" id="ent-topbar" style="position:relative;">
+        <button class="cs-icon-btn" onclick="closeEntertainment()"><i class="fas fa-chevron-left"></i></button>
+        <span class="cs-topbar-feed-title" id="ent-topbar-feed-title" style="flex:1;text-align:center;font-weight:600;">娱乐</span>
+        <button class="cs-icon-btn" style="visibility:hidden;"><i class="fas fa-cog"></i></button>
+    </div>
+
+    <!-- 内容区 -->
+    <div class="cs-content">
+
+        <div class="cs-panel cs-panel-active" id="cs-panel-cinema">
             <!-- 内容由 cinema.js 动态填充 -->
         </div>
 
@@ -690,11 +769,6 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
         </div>
 
     </div>
-
-    <!-- 发帖悬浮按钮 FAB（动态 tab 专用） -->
-    <button id="cs-feed-fab" onclick="openCsCompose()" title="发动态">
-        <i class="fas fa-plus"></i>
-    </button>
 
 </div>
 
@@ -1158,38 +1232,44 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
     </div>
 
     <div class="modal" id="settings-modal">
-        <div class="modal-content">
-            <div class="modal-title">
-                <i class="fas fa-cog"></i><span>设置</span>
+        <div class="cs-topbar" style="position:relative;">
+            <button class="cs-icon-btn" onclick="hideModal(document.getElementById('settings-modal'))"><i class="fas fa-chevron-left"></i></button>
+            <span style="margin:0 auto;font-size:15px;font-weight:700;color:var(--text-primary);letter-spacing:1px;">设置</span>
+            <span style="width:36px;flex-shrink:0;"></span>
+        </div>
+        <div class="settings-grid" style="padding:4px 20px 24px;">
+            <div class="settings-card" id="appearance-settings">
+                <i class="fas fa-palette"></i>
+                <span>外观设置</span>
             </div>
-
-            <div class="settings-grid">
-                <div class="settings-card" id="appearance-settings">
-                    <i class="fas fa-palette"></i>
-                    <span>外观设置</span>
-                </div>
-                <div class="settings-card" id="chat-settings">
-                    <i class="fas fa-comments"></i>
-                    <span>聊天设置</span>
-                </div>
-                <div class="settings-card" id="advanced-settings">
-                    <i class="fas fa-tools"></i>
-                    <span>高级功能</span>
-                </div>
-                <div class="settings-card" id="data-settings">
-                    <i class="fas fa-database"></i>
-                    <span>数据管理</span>
-                </div>
+            <div class="settings-card" id="chat-settings">
+                <i class="fas fa-comments"></i>
+                <span>聊天设置</span>
             </div>
-
-
-            <div class="modal-buttons">
-                <span></span>
-                <button class="modal-btn modal-btn-secondary" id="cancel-settings" onclick="hideModal(document.getElementById('settings-modal'))">关闭</button>
+            <div class="settings-card" id="advanced-settings">
+                <i class="fas fa-tools"></i>
+                <span>高级功能</span>
+            </div>
+            <div class="settings-card" id="data-settings">
+                <i class="fas fa-database"></i>
+                <span>数据管理</span>
             </div>
         </div>
     </div>
 
+
+    <!-- 个性签名编辑弹窗 -->
+    <div class="modal" id="signature-modal">
+        <div class="modal-content signature-modal-content">
+            <div class="modal-title"><i class="fas fa-feather-alt"></i><span>修改个性签名</span></div>
+            <input type="text" id="signature-input" class="modal-input" maxlength="20" placeholder="写一句话，最多20字">
+            <div class="sig-counter" id="signature-counter">0 / 20</div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" onclick="hideModal(document.getElementById('signature-modal'))">取消</button>
+                <button class="modal-btn modal-btn-primary" id="signature-save">保存</button>
+            </div>
+        </div>
+    </div>
 
     <!-- ========== 陪伴功能弹窗 ========== -->
 
@@ -1482,6 +1562,23 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
             <div style="text-align: center; margin-top: 10px;">
                 <button class="modal-btn modal-btn-secondary" id="reset-default-bg" style="font-size: 12px; padding: 6px 12px;">
                     <i class="fas fa-undo"></i> 恢复默认背景
+                </button>
+            </div>
+        </div>
+
+        <!-- 顶部栏背景（独立图库，上传自动按固定比例裁剪） -->
+        <div class="settings-section" id="topbar-bg-section">
+            <div class="settings-section-title">
+                <i class="fas fa-photo-video"></i>顶部栏背景
+                <input type="file" id="topbar-bg-file-input" accept="image/*" style="display: none;">
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;opacity:0.75;line-height:1.5;">
+                独立设置桌面顶部栏的背景图。点击 <i class="fas fa-plus" style="font-size:10px;"></i> 选择图片，上传后按顶部栏固定比例裁剪。支持 JPG / PNG。
+            </div>
+            <div class="bg-gallery" id="topbar-bg-gallery-list"></div>
+            <div style="text-align: center; margin-top: 10px;">
+                <button class="modal-btn modal-btn-secondary" id="reset-default-topbar-bg" style="font-size: 12px; padding: 6px 12px;">
+                    <i class="fas fa-undo"></i> 恢复默认顶部栏背景
                 </button>
             </div>
         </div>
@@ -1920,6 +2017,11 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
                         <div class="setting-pill-row" id="partner-hangup-toggle" style="border-top:1px solid var(--border-color);">
                             <span class="setting-pill-icon"><i class="fas fa-phone-slash"></i></span>
                             <span class="setting-pill-label">梦角主动挂断电话 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">开启后梦角可能主动挂断长通话</span></span>
+                            <div class="setting-pill-switch"><div class="setting-pill-knob"></div></div>
+                        </div>
+                        <div class="setting-pill-row" id="partner-redpacket-toggle" style="border-top:1px solid var(--border-color);">
+                            <span class="setting-pill-icon"><i class="fas fa-gift"></i></span>
+                            <span class="setting-pill-label">梦角主动发红包 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">允许梦角主动给你发红包</span></span>
                             <div class="setting-pill-switch"><div class="setting-pill-knob"></div></div>
                         </div>
                     </div>
@@ -3572,6 +3674,7 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
     <script src="js/cloud-media-migration.js"></script>
     <script src="js/cloud-sync-ui.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/desktop.js"></script>
     <script src="js/features/cinema.js"></script>
     <script src="js/features/transfer.js"></script>
 <!-- 相册图片详情（全屏） -->

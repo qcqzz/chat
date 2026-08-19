@@ -529,8 +529,7 @@
         document.getElementById('cinema-showtime-later').addEventListener('click', function () { overlay.remove(); });
         document.getElementById('cinema-showtime-go').addEventListener('click', function () {
             overlay.remove();
-            if (typeof openCoupleSpace === 'function') openCoupleSpace();
-            if (typeof csSwitchTab === 'function') setTimeout(function () { csSwitchTab('cinema'); }, 50);
+            if (typeof openEntertainment === 'function') openEntertainment();
         });
     }
 
@@ -546,11 +545,11 @@
 
     // ── 观影沉浸模式：进入/退出（隐藏外层头像条+顶栏，强制暗色）──
     function _enterTheaterMode() {
-        var page = document.getElementById('couple-space-page');
+        var page = document.getElementById('entertainment-page');
         if (page) page.classList.add('cinema-theater-mode');
     }
     function _exitTheaterMode() {
-        var page = document.getElementById('couple-space-page');
+        var page = document.getElementById('entertainment-page');
         if (page) page.classList.remove('cinema-theater-mode');
     }
 
@@ -1805,6 +1804,38 @@
         });
     };
 
+    // ── 娱乐页打开/关闭（电影院已整体迁移到娱乐模块）──
+    window.openEntertainment = function () {
+        // 打开娱乐页前，先收起其它全屏页面/弹层，避免叠加
+        if (typeof closeCoupleSpace === 'function') closeCoupleSpace();
+        var sm = document.getElementById('settings-modal');
+        if (sm && typeof hideModal === 'function') hideModal(sm);
+        var page = document.getElementById('entertainment-page');
+        if (!page) return;
+        page.style.display = 'flex';
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                page.classList.add('cs-open');
+                if (typeof window._cinemaInit === 'function') window._cinemaInit();
+            });
+        });
+    };
+    window.closeEntertainment = window.closeEntertainmentFn = function () {
+        var page = document.getElementById('entertainment-page');
+        if (!page) return;
+        var archive = document.getElementById('cinema-archive-page');
+        if (archive && archive.classList.contains('cinema-archive-open')
+            && typeof window._cinemaCloseArchive === 'function') {
+            window._cinemaCloseArchive();
+        }
+        var panel = document.getElementById('cs-panel-cinema');
+        if (panel) panel.style.visibility = '';
+        _exitTheaterMode();
+        page.classList.remove('cs-open');
+        if (typeof window.closeAllCsSheets === 'function') window.closeAllCsSheets();
+        setTimeout(function () { page.style.display = 'none'; }, 380);
+    };
+
     // ── 接管 csSwitchTab：切到别的功能 tab 时，如果影日志档案页还开着
     //     （全屏 overlay，z-index:50），必须先关掉，否则会一直挡住其它面板，
     //     导致"点了别的 tab 但页面没有跳转"——跟 anniversary.js 用的是同一套
@@ -2049,33 +2080,25 @@
         _negoClear();
     }
 
-    // ── 小红点：电影院tab图标 + 主聊天头部"情侣空间"入口，只要轮到用户回应就一直显示 ──
+    // ── 小红点：主界面"娱乐"入口，只要轮到用户回应就一直显示（电影院已从情侣空间迁到娱乐）──
     function _negoEnsureBadgeElements() {
-        var cinemaTab = document.getElementById('csp-cinema');
-        if (cinemaTab && !document.getElementById('cinema-tab-invite-badge')) {
-            cinemaTab.style.position = 'relative';
-            var dot1 = document.createElement('span');
-            dot1.id = 'cinema-tab-invite-badge';
-            dot1.className = 'cinema-invite-dot';
-            dot1.style.display = 'none';
-            cinemaTab.appendChild(dot1);
-        }
-        var momentsBtn = document.getElementById('moments-header-btn');
-        if (momentsBtn && !document.getElementById('cinema-header-invite-badge')) {
-            var dot2 = document.createElement('span');
-            dot2.id = 'cinema-header-invite-badge';
-            dot2.className = 'cinema-invite-dot';
-            dot2.style.display = 'none';
-            momentsBtn.appendChild(dot2);
+        var entertainBtn = document.getElementById('app-entertain');
+        if (entertainBtn && !document.getElementById('cinema-header-invite-badge')) {
+            var dot = document.createElement('span');
+            dot.id = 'cinema-header-invite-badge';
+            dot.className = 'cinema-invite-dot';
+            dot.style.position = 'absolute';
+            dot.style.top = '2px';
+            dot.style.right = '2px';
+            entertainBtn.style.position = 'relative';
+            entertainBtn.appendChild(dot);
         }
     }
     function _negoUpdateBadges() {
         _negoEnsureBadgeElements();
         var show = !!(_negoState && _negoState.active && _negoState.turn === 'user');
-        ['cinema-tab-invite-badge', 'cinema-header-invite-badge'].forEach(function (id) {
-            var el = document.getElementById(id);
-            if (el) el.style.display = show ? 'block' : 'none';
-        });
+        var el = document.getElementById('cinema-header-invite-badge');
+        if (el) el.style.display = show ? 'block' : 'none';
     }
 
     // 生成梦角的"换时间"提议：在基准时间前后 2~3 小时内随机取一个点，尽量取整（round 到最近的半小时）

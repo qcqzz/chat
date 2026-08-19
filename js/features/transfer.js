@@ -44,8 +44,8 @@
     // 推送一条微信风格的红包消息（type:'redpacket'），金额等作为附加字段
     function _pushRedpacket(sender, greeting, amount) {
         var push = window.addMessage || addMessage;
-        if (typeof push !== 'function') return;
-        push({
+        if (typeof push !== 'function') return null;
+        return push({
             id: Date.now() + Math.random(),
             sender: sender,
             text: greeting || '恭喜发财，大吉大利',
@@ -132,22 +132,28 @@
         var greeting = (greetingEl && greetingEl.value.trim()) || '恭喜发财，大吉大利';
 
         // 用户发出红包消息 → 对方领取：在聊天页中间显示系统提示（不回复消息）
-        _pushRedpacket('user', greeting, amt);
+        var rp = _pushRedpacket('user', greeting, amt);
+        // 锁定刚发出的这条红包，让「已读→已领取」只作用在这条上，避免连发时互相错标
+        var rpId = (rp && rp.id != null) ? rp.id : null;
         // 阶段1：红包消息先显示「已读」（对方读到了消息，卡片仍显示「待领取」）
-        setTimeout(function () { _markRpRead(); }, 1600);
+        setTimeout(function () { _markRpRead(rpId); }, 1600);
         // 阶段2：再把红包卡片标记为「已领取」（对方拆开红包）+ 中间系统提示
-        setTimeout(function () { _pushClaimedNotice(); }, 3200);
+        setTimeout(function () { _pushClaimedNotice(rpId); }, 3200);
     }
 
-    // 阶段1：把最近一条「我发出的、未读」的红包消息标记为已读
-    function _markRpRead() {
+    // 阶段1：把指定（或最近一条「我发出的、未读」）红包消息标记为已读
+    function _markRpRead(id) {
         try {
             var arr = (typeof messages !== 'undefined' && messages) ? messages : (window.messages || []);
+            // 优先精确锁定命中的 id；id 为空时回退为"最近一条未读的我发红包"
             for (var i = arr.length - 1; i >= 0; i--) {
                 var m = arr[i];
-                if (m && m.type === 'redpacket' && m.sender === 'user' && m.status !== 'read') {
-                    m.status = 'read';
-                    break;
+                if (m && m.type === 'redpacket' && m.sender === 'user') {
+                    if (id != null) {
+                        if (String(m.id) === String(id)) { m.status = 'read'; break; }
+                    } else if (m.status !== 'read') {
+                        m.status = 'read'; break;
+                    }
                 }
             }
             try { if (typeof throttledSaveData === 'function') throttledSaveData(); } catch (e) {}
@@ -157,16 +163,18 @@
     }
 
     // 聊天页中间的系统提示：{partner}领取了{my}的红包（昵称跟随设置）
-    function _pushClaimedNotice() {
-        // 先把最近一条「我发出的红包」标记为已领取，卡片状态随之从「待领取」变为「已领取」
+    function _pushClaimedNotice(id) {
+        // 先把指定（或最近一条「我发出的、未领取」）红包标记为已领取，卡片状态随之切换
         try {
             var arr = (typeof messages !== 'undefined' && messages) ? messages : (window.messages || []);
             for (var i = arr.length - 1; i >= 0; i--) {
                 var m = arr[i];
-                if (m && m.type === 'redpacket' && m.sender === 'user' && !m.opened) {
-                    m.opened = true;
-                    m.openedAt = Date.now();
-                    break;
+                if (m && m.type === 'redpacket' && m.sender === 'user') {
+                    if (id != null) {
+                        if (String(m.id) === String(id)) { m.opened = true; m.openedAt = Date.now(); break; }
+                    } else if (!m.opened) {
+                        m.opened = true; m.openedAt = Date.now(); break;
+                    }
                 }
             }
             try { if (typeof throttledSaveData === 'function') throttledSaveData(); } catch (e) {}
@@ -292,7 +300,9 @@
         setTimeout(function check() {
             _schedulePartnerTransfer();
             try {
+                if (settings && settings.partnerRedpacketEnabled === false) return; // 关闭了梦角主动发红包
                 if (_busyWithCompanionOrCall()) return;         // 陪伴/通话中不打扰
+                if (Math.random() > 0.08) return;               // 触发概率 8%
                 var d = getData();
                 if (d.partnerCount >= LIMIT_PER_DAY) return;    // 每日已满
                 d.partnerCount++;

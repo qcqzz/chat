@@ -562,9 +562,11 @@ fileInput.addEventListener('change', function(e) {
             });
 
 
-            DOMElements.settingsModal.settingsBtn.addEventListener('click', () => {
-                showModal(DOMElements.settingsModal.modal);
-            });
+            if (DOMElements.settingsModal && DOMElements.settingsModal.settingsBtn) {
+                DOMElements.settingsModal.settingsBtn.addEventListener('click', () => {
+                    showModal(DOMElements.settingsModal.modal);
+                });
+            }
             DOMElements.favoritesModal.favoritesBtn.addEventListener('click', () => {
                 showModal(document.getElementById('group-chat-modal'));
             });
@@ -591,7 +593,8 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
         '#read-receipts-toggle': { prop: 'readReceiptsEnabled', name: '已读回执' },
         '#typing-indicator-toggle': { prop: 'typingIndicatorEnabled', name: '正在输入' },
         '#read-no-reply-toggle': { prop: 'allowReadNoReply', name: '已读不回' },
-        '#emoji-mix-toggle': { prop: 'emojiMixEnabled', name: '表情消息' }
+        '#emoji-mix-toggle': { prop: 'emojiMixEnabled', name: '表情消息' },
+        '#partner-redpacket-toggle': { prop: 'partnerRedpacketEnabled', name: '梦角主动发红包' }
     };
     for (const [selector, { prop }] of Object.entries(toggleSyncMap)) {
         const el = document.querySelector(selector);
@@ -1247,7 +1250,8 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
                     '#read-no-reply-toggle': { prop: 'allowReadNoReply', name: '已读不回' },
                     '#emoji-mix-toggle': { prop: 'emojiMixEnabled', name: '表情混入消息' },
                     '#partner-recall-toggle': { prop: 'partnerRecallEnabled', name: '梦角撤回消息' },
-                    '#partner-hangup-toggle': { prop: 'partnerHangupEnabled', name: '梦角主动挂断' }
+                    '#partner-hangup-toggle': { prop: 'partnerHangupEnabled', name: '梦角主动挂断' },
+                    '#partner-redpacket-toggle': { prop: 'partnerRedpacketEnabled', name: '梦角主动发红包' }
 };
 
             for (const [selector, {
@@ -3759,6 +3763,15 @@ window.exitCollapseMode = function() {
     }
 
     window.RedpacketCrop = {
+        // 顶部栏背景等自定义裁剪：由外部模块调用，传入裁剪键与比例
+        start: function (key, ratio) {
+            _cropKey = key;
+            _ratio = ratio || 2.6;
+            const hint = $('rp-crop-hint');
+            if (hint) hint.textContent = '拖动裁剪框或移动图片，用下方滑杆缩放，选择要保留的区域';
+            const input = $('redpacket-cover-crop-input');
+            if (input) { input.value = ''; input.click(); }
+        },
         cancel: function () {
             const modal = $('redpacket-crop-modal');
             if (modal && typeof hideModal === 'function') hideModal(modal);
@@ -3779,6 +3792,16 @@ window.exitCollapseMode = function() {
             const cx = cv.getContext('2d');
             cx.drawImage(_img, sx, sy, sw, sh, 0, 0, outW, outH);
             const dataURL = cv.toDataURL('image/jpeg', 0.92);
+            if (_cropKey === 'topbarBackground') {
+                // 顶部栏背景：交给桌面模块处理（独立图库 + 应用）
+                if (window.DesktopTopbar && typeof window.DesktopTopbar.accept === 'function') {
+                    window.DesktopTopbar.accept(dataURL);
+                }
+                const modal = $('redpacket-crop-modal');
+                if (modal && typeof hideModal === 'function') hideModal(modal);
+                _cropKey = null;
+                return;
+            }
             if (typeof settings === 'object' && settings) settings[_cropKey] = dataURL;
             if (typeof saveData === 'function') { try { saveData(); } catch (err) {} }
             if (typeof renderMessages === 'function') { try { renderMessages(); } catch (err) {} }

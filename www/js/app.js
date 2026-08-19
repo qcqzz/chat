@@ -60,6 +60,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         ]);
 
         setInterval(checkStatusChange, 60000);
+        // 情侣空间动态周期检测：让梦角发动态/点赞/评论按时触发，并推送系统通知
+        setInterval(function () {
+            try { if (typeof checkMomentsStatus === 'function') checkMomentsStatus(); } catch (e) {}
+        }, 60000);
 
         if (disclaimerModal) {
             const tourSeen = await safeAwait(localforage?.getItem(APP_PREFIX + 'tour_seen'), false);
