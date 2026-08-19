@@ -59,9 +59,9 @@ jobs:
       - name: 设置版本号
         run: |
           # 更新 versionCode 和 versionName（覆盖 Capacitor 默认值）
-          sed -i 's/versionCode 1/versionCode 17/' android/app/build.gradle
+          sed -i 's/versionCode 1/versionCode 18/' android/app/build.gradle
           sed -i 's/versionName "1.0"/versionName "2.0"/' android/app/build.gradle
-          echo "Updated versionCode to 17, versionName to 2.0"
+          echo "Updated versionCode to 18, versionName to 2.0"
 
       - name: 注入前台服务保活代码
         run: |
@@ -69,6 +69,11 @@ jobs:
           mkdir -p android/app/src/main/assets
           mkdir -p android/app/src/main/java/com/chuanxun/app/
           mkdir -p android/app/src/main/res/xml/
+          mkdir -p android/app/src/main/res/values/
+          
+          # launch_theme.xml — 深色启动主题（消除启动白屏）；AndroidManifest 引用 @style/AppThemeLaunch 和 @color/launch_window_bg
+          cp android-src/app/src/main/res/values/launch_theme.xml \
+             android/app/src/main/res/values/launch_theme.xml
           
           # file_paths.xml — FileProvider 路径配置（AndroidManifest 引用 @xml/file_paths）
           cp android-src/app/src/main/res/xml/file_paths.xml \
