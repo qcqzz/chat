@@ -281,9 +281,13 @@
         var splash = document.getElementById('splash-declaration');
         if (splash) {
             splash.classList.add('splash-fade-out');
-            setTimeout(function() { splash.style.display = 'none'; }, 950);
+            setTimeout(function() {
+                splash.style.display = 'none';
+                // 声明结束钩子：由 app 的启动顺序控制接管（接下来播放欢迎动画）
+                if (window.__onSplashDone) window.__onSplashDone();
+            }, 950);
         }
-    }
+}
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initSplash);
@@ -309,14 +313,15 @@ let isTourActive = false;
 const tourSteps = [
     {
         title: "✨ 欢迎来到「传讯」",
-        content: "这里是你们专属的私密空间。<br><br>这个教程共 <b>20 步</b>，带你从头到尾认识每一个功能，建议完整看完哦 🥺<br><br>点击「下一步」开始吧！",
+        content: "这里是你们专属的私密空间。<br><br>这个教程共 <b>21 步</b>，带你从头到尾认识每一个功能，建议完整看完哦 🥺<br><br>点击「下一步」开始吧！",
         position: 'center'
     },
     {
         element: '#my-avatar',
         title: "📷 你的头像",
         content: "这是你的头像。点击它可以上传图片作为你的头像。",
-        position: 'bottom'
+        position: 'bottom',
+        onBefore: () => { if (window.DesktopTopbar && typeof window.DesktopTopbar.openChat === 'function') window.DesktopTopbar.openChat(); }
     },
     {
         element: '#my-name',
@@ -386,22 +391,33 @@ const tourSteps = [
     {
         element: '#app-space',
         title: "🏠 你们的空间",
-        content: "点击进入你们的专属空间，里面有：<br>• <b>动态</b>：一起分享日常和照片<br>• <b>心情手账</b>：一起记录每天的心情<br>• <b>纪念日</b>：一起倒数重要的日子<br>• <b>电影院</b>：约定时间一起看电影 🎬",
-        position: 'bottom'
+        content: "点击进入你们的专属空间，里面有：<br>• <b>动态</b>：一起分享日常和照片<br>• <b>心情手账</b>：一起记录每天的心情<br>• <b>纪念日</b>：一起倒数重要的日子",
+        position: 'top',
+        iconHighlight: true,
+        onBefore: () => { if (window.DesktopTopbar && typeof window.DesktopTopbar.showDesktop === 'function') window.DesktopTopbar.showDesktop(); }
+    },
+    {
+        element: '#app-entertain',
+        title: "🎵 娱乐",
+        content: "进入娱乐一起度过你们的休闲时光<br>• <b>电影院</b>：约定时间一起看电影 🎬",
+        position: 'top',
+        iconHighlight: true,
+        onBefore: () => { if (window.DesktopTopbar && typeof window.DesktopTopbar.showDesktop === 'function') window.DesktopTopbar.showDesktop(); }
     },
     {
         element: '#app-setting',
         title: "⚙️ 设置中心",
         content: "所有个性化配置都在这个设置按钮里，我们点进去看一下！",
-        position: 'bottom',
-        onBefore: () => { if (isTourActive) document.querySelectorAll('.modal').forEach(m => hideModal(m)); }
+        position: 'top',
+        iconHighlight: true,
+        onBefore: () => { if (window.DesktopTopbar && typeof window.DesktopTopbar.showDesktop === 'function') window.DesktopTopbar.showDesktop(); }
     },
     {
         element: '#appearance-settings',
         title: "🎨 外观设置",
         content: "外观设置里可以调整：<br>• 切换不同的颜色主题<br>• 更换聊天背景图和陪伴模式背景<br>• 调整字体大小和气泡样式<br>• 设置聊天界面的头像显示方式",
         position: 'bottom',
-        onBefore: () => { if (isTourActive) showModal(DOMElements.settingsModal.modal); }
+        onBefore: () => { if (window.DesktopTopbar && typeof window.DesktopTopbar.showDesktop === 'function') window.DesktopTopbar.showDesktop(); if (isTourActive) showModal(DOMElements.settingsModal.modal); }
     },
     {
         element: '#chat-settings',
@@ -431,10 +447,7 @@ const tourSteps = [
 ];
 
 function startTour() {
-    // 首次引导针对聊天页功能，先切到聊天视图再高亮
-    if (window.DesktopTopbar && typeof window.DesktopTopbar.openChat === 'function') {
-        window.DesktopTopbar.openChat();
-    }
+    // 第一步（欢迎语）在桌面页居中显示，从第二步起才进入聊天页高亮
     isTourActive = true;
     tourOverlay.style.display = 'block';
     setTimeout(() => tourOverlay.classList.add('active'), 10);
@@ -498,17 +511,24 @@ function showTourStep(index) {
             }
         } else if (step.element) {
             const el = document.querySelector(step.element);
-            if (el) combinedRect = el.getBoundingClientRect();
+            if (el) {
+                // 桌面图标步骤：高光对准图标本体（.app-icon），使其形状与图标一致
+                const target = step.iconHighlight ? el.querySelector('.app-icon') : el;
+                if (target) combinedRect = target.getBoundingClientRect();
+            }
         }
         if (combinedRect) {
             const rect = combinedRect;
-            tourHighlightBox.style.width = `${rect.width + 10}px`;
-            tourHighlightBox.style.height = `${rect.height + 10}px`;
-            tourHighlightBox.style.top = `${rect.top - 5}px`;
-            tourHighlightBox.style.left = `${rect.left - 5}px`;
+            const pad = step.iconHighlight ? 8 : 5;
+            tourHighlightBox.classList.toggle('tour-highlight-icon', !!step.iconHighlight);
+            tourHighlightBox.style.width = `${rect.width + pad * 2}px`;
+            tourHighlightBox.style.height = `${rect.height + pad * 2}px`;
+            tourHighlightBox.style.top = `${rect.top - pad}px`;
+            tourHighlightBox.style.left = `${rect.left - pad}px`;
             tourHighlightBox.style.opacity = '1';
             positionPopover(rect, step.position);
         } else {
+            tourHighlightBox.classList.remove('tour-highlight-icon');
             tourHighlightBox.style.opacity = '0';
             tourHighlightBox.style.width = '0px';
             tourHighlightBox.style.height = '0px';

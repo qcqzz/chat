@@ -65,25 +65,63 @@ document.addEventListener('DOMContentLoaded', async () => {
             try { if (typeof checkMomentsStatus === 'function') checkMomentsStatus(); } catch (e) {}
         }, 60000);
 
-        if (disclaimerModal) {
-            const tourSeen = await safeAwait(localforage?.getItem(APP_PREFIX + 'tour_seen'), false);
-            
-            if (!tourSeen) {
-                showModal(disclaimerModal);
-                
-                if (acceptDisclaimerBtn && !acceptDisclaimerBtn._bound) {
-                    acceptDisclaimerBtn._bound = true;
-                    acceptDisclaimerBtn.addEventListener('click', () => {
-                        hideModal(disclaimerModal);
-                        localforage?.setItem(APP_PREFIX + 'tour_seen', true).catch(() => {});
-                        startTour?.();
-                    }, { once: true });
-                }
+        updateLoader('连接成功，欢迎回来。', '100%');
+
+        // ===== 启动进入顺序：使用前声明 → 欢迎动画 → 桌面 → 免责/引导/公告 =====
+        const signed = localStorage.getItem('splashPledgeSigned_v3') === 'true';
+        const tourSeen = await safeAwait(localforage?.getItem(APP_PREFIX + 'tour_seen'), localStorage.getItem('tourSeenDone') === '1');
+
+        function showWelcome() {
+            if (!welcomeScreen) return;
+            welcomeScreen.classList.remove('hidden');
+            welcomeScreen.style.display = 'flex';
+        }
+        // 播放欢迎动画：重新跑一遍开场动画，停留片刻淡出后再执行 next
+        function playWelcomeAndGive(next) {
+            showWelcome();
+            try { if (typeof initializeRandomUI === 'function') { initializeRandomUI(); } } catch (e) {}
+            setTimeout(function () {
+                hideWelcomeScreen();
+                setTimeout(next, 850);
+            }, 3000);
+        }
+        function enterDisclaimer() {
+            showModal(disclaimerModal);
+            if (acceptDisclaimerBtn && !acceptDisclaimerBtn._bound) {
+                acceptDisclaimerBtn._bound = true;
+                acceptDisclaimerBtn.addEventListener('click', function () {
+                    hideModal(disclaimerModal);
+                    localforage?.setItem(APP_PREFIX + 'tour_seen', true).catch(function () {});
+                    startTour?.();
+                }, { once: true });
             }
         }
+        function revealDesktopAndProceed() {
+            document.body.classList.add('dt-view');
+            try { if (window.DesktopTopbar && typeof window.DesktopTopbar.showDesktop === 'function') window.DesktopTopbar.showDesktop(); } catch (e) {}
+            // 未完成引导 → 免责声明 → 新手指引（结束后由 endTour 弹今日公告）
+            if (!tourSeen) {
+                enterDisclaimer();
+            } else {
+                // 已完成引导 → 直接弹今日公告
+                setTimeout(function () {
+                    try { if (typeof window.tryShowDailyGreeting === 'function') window.tryShowDailyGreeting(); } catch (e) {}
+                }, 600);
+            }
+            window.__bootGateDone = true;
+        }
 
-        updateLoader('连接成功，欢迎回来。', '100%');
-        setTimeout(hideWelcomeScreen, 900);
+        if (!signed) {
+            // 首次进入：先显示使用前声明，欢迎动画临时隐藏，声明结束后再播
+            if (welcomeScreen) { welcomeScreen.classList.add('hidden'); welcomeScreen.style.display = 'none'; }
+            window.__onSplashDone = function () {
+                delete window.__onSplashDone;
+                playWelcomeAndGive(function () { revealDesktopAndProceed(); });
+            };
+        } else {
+            // 再次进入：直接播放欢迎动画
+            playWelcomeAndGive(function () { revealDesktopAndProceed(); });
+        }
 
         // 自动检查更新（启动后延迟执行，避免影响启动性能）
         setTimeout(function () {
@@ -562,28 +600,32 @@ window.addEventListener('load', function() {
     }, 3000);
 
     setTimeout(function() {
-        try {
-            if (localStorage.getItem('dailyGreetingShown') === new Date().toDateString()) return;
-            try { if (typeof checkPartnerDailyMood === 'function') checkPartnerDailyMood(); } catch(e2) { console.warn('checkPartnerDailyMood error:', e2); }
-            if (typeof _buildDailyGreeting === 'function') _buildDailyGreeting();
-            if (window.localforage && window.APP_PREFIX) {
-                localforage.getItem(window.APP_PREFIX + 'tour_seen').then(function(seen) {
-                    if (seen) {
-                        var modal = document.getElementById('daily-greeting-modal');
-                        if (modal) modal.classList.remove('hidden');
-                        localStorage.setItem('dailyGreetingShown', new Date().toDateString());
+        // 启动顺序控制器已负责弹今日公告时，跳过这里的兜底逻辑，避免重复
+        if (!window.__bootGateDone) {
+            try {
+                if (localStorage.getItem('dailyGreetingShown') === new Date().toDateString()) return;
+                try { if (typeof checkPartnerDailyMood === 'function') checkPartnerDailyMood(); } catch(e2) { console.warn('checkPartnerDailyMood error:', e2); }
+                if (typeof _buildDailyGreeting === 'function') _buildDailyGreeting();
+                // 今日公告统一在桌面页弹出：弹出前确保处于桌面视图
+                function showGreetingOnDesktop() {
+                    if (window.DesktopTopbar && typeof window.DesktopTopbar.showDesktop === 'function') {
+                        window.DesktopTopbar.showDesktop();
                     }
-                }).catch(function() {
                     var modal = document.getElementById('daily-greeting-modal');
                     if (modal) modal.classList.remove('hidden');
                     localStorage.setItem('dailyGreetingShown', new Date().toDateString());
-                });
-            } else {
-                var modal = document.getElementById('daily-greeting-modal');
-                if (modal) modal.classList.remove('hidden');
-                localStorage.setItem('dailyGreetingShown', new Date().toDateString());
-            }
-        } catch(e) { console.warn('Daily greeting timing error:', e); }
+                }
+                if (window.localforage && window.APP_PREFIX) {
+                    localforage.getItem(window.APP_PREFIX + 'tour_seen').then(function(seen) {
+                        if (seen) showGreetingOnDesktop();
+                    }).catch(function() {
+                        showGreetingOnDesktop();
+                    });
+                } else {
+                    showGreetingOnDesktop();
+                }
+            } catch(e) { console.warn('Daily greeting timing error:', e); }
+        }
 
         // 启动时检查梦角是否主动来信
         try {

@@ -7174,6 +7174,11 @@
     pointer-events: none;
     z-index: 10001;
         }
+        /* 桌面图标步骤：高光与图标同形（圆角方块），落在图标上 */
+        .tour-highlight-box.tour-highlight-icon {
+    border-radius: 24px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3), 0 0 0 3px rgba(255, 255, 255, 0.95), 0 0 26px rgba(255, 255, 255, 0.55);
+        }
 
         .tour-popover {
     position: absolute;
@@ -14245,10 +14250,15 @@ html[data-theme="dark"] .redpacket-send-head-ico i { color: var(--accent-color-d
 /* ── 小手机桌面：底部应用图标网格（功能稍后接入） ── */
 #phone-desktop{position:fixed;inset:0;z-index:900;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top, 0px) + 12px) 0 calc(env(safe-area-inset-bottom, 0px) + 22px);pointer-events:none;}
 
-/* ── 桌面/聊天视图切换：桌面视图隐藏聊天主体；聊天视图隐藏桌面 ── */
+/* ── 桌面/聊天视图切换：桌面视图隐藏聊天主体（保留承载桌面/子页面的 .main-chat-area）；聊天视图隐藏桌面 ── */
 body.dt-view .header,
-body.dt-view .main-chat-area,
-body.dt-view .input-area-wrapper{display:none !important;}
+body.dt-view #chat-container,
+body.dt-view .input-area-wrapper,
+body.dt-view #back-to-latest-btn,
+body.dt-view #empty-state,
+body.dt-view #typing-indicator-wrapper,
+body.dt-view #history-loader,
+body.dt-view #future-loader{display:none !important;}
 body:not(.dt-view) #phone-desktop{display:none;}
 
 /* ── 桌面顶部栏（个性签名 + 两侧头像昵称，无右上角小图标） ── */
