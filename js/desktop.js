@@ -149,26 +149,35 @@
     }
 
     // ── 拍立得：三层相纸，点击轮换展示顺序 ──
-    var _plOrder = ['p1.jpg', 'p2.jpg', 'p3.jpg'];   // 下标 0 = 最前（pl-1）
+    // 三张照片分别有独立的上传位（下标 0/1/2 ↔ p1/p2/p3），
+    // 未上传时显示默认灰底图；轮换只改变这三张的显示前后顺序。
+    var _plOrder = [0, 1, 2];                    // 下标 0 = 最前（pl-1）
     var _plFronts = ['pl-1', 'pl-2', 'pl-3'];
+    var POLAROID_DEFAULT = 'desktop-pl/default.jpg';   // 默认灰底图
+    var PL_KEYS = ['tiDesktopPl1', 'tiDesktopPl2', 'tiDesktopPl3'];
     // 未设置拍立得 / 图片缺失时，照片区显示的灰色占位图片
     var _plPlaceholder = 'data:image/svg+xml;utf8,' + encodeURIComponent(
         '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">' +
         '<rect width="200" height="200" fill="#e6e2da"/>' +
         '</svg>'
     );
+    function getPl(i) { try { return localStorage.getItem(PL_KEYS[i]) || ''; } catch (e) { return ''; } }
+    function setPl(i, v) { try { localStorage.setItem(PL_KEYS[i], v || ''); } catch (e) {} }
+
     function renderPolaroid() {
         var cards = document.querySelectorAll('#dt-polaroid .dt-polaroid-card');
         if (!cards.length) return;
         for (var i = 0; i < cards.length; i++) {
             var img = cards[i].querySelector('img');
             if (img) {
+                var idx = _plOrder[i];
+                var custom = getPl(idx);
                 img.onerror = function () {
                     // 图片缺失/未设置：展示灰底占位，且不再重复触发
                     this.onerror = null;
                     this.src = _plPlaceholder;
                 };
-                img.src = 'desktop-pl/' + _plOrder[i];
+                img.src = custom || POLAROID_DEFAULT;
             }
             cards[i].className = 'dt-polaroid-card ' + _plFronts[i];
         }
@@ -180,6 +189,74 @@
         renderPolaroid();
         c.classList.add('flip');
         setTimeout(function () { c.classList.remove('flip'); }, 420);
+    }
+
+    // ── 拍立得设置：三张照片分别上传（排版参考聊天背景） ──
+    var _plSlot = 0;   // 当前正在上传的拍立得位（0/1/2）
+    function renderPolaroidGallery() {
+        for (var i = 0; i < 3; i++) {
+            var list = $('polaroid-gallery-' + (i + 1));
+            if (!list) continue;
+            list.innerHTML = '';
+            var v = getPl(i);
+            var tile = document.createElement('div');
+            tile.className = 'bg-item' + (v ? '' : '');
+            var img = document.createElement('img');
+            img.src = v || POLAROID_DEFAULT;
+            img.loading = 'lazy';
+            img.alt = '拍立得';
+            tile.appendChild(img);
+            tile.title = v ? '点击更换第 ' + (i + 1) + ' 张照片' : '点击设置第 ' + (i + 1) + ' 张照片（当前为默认灰底图）';
+            tile.onclick = (function (slot) {
+                return function () { pickPolaroidFile(slot); };
+            })(i);
+            if (v) {
+                var del = document.createElement('div');
+                del.className = 'bg-delete-btn';
+                del.innerHTML = '<i class="fas fa-trash"></i>';
+                del.title = '恢复默认灰底图';
+                del.onclick = (function (slot) {
+                    return function () {
+                        if (!confirm('确定将这张拍立得恢复为默认灰底图吗？')) return;
+                        setPl(slot, '');
+                        renderPolaroidGallery();
+                        renderPolaroid();
+                    };
+                })(i);
+                tile.appendChild(del);
+            }
+            list.appendChild(tile);
+        }
+    }
+    function pickPolaroidFile(slot) {
+        var input = $('polaroid-file-input');
+        if (!input) return;
+        _plSlot = slot;
+        input.value = '';
+        input.click();
+    }
+    function onPolaroidFileChange() {
+        var input = $('polaroid-file-input');
+        if (!input || !input.files || !input.files[0]) return;
+        var file = input.files[0];
+        if (file.size > 4 * 1024 * 1024) {
+            showNotification && showNotification('图片过大，请选择 4MB 以内的图片', 'error');
+            return;
+        }
+        var reader = new FileReader();
+        reader.onload = function () {
+            setPl(_plSlot, reader.result);
+            renderPolaroidGallery();
+            renderPolaroid();
+            showNotification && showNotification('拍立得第 ' + (_plSlot + 1) + ' 张已更新', 'success');
+        };
+        reader.readAsDataURL(file);
+    }
+    function resetAllPolaroid() {
+        setPl(0, ''); setPl(1, ''); setPl(2, '');
+        renderPolaroidGallery();
+        renderPolaroid();
+        showNotification && showNotification('已恢复默认灰底图', 'success');
     }
 
     // ── 纪念日方块：收集所有重要日（相遇 + 各纪念日），点击循环切换 ──
@@ -381,6 +458,12 @@
 
         var pl = $('dt-polaroid');
         if (pl) pl.addEventListener('click', cyclePolaroid);
+
+        var plInput = $('polaroid-file-input');
+        if (plInput) plInput.addEventListener('change', onPolaroidFileChange);
+        var plReset = $('reset-all-polaroid');
+        if (plReset) plReset.addEventListener('click', resetAllPolaroid);
+
         var ann = $('dt-anniversary');
         if (ann) ann.addEventListener('click', cycleAnniversary);
 
@@ -391,6 +474,7 @@
         renderDesktopBgGallery();
         applyDesktopBg(getDkActive());
         renderPolaroid();
+        renderPolaroidGallery();
         renderAnniversary();
 
         // 启动默认进入桌面页（隐藏聊天页主体），点击「聊天」图标后再打开聊天页

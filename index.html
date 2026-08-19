@@ -67,6 +67,51 @@
 @media(prefers-reduced-motion:reduce){#cs-transition-overlay *{animation-play-state:paused!important;}}
 html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle at 50% 36%,rgba(45,45,45,.95),rgba(30,30,30,.9) 30%,rgba(18,18,18,.98) 72%),#121212;}
 </style>
+<style id="chat-transition-styles">
+/* ── 进入聊天页动画：轻薄云雾 + 中央立体爱心跳动，颜色跟随系统 ── */
+#chat-transition-overlay{
+  --ct-ov-bg: radial-gradient(120% 92% at 50% 28%, rgba(255,214,224,.6), rgba(255,244,240,.34) 48%, rgba(244,231,240,.6) 100%), #f7edf4;
+  --ct-cloud-a: rgba(255,255,255,.6);
+  --ct-cloud-b: rgba(255,255,255,.38);
+  --ct-cloud-c: rgba(255,255,255,.2);
+  --ct-heart-top:#ffcdd8; --ct-heart-mid:#ff8ba3; --ct-heart-deep:#e84772;
+  --ct-heart-glow:#ff9fb8; --ct-heart-high:#ffffff; --ct-heart-shadow:rgba(120,40,70,.20);
+
+  position:fixed; top:0; right:0; bottom:0; left:0; inset:0; z-index:1600;
+  display:none; align-items:center; justify-content:center;
+  background:var(--ct-ov-bg); opacity:0; transition:opacity .5s ease; pointer-events:none;
+  overflow:hidden;
+}
+#chat-transition-overlay.ct-show{display:flex; pointer-events:all;}
+#chat-transition-overlay.ct-visible{opacity:1;}
+
+/* 轻薄云雾（全幅漂移）*/
+#chat-transition-overlay .ct-clouds{position:absolute; top:0; left:0; width:100%; height:100%;}
+#chat-transition-overlay .ct-cloud{transition:opacity 1s ease;}
+#chat-transition-overlay .ct-c1{fill:var(--ct-cloud-a); animation:ctDrift 15s ease-in-out infinite;}
+#chat-transition-overlay .ct-c2{fill:var(--ct-cloud-b); animation:ctDrift 21s ease-in-out infinite; animation-delay:-6s;}
+#chat-transition-overlay .ct-c3{fill:var(--ct-cloud-c); animation:ctDrift 27s ease-in-out infinite; animation-delay:-12s;}
+@keyframes ctDrift{0%{transform:translateX(-40px);}50%{transform:translateX(40px);}100%{transform:translateX(-40px);}}
+
+/* 中央立体爱心 */
+#chat-transition-overlay .ct-heart-wrap{position:relative; width:56vw; max-width:360px; aspect-ratio:1; display:flex; align-items:center; justify-content:center;}
+#chat-transition-overlay .ct-heart-err{transform-box:fill-box; transform-origin:center 62%;}
+#chat-transition-overlay .ct-h-glow{transform-box:fill-box; transform-origin:center; animation:ctGlow 2.6s cubic-bezier(.3,.7,.3,1) infinite;}
+#chat-transition-overlay .ct-h-main{transform-box:fill-box; transform-origin:center 62%; animation:ctBeat 2.6s cubic-bezier(.3,.7,.3,1) infinite;}
+#chat-transition-overlay .ct-h-eye{transform-box:fill-box; transform-origin:center; animation:ctBeat 2.6s cubic-bezier(.3,.7,.3,1) infinite;}
+@keyframes ctBeat{0%,42%,100%{transform:scale(1);}10%{transform:scale(1.18) translateY(-4px);}20%{transform:scale(.94);}30%{transform:scale(1.1) translateY(-2px);}}
+@keyframes ctGlow{0%,42%,100%{transform:scale(.9);opacity:.5;}10%{transform:scale(1.32);opacity:.9;}20%{transform:scale(.9);opacity:.55;}30%{transform:scale(1.24);opacity:.8;}}
+
+@media(prefers-reduced-motion:reduce){#chat-transition-overlay *{animation-play-state:paused!important;}}
+html[data-theme="dark"] #chat-transition-overlay{
+  --ct-ov-bg: radial-gradient(120% 92% at 50% 28%, rgba(78,38,54,.62), rgba(42,22,32,.42) 48%, rgba(20,10,18,.62) 100%), #200f1a;
+  --ct-cloud-a: rgba(136,118,128,.32);
+  --ct-cloud-b: rgba(136,118,128,.2);
+  --ct-cloud-c: rgba(136,118,128,.12);
+  --ct-heart-top:#ff9db1; --ct-heart-mid:#f25b82; --ct-heart-deep:#c02052;
+  --ct-heart-glow:#ff5f86; --ct-heart-high:#ffe4ec; --ct-heart-shadow:rgba(0,0,0,.38);
+}
+</style>
 </head>
 <body>
 <div id="splash-declaration">
@@ -517,6 +562,47 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
     </svg>
   </div>
 </div>
+<!-- ── 进入聊天页过渡层：轻薄云雾 + 中央立体爱心 ── -->
+<div id="chat-transition-overlay">
+  <svg class="ct-clouds" viewBox="0 0 800 480" preserveAspectRatio="xMidYMid slice" role="img" aria-label="轻柔云雾">
+    <g class="ct-cloud ct-c1" transform="translate(120,90)">
+      <ellipse cx="0" cy="0" rx="150" ry="34"/>
+      <ellipse cx="-90" cy="-16" rx="70" ry="26"/>
+      <ellipse cx="95" cy="-12" rx="84" ry="28"/>
+    </g>
+    <g class="ct-cloud ct-c2" transform="translate(520,300)">
+      <ellipse cx="0" cy="0" rx="170" ry="30"/>
+      <ellipse cx="-105" cy="-12" rx="80" ry="24"/>
+      <ellipse cx="108" cy="-10" rx="92" ry="25"/>
+    </g>
+    <g class="ct-cloud ct-c3" transform="translate(380,120)">
+      <ellipse cx="0" cy="0" rx="120" ry="24"/>
+      <ellipse cx="-70" cy="-12" rx="62" ry="20"/>
+      <ellipse cx="72" cy="-10" rx="66" ry="20"/>
+    </g>
+  </svg>
+  <div class="ct-heart-wrap">
+    <svg class="ct-heart-err" viewBox="0 0 200 200" width="200" height="200" style="filter:drop-shadow(0 14px 24px var(--ct-heart-shadow));">
+      <defs>
+        <linearGradient id="ctHeartG" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="var(--ct-heart-top)"/>
+          <stop offset="0.55" stop-color="var(--ct-heart-mid)"/>
+          <stop offset="1" stop-color="var(--ct-heart-deep)"/>
+        </linearGradient>
+        <radialGradient id="ctHeartGlowG" x1="0.5" y1="0.5" x2="0.5" y2="0.5">
+          <stop offset="0" stop-color="var(--ct-heart-glow)" stop-opacity=".9"/>
+          <stop offset="1" stop-color="var(--ct-heart-glow)" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <ellipse class="ct-h-glow" cx="100" cy="100" rx="92" ry="88" fill="url(#ctHeartGlowG)"/>
+      <g class="ct-h-main" fill="url(#ctHeartG)">
+        <path d="M100 152 C 66 122 40 98 40 64 C 40 36 66 18 94 18 C 101 18 100 30 100 30 C 100 30 100 18 106 18 C 134 18 160 36 160 64 C 160 98 134 122 100 152 Z"/>
+      </g>
+      <path class="ct-h-eye" d="M78 52 C 70 46 58 52 62 62 C 66 70 78 74 78 66 Z" fill="var(--ct-heart-high)" opacity=".85"/>
+      <path class="ct-h-main" d="M100 152 C 66 122 40 98 40 64 C 40 36 66 18 94 18 C 101 18 100 30 100 30 C 100 30 100 18 106 18 C 134 18 160 36 160 64 C 160 98 134 122 100 152 Z" fill="none" stroke="var(--ct-heart-high)" stroke-opacity=".5" stroke-width="3"/>
+    </svg>
+  </div>
+</div>
 <!-- ── 小手机桌面：顶部栏 + 底部应用图标网格 ── -->
 <div id="phone-desktop">
     <!-- 桌面顶部栏（个性签名 + 两侧头像昵称，无右上角小图标） -->
@@ -531,9 +617,9 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
                     <span class="dt-name" id="dt-name-partner">梦角</span>
                 </div>
                 <div class="dt-heartbeat" aria-hidden="true">
-                    <svg viewBox="0 0 600 40" preserveAspectRatio="none">
-                        <path class="hb-line hb-shadow" vector-effect="non-scaling-stroke" d="M0,22 L136,22 L154,22 L162,34 L178,10 L190,22 L266,22 L284,22 L294,30 L306,12 L318,22 L600,22"/>
-                        <path class="hb-line hb-main hb-run" vector-effect="non-scaling-stroke" d="M0,22 L136,22 L154,22 L162,34 L178,10 L190,22 L266,22 L284,22 L294,30 L306,12 L318,22 L600,22"/>
+                    <svg viewBox="0 0 1000 100" preserveAspectRatio="none">
+                        <path class="hb-line hb-shadow" vector-effect="non-scaling-stroke" d="M6,60 L296,60 C312,60 314,45 328,45 C342,45 344,60 360,60 L430,60 C438,60 442,67 450,67 C456,67 458,22 464,8 C470,-6 480,4 482,26 C484,44 488,58 492,64 C498,76 508,72 512,60 C516,44 520,22 526,22 C532,22 536,60 552,60 L620,60 C630,60 634,76 652,76 C670,76 674,60 700,60 C708,40 720,20 738,18 C766,16 786,28 790,42 C792,26 810,12 838,16 C864,20 874,42 862,58 C850,72 824,76 812,78 C798,76 782,66 780,56 C778,48 786,42 798,46 C796,54 800,58 808,60 L992,60"/>
+                        <path class="hb-line hb-main hb-run" vector-effect="non-scaling-stroke" d="M6,60 L296,60 C312,60 314,45 328,45 C342,45 344,60 360,60 L430,60 C438,60 442,67 450,67 C456,67 458,22 464,8 C470,-6 480,4 482,26 C484,44 488,58 492,64 C498,76 508,72 512,60 C516,44 520,22 526,22 C532,22 536,60 552,60 L620,60 C630,60 634,76 652,76 C670,76 674,60 700,60 C708,40 720,20 738,18 C766,16 786,28 790,42 C792,26 810,12 838,16 C864,20 874,42 862,58 C850,72 824,76 812,78 C798,76 782,66 780,56 C778,48 786,42 798,46 C796,54 800,58 808,60 L992,60"/>
                     </svg>
                 </div>
                 <div class="dt-user dt-user-me">
@@ -546,9 +632,9 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
     <!-- 桌面中部内容：拍立得相册 + 纪念日方块 -->
     <div class="dt-content">
         <div class="dt-polaroid" id="dt-polaroid" title="点击切换照片顺序">
-            <div class="dt-polaroid-card pl-3"><img src="desktop-pl/p3.jpg" alt=""><span></span></div>
-            <div class="dt-polaroid-card pl-2"><img src="desktop-pl/p2.jpg" alt=""><span></span></div>
-            <div class="dt-polaroid-card pl-1"><img src="desktop-pl/p1.jpg" alt=""><span></span></div>
+            <div class="dt-polaroid-card pl-3"><img src="desktop-pl/default.jpg" alt=""><span></span></div>
+            <div class="dt-polaroid-card pl-2"><img src="desktop-pl/default.jpg" alt=""><span></span></div>
+            <div class="dt-polaroid-card pl-1"><img src="desktop-pl/default.jpg" alt=""><span></span></div>
             <div class="pl-hint"><i class="fas fa-sync-alt"></i> 点击翻看</div>
         </div>
         <div class="dt-anniversary" id="dt-anniversary" title="点击切换重要日">
@@ -560,11 +646,11 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
         </div>
     </div>
     <div class="app-grid">
-        <div class="app-cell" data-app="chat" id="app-chat" onclick="(function(){if(typeof window.closeEntertainment==='function')window.closeEntertainment();if(typeof closeCoupleSpace==='function')closeCoupleSpace();var sm=document.getElementById('settings-modal');if(sm&&typeof hideModal==='function')hideModal(sm);if(window.DesktopTopbar&&typeof DesktopTopbar.openChat==='function')DesktopTopbar.openChat();})()">
+        <div class="app-cell" data-app="chat" id="app-chat" onclick="(function(){if(typeof window.closeEntertainment==='function')window.closeEntertainment();if(typeof closeCoupleSpace==='function')closeCoupleSpace();var sm=document.getElementById('settings-modal');if(sm&&typeof hideModal==='function')hideModal(sm);openChatWithTransition();})()">
             <div class="app-icon"><i class="fas fa-comments"></i></div>
             <span class="app-name">聊天</span>
         </div>
-        <div class="app-cell" data-app="space" id="app-space" onclick="openMomentsModal()">
+        <div class="app-cell" data-app="space" id="app-space" onclick="openMomentsWithTransition()">
             <div class="app-icon"><i class="fas fa-heart"></i></div>
             <span class="app-name">空间</span>
         </div>
@@ -743,6 +829,30 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
         <button class="cs-icon-btn" onclick="closeEntertainment()"><i class="fas fa-chevron-left"></i></button>
         <span class="cs-topbar-feed-title" id="ent-topbar-feed-title" style="flex:1;text-align:center;font-weight:600;">娱乐</span>
         <button class="cs-icon-btn" style="visibility:hidden;"><i class="fas fa-cog"></i></button>
+    </div>
+
+    <!-- 顶部整体布局与情侣空间一致：couple 头像栏 + 心跳线 + 天数 + tab pills -->
+    <div id="ent-outer-header">
+        <div class="cs-couple-section">
+            <div class="cs-couple-row">
+                <div class="cs-big-av" id="ent-bav-partner"><i class="fas fa-user" style="font-size:36px;color:var(--text-secondary,#aaa);"></i></div>
+                <div class="cs-hb-wrap">
+                    <svg viewBox="0 0 140 44" xmlns="http://www.w3.org/2000/svg" class="cs-hb-svg">
+                        <polyline points="0,22 18,22 26,8 34,36 42,12 50,30 58,22 80,22 88,8 96,36 104,14 112,28 120,22 140,22"
+                            fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="cs-big-av" id="ent-bav-me"><i class="fas fa-user" style="font-size:36px;color:var(--text-secondary,#aaa);"></i></div>
+            </div>
+            <div class="cs-days-text" id="ent-days-text">相识 <span class="cs-days-num">---</span> 天</div>
+        </div>
+        <div class="cs-pills-wrap">
+            <div class="cs-pills">
+                <button class="cs-pill cs-pill-on"   id="ent-pill-cinema" onclick="window._entSwitchPill('cinema')" title="电影时光"><i class="fas fa-film"></i></button>
+                <button class="cs-pill"               id="ent-pill-log"    onclick="window._entSwitchPill('log')"    title="影日志"><i class="fas fa-book-open"></i></button>
+            </div>
+        </div>
     </div>
 
     <!-- 内容区 -->
@@ -1581,6 +1691,36 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
                     <i class="fas fa-undo"></i> 恢复默认桌面背景
                 </button>
             </div>
+        </div>
+
+        <!-- 拍立得照片：桌面拍立得三张分别上传（排版参考聊天背景，未设置时显示默认灰底图） -->
+        <div class="settings-section" id="polaroid-set-section">
+            <div class="settings-section-title">
+                <i class="fas fa-images"></i>拍立得照片
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:10px;opacity:0.75;line-height:1.5;">
+                分别设置桌面拍立得的三张照片。点击下方图片可上传更换，未设置时显示默认灰底图。支持 JPG / PNG，单张 4MB 以内。
+            </div>
+
+            <div class="pl-set-group">
+                <div class="pl-set-label"><i class="fas fa-camera"></i>第 1 张 · 最上层</div>
+                <div class="bg-gallery" id="polaroid-gallery-1"></div>
+            </div>
+            <div class="pl-set-group">
+                <div class="pl-set-label"><i class="fas fa-camera"></i>第 2 张 · 中间</div>
+                <div class="bg-gallery" id="polaroid-gallery-2"></div>
+            </div>
+            <div class="pl-set-group">
+                <div class="pl-set-label"><i class="fas fa-camera"></i>第 3 张 · 最底层</div>
+                <div class="bg-gallery" id="polaroid-gallery-3"></div>
+            </div>
+
+            <div style="text-align:center;margin-top:10px;">
+                <button class="modal-btn modal-btn-secondary" id="reset-all-polaroid" style="font-size:12px;padding:6px 12px;">
+                    <i class="fas fa-undo"></i> 全部恢复默认灰底图
+                </button>
+            </div>
+            <input type="file" id="polaroid-file-input" accept="image/*" style="display:none;">
         </div>
 
         <!-- 顶部栏背景（独立图库，上传自动按固定比例裁剪） -->
@@ -3761,6 +3901,18 @@ function _csFallbackOpen(){
   if(outerHeader&&feedPanel&&outerHeader.parentElement!==feedPanel){
     feedPanel.insertBefore(outerHeader,feedPanel.firstChild);
   }
+}
+function openChatWithTransition(){
+  var ov=document.getElementById('chat-transition-overlay');
+  function direct(){
+    if(window.DesktopTopbar&&typeof window.DesktopTopbar.openChat==='function'){window.DesktopTopbar.openChat();}
+  }
+  if(!ov){direct();return;}
+  ov.classList.add('ct-show');
+  requestAnimationFrame(function(){requestAnimationFrame(function(){ov.classList.add('ct-visible');});});
+  setTimeout(function(){direct();},2400);
+  setTimeout(function(){ov.classList.remove('ct-visible');},2850);
+  setTimeout(function(){ov.classList.remove('ct-show');},3400);
 }
 </script>
 </body>

@@ -16,6 +16,12 @@
 }
 #entertainment-page.cs-open { opacity: 1; pointer-events: all; }
 
+/* ── 顶部：与情侣空间一致的 outer header（复用空间同款样式类）── */
+#ent-outer-header {
+    padding: 0 16px;
+    flex-shrink: 0;
+}
+
 /* ════════════════════════════════════════════════════
    观影模式：沉浸式暗色主题（强制暗色，不受系统明暗设置影响）
    ════════════════════════════════════════════════════ */
@@ -23,7 +29,8 @@
     background: #000;
 }
 #entertainment-page.cinema-theater-mode #ent-topbar,
-#entertainment-page.cinema-theater-mode #cs-outer-header {
+#entertainment-page.cinema-theater-mode #cs-outer-header,
+#entertainment-page.cinema-theater-mode #ent-outer-header {
     display: none !important;
 }
 #entertainment-page.cinema-theater-mode #cs-panel-cinema {

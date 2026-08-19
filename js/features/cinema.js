@@ -1699,6 +1699,53 @@
         if (panel) panel.style.visibility = '';
     };
 
+    // ── 娱乐页顶部：与情侣空间共用同一套 couple 头像/天数/心跳/pills ──
+    window._openArchive = _openArchive;
+    function _entFillBigAv() {
+        var ptEl = document.getElementById('ent-bav-partner'),
+            meEl = document.getElementById('ent-bav-me');
+        var dflt = '<i class="fas fa-user" style="font-size:36px;color:var(--text-secondary,#aaa);"></i>';
+        if (ptEl) { var s = window._getAvSrc ? window._getAvSrc(true) : null;
+            ptEl.innerHTML = s ? ('<img src="' + s + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">') : dflt; }
+        if (meEl) { var s2 = window._getAvSrc ? window._getAvSrc(false) : null;
+            meEl.innerHTML = s2 ? ('<img src="' + s2 + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">') : dflt; }
+    }
+    function _entFillDays() {
+        var textEl = document.getElementById('ent-days-text'); if (!textEl) return;
+        function render(labelStr, daysStr) {
+            textEl.innerHTML = '<span class="cs-days-label" style="margin-right:4px;">' + labelStr + '</span>'
+                + '<span class="cs-days-num">' + daysStr + '</span><span class="cs-days-unit">天</span>';
+        }
+        if (typeof window._annGetPinned === 'function') {
+            var p = window._annGetPinned();
+            if (p) { var verb = (p.dayLabel === '天后') ? ' 还有' : ' 已经';
+                render(p.name + verb, p.days.toLocaleString('zh-CN')); return; }
+        }
+        render('相识', '---');
+    }
+    window._entSyncHeader = function () { _entFillBigAv(); _entFillDays(); };
+
+    function _entSetPill(which) {
+        var pc = document.getElementById('ent-pill-cinema'),
+            pl = document.getElementById('ent-pill-log');
+        if (pc) pc.classList.toggle('cs-pill-on', which === 'cinema');
+        if (pl) pl.classList.toggle('cs-pill-on', which === 'log');
+    }
+    // 影日志档案页关闭时（返回按钮等），回同步 pills 到「电影时光」
+    var _entOrigCloseArchive = window._cinemaCloseArchive;
+    window._cinemaCloseArchive = function () {
+        if (_entOrigCloseArchive) _entOrigCloseArchive();
+        _entSetPill('cinema');
+    };
+    window._entSwitchPill = function (which) {
+        if (which === 'log') {
+            if (typeof window._openArchive === 'function') window._openArchive();
+        } else {
+            if (typeof window._cinemaCloseArchive === 'function') window._cinemaCloseArchive();
+        }
+        _entSetPill(which);
+    };
+
     // ── 调试专用：跳过邀请/倒计时，直接切状态（浏览器控制台里手动调用）──
     window._cinemaDebugGoto = function (state) {
         _uiState = state;
@@ -1816,6 +1863,7 @@
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
                 page.classList.add('cs-open');
+                if (typeof window._entSyncHeader === 'function') window._entSyncHeader();
                 if (typeof window._cinemaInit === 'function') window._cinemaInit();
             });
         });
