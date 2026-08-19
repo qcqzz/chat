@@ -83,6 +83,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         updateLoader('连接成功，欢迎回来。', '100%');
+        // 开场动画结束前切到桌面视图：桌面页垫底，动画淡出后即呈现桌面（动画结束进桌面）
+        try { document.body.classList.add('dt-view'); } catch (e) {}
         setTimeout(hideWelcomeScreen, 900);
 
         // 自动检查更新（启动后延迟执行，避免影响启动性能）

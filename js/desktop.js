@@ -288,19 +288,17 @@
         renderPolaroid();
         renderAnniversary();
 
-        // 默认进入聊天页视图（与 1.6.1 一致）：避免桌面主页未渲染时整屏白屏。
-        // 桌面主页仍可通过聊天头部「返回桌面」按钮 / 引导流程进入。
-        document.body.classList.remove('dt-view');
-
+        // 启动默认进入桌面页。不在 init 时提前强制切换（避免与开场动画时序竞争），
+        // 而是由 app.js 在开场动画结束时切到桌面视图（见 app.js 隐藏开场动画处）。
         // 兜底：若启动流程卡在加载动画（如外网资源失败导致引导未结束），
-        // 超时后强制隐藏加载动画并确保聊天页可见，避免整屏白屏
+        // 超时后强制隐藏加载动画并进入桌面视图，避免卡在白屏。
         setTimeout(function () {
             var w = $('welcome-animation');
             if (w && !w.classList.contains('hidden')) {
                 w.classList.add('hidden');
                 setTimeout(function () { w.style.display = 'none'; }, 350);
             }
-            document.body.classList.remove('dt-view');
+            document.body.classList.add('dt-view');
         }, 6000);
 
         // 头像/昵称等可能异步加载，周期性同步一次
