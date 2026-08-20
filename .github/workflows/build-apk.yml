@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -148,6 +150,14 @@ jobs:
             android/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose android/app/build/outputs/apk/debug/app-debug.apk
           rm release.keystore
+
+      - name: 覆盖发布到 Release v2.0.0
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 若 v2.0.0 release 不存在则先创建，存在则用 --clobber 覆盖同名 APK
+          gh release view v2.0.0 >/dev/null 2>&1 || gh release create v2.0.0 --title "v2.0.0" --notes "传讯 v2.0.0"
+          gh release upload v2.0.0 android/app/build/outputs/apk/debug/app-debug.apk --clobber
 
       - name: 上传 APK
         uses: actions/upload-artifact@v4
