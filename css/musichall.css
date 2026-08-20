@@ -50,78 +50,95 @@
     flex-shrink: 1;
 }
 
-/* ═══ 上半：唱片播放器卡片 ═══ */
+/* ═══ 上半：唱片播放器卡片（参考图样式） ═══ */
 .mh-player {
     flex-shrink: 0;
-    background: var(--surface-color, #fff);
-    border: 1px solid var(--border-color, rgba(128,128,128,.15));
-    border-radius: 18px;
-    padding: 16px;
+    background: rgba(255,255,255,.72);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+            backdrop-filter: blur(14px) saturate(1.2);
+    border: 1px solid rgba(255,255,255,.65);
+    border-radius: 22px;
+    padding: 18px 16px;
     display: flex;
     align-items: center;
-    gap: 16px;
-    box-shadow: 0 8px 24px rgba(0,0,0,.08);
+    gap: 18px;
+    box-shadow:
+        0 18px 40px rgba(70,110,180,.16),
+        0 4px 12px rgba(0,0,0,.05);
 }
 .mh-vinyl-wrap {
     flex-shrink: 0;
     position: relative;
+    width: 158px;
+    height: 158px;
 }
 .mh-vinyl {
-    position: relative;
-    width: 150px;
-    height: 150px;
+    position: absolute;
+    inset: 0;
+}
+/* 外层半透明底盘：稍大于下方蓝色圆环的浅灰蓝半透明圆盘，营造悬浮底座 */
+.mh-vinyl::before {
+    content: '';
+    position: absolute;
+    inset: 0;
     border-radius: 50%;
+    background: radial-gradient(circle at 50% 42%,
+        rgba(150,175,215,.32) 0 55%,
+        rgba(150,175,215,.16) 78%,
+        rgba(150,175,215,.05) 100%);
+    box-shadow: 0 14px 30px rgba(80,120,185,.25);
+    -webkit-backdrop-filter: blur(2px);
+            backdrop-filter: blur(2px);
+}
+/* 外圈蓝色圆环 = 自定义区域（上传唱片图显示于此），边缘一圈细白边 */
+.mh-vinyl-art {
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.92);
     background:
-        radial-gradient(circle at 50% 50%,
-            #dcebff 0 8%,
-            #bfd9f7 9% 22%,
-            #a8c8f0 23% 42%,
-            #93b8ea 43% 62%,
-            #7fa9e2 63% 100%);
+        radial-gradient(circle at 50% 42%,
+            #e6f2ff 0 6%,
+            #cfe5fb 7% 18%,
+            #b4d5f5 19% 34%,
+            #9cc5ee 35% 52%,
+            #83b3e6 53% 72%,
+            #6fa4de 73% 88%,
+            #5f99d8 89% 100%);
     box-shadow:
-        inset 0 0 18px rgba(255,255,255,.65),
-        inset 0 -12px 28px rgba(90,130,190,.45),
-        0 10px 28px rgba(60,100,170,.35);
-}
-/* 唱片纹路（参考图：浅蓝/白色同心环高光） */
-.mh-vinyl-grooves {
-    position: absolute;
-    inset: 14%;
-    border-radius: 50%;
-    background: repeating-radial-gradient(
-        circle at 50% 50%,
-        rgba(255,255,255,.45) 0 2px,
-        rgba(120,160,215,.28) 2px 4px
-    );
-    -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 58%, #000 59% 100%);
-            mask-image: radial-gradient(circle at 50% 50%, transparent 0 58%, #000 59% 100%);
-    pointer-events: none;
-}
-/* 唱片中心标签：外圈金属环 + 中央图片（默认灰色唱片中心） */
-.mh-vinyl-label {
-    position: absolute;
-    inset: 30%;
-    border-radius: 50%;
-    background: #c3ccd8; /* 默认灰色 */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #ffffff;
-    font-size: 18px;
-    box-shadow:
-        0 0 0 3px rgba(255,255,255,.85),
-        0 0 0 5px rgba(120,150,195,.5),
-        inset 0 0 8px rgba(0,0,0,.2);
+        inset 0 0 20px rgba(255,255,255,.6),
+        inset 0 -14px 30px rgba(80,120,185,.4),
+        0 12px 30px rgba(60,100,170,.32);
     background-size: cover !important;
     background-position: center !important;
     background-repeat: no-repeat !important;
     overflow: hidden;
 }
-.mh-vinyl-label i { pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,.3); }
-.mh-vinyl-label.has-img i { display: none; }
+/* 中间白色固定圆（不随自定义图片变化） */
+.mh-vinyl-center {
+    position: absolute;
+    inset: 34%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 38%, #ffffff 0 58%, #eef2f7 100%);
+    box-shadow:
+        0 0 0 2px rgba(255,255,255,.95),
+        inset 0 2px 5px rgba(0,0,0,.06);
+}
+/* 中心轴心孔 */
+.mh-vinyl-spindle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(0deg);
+    width: 7%;
+    height: 7%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 32%, #2b3a55, #121a28 72%);
+    box-shadow: inset 0 1px 2px rgba(255,255,255,.25);
+}
 @keyframes mhSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.mh-vinyl.mh-spinning .mh-vinyl-grooves,
-.mh-vinyl.mh-spinning .mh-vinyl-label {
+/* 播放时外圈旋转，中间白色圆与底盘固定 */
+.mh-vinyl.mh-spinning .mh-vinyl-art {
     animation: mhSpin 12s linear infinite;
 }
 
@@ -130,17 +147,25 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 7px;
 }
 .mh-song-title {
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 16px;
+    font-weight: 700;
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-/* 心跳线（参考图：双基线 EKG 波形，播放时律动） */
+.mh-song-sub {
+    font-size: 11px;
+    color: var(--text-secondary);
+    opacity: .85;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* 波形图（参考图：EKG 折线，白光沿波形流动，与桌面顶部栏心跳线一致） */
 .mh-hb-line {
     width: 100%;
     color: var(--mh-hb-c);
@@ -149,84 +174,91 @@
 .mh-hb-svg {
     display: block;
     width: 100%;
-    height: 40px;
+    height: 34px;
+    overflow: visible;
 }
+/* 主波形：参考图浅蓝灰线条 */
 .mh-hb-path {
-    stroke-dasharray: 420;
-    stroke-dashoffset: 420;
+    stroke: var(--mh-hb-c);
+    stroke-dasharray: none;
+    filter: drop-shadow(0 1px 2px rgba(120,150,195,.35));
 }
-/* 播放音乐时心电图律动：从起点向右生长并循环 */
-.mh-hb-path.mh-hb-beat {
-    animation: mhHBBeat 3.2s ease-in-out infinite;
+/* 流动白光：浅并且加一层柔和光晕，沿波形持续流动 */
+.mh-hb-flow {
+    stroke-dasharray: 600 1200;
+    stroke-dashoffset: 600;
+    opacity: .95;
+    animation: mhHbFlow 3.2s linear infinite;
 }
-@keyframes mhHBBeat {
-    0%   { stroke-dashoffset: 420; opacity: 1; }
-    60%  { stroke-dashoffset: 0;   opacity: 1; }
-    82%  { stroke-dashoffset: 0;   opacity: .85; }
-    100% { stroke-dashoffset: 0;   opacity: 0; }
-}
-.mh-progress {
-    width: 100%;
-    height: 6px;
-    border-radius: 6px;
-    background: rgba(var(--accent-color-rgb), .15);
-    overflow: hidden;
-}
-.mh-progress-fill {
-    height: 100%;
-    border-radius: 6px;
-    background: var(--mh-prog-c);
-    transition: width .25s linear;
-}
-.mh-time {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-    color: var(--text-secondary);
+@keyframes mhHbFlow {
+    0%   { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: -1800; }
 }
 .mh-controls {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 22px;
-    margin-top: 2px;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 2px 0;
 }
 .mh-ctrl {
     background: none;
     border: none;
-    color: var(--text-secondary);
+    color: #7a9cc6;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 17px;
     padding: 4px;
     transition: transform .12s, color .12s;
 }
 .mh-ctrl:active { transform: scale(.9); }
 .mh-ctrl-star {
-    width: 44px;
-    height: 44px;
+    width: 46px;
+    height: 46px;
     border-radius: 50%;
-    background: var(--accent-color);
+    background: linear-gradient(135deg, #7ab4ef, #4a8ad0);
     color: #fff;
-    font-size: 14px;
+    font-size: 15px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 6px 16px rgba(var(--accent-color-rgb), .45);
+    box-shadow: 0 8px 20px rgba(74,138,208,.42);
 }
-/* 播放模式切换图标：随机 / 单曲循环 / 歌单循环（位于"下一首"右侧，单击循环） */
-.mh-mode-ctrl {
+.mh-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.mh-progress-row > span {
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+.mh-progress {
+    flex: 1;
     position: relative;
-    color: var(--accent-color);
-    font-size: 15px;
+    height: 4px;
+    border-radius: 4px;
+    background: rgba(128,128,128,.18);
 }
-.mh-mode-num {
+.mh-progress-fill {
+    position: relative;
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #8cc0f5, #4a8ad0);
+    transition: width .25s linear;
+}
+.mh-progress-thumb {
     position: absolute;
-    top: 0;
-    right: -3px;
-    font-size: 8px;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--accent-color);
+    top: 50%;
+    right: -5px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #4a8ad0;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    transform: translateY(-50%);
 }
 
 /* ═══ 下半：音乐厅聊天框（边听歌边聊天） ═══ */
@@ -325,7 +357,7 @@
     flex-shrink: 0;
 }
 
-/* ═══ 歌单页（全屏覆盖，左边歌单/右边设置） ═══ */
+/* ═══ 歌单页（全屏覆盖，与电影院档案页一致：顶部 tabs + 单内容区） ═══ */
 .music-playlist-page {
     position: fixed;
     top: 0;
@@ -345,45 +377,45 @@
     display: flex;
     transform: translateX(0);
 }
-.music-playlist-topbar {
+.music-playlist-tabs {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 10px 14px;
+    gap: 4px;
+    padding: 6px 10px 0;
+    border-bottom: 1px solid var(--border-color, #e8e8e8);
     flex-shrink: 0;
-    border-bottom: 1px solid var(--border-color, rgba(128,128,128,.15));
 }
-.music-playlist-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text-primary);
+.music-playlist-back-btn {
+    flex-shrink: 0;
+    margin-bottom: 8px;
 }
-.music-playlist-title-spacer { width: 28px; }
-.music-playlist-body {
+.music-playlist-tab {
+    flex: 1;
+    padding: 10px 0;
+    text-align: center;
+    font-size: 14px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s, border-color 0.15s;
+}
+.music-playlist-tab.active {
+    color: var(--accent-color, #7BC8A4);
+    border-bottom-color: var(--accent-color, #7BC8A4);
+    font-weight: 600;
+}
+.music-playlist-content {
     flex: 1;
     min-height: 0;
-    display: flex;
-}
-.music-playlist-col--list {
-    flex: 1;
-    min-width: 0;
-    border-right: 1px solid var(--border-color, rgba(128,128,128,.12));
-    display: flex;
+    display: none;
     flex-direction: column;
 }
-.music-playlist-col--settings {
-    width: 52%;
-    max-width: 340px;
-    min-width: 230px;
+.music-playlist-content--active {
     display: flex;
-    flex-direction: column;
-}
-.music-playlist-col-title {
-    padding: 12px 14px 8px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    flex-shrink: 0;
 }
 .mh-list-wrap {
     flex: 1;
@@ -616,72 +648,107 @@
 }
 
 /* ═══ 主聊天里的 MUSIC 邀请卡片 ═══ */
+/* 参照「看电影」邀请卡的暖色手账风 */
 .music-invite-msg-wrap .message-content-wrapper { max-width: 76%; }
 .music-invite-card {
-    background: #fff;
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 8px 26px rgba(0,0,0,.14);
-    border: 1px solid rgba(128,128,128,.12);
+    position: relative;
     width: 250px;
+    background: linear-gradient(160deg, #fdfbf2, #f6efdd);
+    border: 1px solid rgba(60,54,38,0.08);
+    border-radius: 20px;
+    padding: 16px 18px 16px;
+    box-shadow: 0 10px 26px rgba(60,54,38,0.14), 0 2px 6px rgba(60,54,38,0.06);
+    overflow: hidden;
 }
+.music-invite-decor {
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    inset: 0;
+    pointer-events: none;
+}
+.music-invite-decor span {
+    position: absolute;
+    font-size: 15px;
+    opacity: 0.5;
+    filter: saturate(0.8);
+}
+.music-invite-decor .d1 { top: 10px;    left: 12px;   transform: rotate(-14deg); }
+.music-invite-decor .d2 { top: 8px;     right: 14px;  transform: rotate(12deg); }
+.music-invite-decor .d3 { bottom: 10px; left: 14px;   transform: rotate(10deg); font-size: 13px; }
+.music-invite-decor .d4 { bottom: 12px; right: 12px;  transform: rotate(-10deg); font-size: 13px; }
 .music-invite-banner {
-    background: linear-gradient(135deg, #b9bcc4, #8f94a3);
-    color: #fff;
-    text-align: center;
-    font-size: 30px;
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: fit-content;
+    margin: 2px auto 14px;
+    background: #2b2820;
+    color: #fdfbf2;
     font-weight: 800;
-    letter-spacing: 6px;
-    padding: 18px 0 10px;
-    text-shadow: 0 2px 4px rgba(0,0,0,.25);
+    font-size: 18px;
+    letter-spacing: 3px;
+    padding: 7px 20px;
+    border-radius: 8px;
+    transform: rotate(-2deg);
+    box-shadow: 0 5px 12px rgba(0,0,0,0.2);
 }
 .music-invite-line {
+    position: relative;
+    z-index: 1;
     text-align: center;
-    font-size: 14px;
+    font-size: 15.5px;
     font-weight: 700;
-    color: #333;
-    padding: 10px 14px 2px;
+    color: #2b2820;
+    line-height: 1.35;
+    margin-bottom: 4px;
 }
 .music-invite-song {
+    position: relative;
+    z-index: 1;
     text-align: center;
     font-size: 12px;
-    color: #ff8f9b;
     font-weight: 600;
-    padding: 2px 14px 10px;
+    color: var(--accent-color, #d98092);
+    margin-bottom: 10px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 .music-invite-divider {
-    height: 1px;
-    background: rgba(0,0,0,.08);
-    margin: 0 14px 10px;
+    position: relative;
+    z-index: 1;
+    border-top: 1.5px dashed rgba(60,54,38,0.18);
+    margin: 0 -4px 14px;
 }
 .music-invite-actions {
+    position: relative;
+    z-index: 1;
     display: flex;
     gap: 8px;
-    padding: 0 14px 14px;
 }
 .music-invite-btn {
+    position: relative;
     flex: 1;
     border: none;
-    border-radius: 20px;
-    padding: 8px 0;
-    font-size: 13px;
+    border-radius: 50px;
+    padding: 9px 0;
+    font-size: 12px;
+    font-family: inherit;
+    font-weight: 600;
     cursor: pointer;
 }
 .music-invite-btn--later {
-    background: #f0f0f2;
-    color: #777;
+    background: rgba(60,54,38,0.06);
+    color: #8a8168;
 }
 .music-invite-btn--go {
-    background: #ff8f9b;
+    background: var(--accent-color, #d98092);
     color: #fff;
-    font-weight: 600;
+    box-shadow: 0 4px 10px rgba(var(--accent-color-rgb, 217,128,146), 0.4);
 }
 .music-invite-status {
     text-align: center;
-    color: #777;
+    color: #8a8168;
     font-size: 12px;
     padding: 0 14px 14px;
 }

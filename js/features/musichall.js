@@ -78,15 +78,12 @@
             '<div class="mh-vinyl-wrap">' + _vinylHTML() + '</div>' +
             '<div class="mh-info">' +
                 '<div class="mh-song-title" id="mh-song-title">' + (song ? esc(song.title) : '未选择歌曲') + '</div>' +
+                '<div class="mh-song-sub" id="mh-song-sub">' + (song && song.sub ? esc(song.sub) : '') + '</div>' +
                 '<div class="mh-hb-line">' +
                     '<svg viewBox="0 0 372 165" class="mh-hb-svg" preserveAspectRatio="none">' +
-                        '<path id="mh-hb-path" class="mh-hb-path" d="M0,82 L16,82 L18,82 L26,40 L34,124 L42,48 L50,84 L58,82 L98,82 L104,40 L110,124 L116,44 L124,84 L132,82 L170,82 L176,38 L182,124 L190,40 L198,84 L206,82 L246,82 L252,38 L258,124 L264,48 L272,84 L280,82 L320,82 L326,40 L332,124 L338,50 L346,84 L354,82 L372,82" fill="none" stroke="var(--mh-hb-c)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+                        '<path id="mh-hb-path" class="mh-hb-path" d="M0,82 L22,82 L38,78 L46,86 L58,74 L68,88 L82,76 L92,90 L106,78 L118,94 L136,78 L152,98 L174,72 L198,102 L218,110 L230,54 L250,86 L272,78 L286,98 L308,78 L332,82 L372,82" fill="none" stroke="var(--mh-hb-c)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+                        '<path id="mh-hb-flow" class="mh-hb-flow" d="M0,82 L22,82 L38,78 L46,86 L58,74 L68,88 L82,76 L92,90 L106,78 L118,94 L136,78 L152,98 L174,72 L198,102 L218,110 L230,54 L250,86 L272,78 L286,98 L308,78 L332,82 L372,82" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' +
                     '</svg>' +
-                '</div>' +
-                '<div class="mh-progress"><div class="mh-progress-fill" id="mh-progress-fill" style="width:0%"></div></div>' +
-                '<div class="mh-time">' +
-                    '<span id="mh-cur-time">0:00</span>' +
-                    '<span id="mh-dur-time">0:00</span>' +
                 '</div>' +
                 '<div class="mh-controls">' +
                     '<button class="mh-ctrl" id="mh-prev" title="上一首"><i class="fas fa-step-backward"></i></button>' +
@@ -95,32 +92,22 @@
                         '<i class="fas fa-pause" id="mh-ico-pause" style="display:none"></i>' +
                     '</button>' +
                     '<button class="mh-ctrl" id="mh-next" title="下一首"><i class="fas fa-step-forward"></i></button>' +
-                    '<button class="mh-ctrl mh-mode-ctrl" id="mh-mode" title="播放模式">' + _modeIcon() + '</button>' +
+                '</div>' +
+                '<div class="mh-progress-row">' +
+                    '<span id="mh-cur-time">0:00</span>' +
+                    '<div class="mh-progress"><div class="mh-progress-fill" id="mh-progress-fill" style="width:0%"></div><div class="mh-progress-thumb"></div></div>' +
+                    '<span id="mh-dur-time">0:00</span>' +
                 '</div>' +
             '</div>' +
         '</div>';
     }
 
-    // 播放模式图标：随机 / 单曲循环 / 歌单循环（与常见音乐 App 一致）
-    var modeTitles = { shuffle: '随机模式', single: '单曲循环', list: '歌单循环' };
-    function _modeIcon() {
-        if (mode === 'shuffle') return '<i class="fas fa-random"></i>';
-        if (mode === 'single') return '<i class="fas fa-repeat"></i><span class="mh-mode-num">1</span>';
-        return '<i class="fas fa-repeat"></i>';
-    }
-    function _cycleMode() {
-        // list → single → shuffle → list
-        mode = (mode === 'list') ? 'single' : (mode === 'single') ? 'shuffle' : 'list';
-        var btn = document.getElementById('mh-mode');
-        if (btn) { btn.innerHTML = _modeIcon(); btn.title = modeTitles[mode]; }
-        return btn;
-    }
-
     function _vinylHTML() {
         var style = conf.vinylLabel ? 'background-image:url(\'' + conf.vinylLabel + '\')' : '';
         return '<div class="mh-vinyl' + (playing ? ' mh-spinning' : '') + '">' +
-            '<div class="mh-vinyl-grooves"></div>' +
-            '<div class="mh-vinyl-label' + (conf.vinylLabel ? ' has-img' : '') + '" style="' + style + '"><i class="fas fa-music"></i></div>' +
+            '<div class="mh-vinyl-art" style="' + style + '"></div>' +
+            '<div class="mh-vinyl-center"></div>' +
+            '<div class="mh-vinyl-spindle"></div>' +
         '</div>';
     }
 
@@ -187,8 +174,6 @@
     function syncVinylSpin() {
         var v = document.querySelector('#cs-panel-musichall .mh-vinyl');
         if (v) v.classList.toggle('mh-spinning', playing);
-        var hb = document.querySelector('#cs-panel-musichall #mh-hb-path');
-        if (hb) hb.classList.toggle('mh-hb-beat', playing);
     }
     function onTimeUpdate() {
         if (!audio) return;
@@ -217,16 +202,13 @@
         if (play) play.addEventListener('click', togglePlay);
         if (prev) prev.addEventListener('click', function () { if (!songs.length) return; loadSong(cur - 1); playCur(); });
         if (next) next.addEventListener('click', function () { if (!songs.length) return; var n = nextIdx(); loadSong(n); playCur(); });
-        var modeBtn = panel.querySelector('#mh-mode');
-        if (modeBtn) modeBtn.addEventListener('click', function () {
-            var b = _cycleMode();
-            if (b) showNotification(modeTitles[mode], 'success');
-        });
     }
     function syncPlayerUI() {
         var t = document.getElementById('mh-song-title');
+        var sub = document.getElementById('mh-song-sub');
         var song = songs.length ? songs[cur >= 0 ? cur : 0] : null;
         if (t) t.textContent = song ? song.title : '未选择歌曲';
+        if (sub) sub.textContent = song && song.sub ? song.sub : '';
         // 歌单页里刷新选中态
         var list = document.getElementById('mh-list-wrap');
         if (list && list.querySelectorAll) {
@@ -280,12 +262,33 @@
         if (i >= 0) { loadSong(i); playCur(); } else { window._mhOpenPlaylistPage(); }
     };
 
-    // ── 歌单页 ───────────────────────────────────────────
+    // ── 歌单页（与电影院档案页一致：顶部 tabs 切换 歌单/设置） ──
+    var _mhTabsBound = false;
+    function _mhBindTabsOnce() {
+        if (_mhTabsBound) return;
+        _mhTabsBound = true;
+        var listTab = document.getElementById('mh-tab-list');
+        var settingsTab = document.getElementById('mh-tab-settings');
+        if (listTab) listTab.addEventListener('click', function () { _mhSwitchTab('list'); });
+        if (settingsTab) settingsTab.addEventListener('click', function () { _mhSwitchTab('settings'); });
+    }
+    function _mhSwitchTab(which) {
+        var listTab = document.getElementById('mh-tab-list');
+        var settingsTab = document.getElementById('mh-tab-settings');
+        var listPanel = document.getElementById('mh-panel-list');
+        var settingsPanel = document.getElementById('mh-panel-settings');
+        if (listTab) listTab.classList.toggle('active', which === 'list');
+        if (settingsTab) settingsTab.classList.toggle('active', which === 'settings');
+        if (listPanel) listPanel.classList.toggle('music-playlist-content--active', which === 'list');
+        if (settingsPanel) settingsPanel.classList.toggle('music-playlist-content--active', which === 'settings');
+        if (which === 'settings') renderSettings();
+        else renderPlaylistList();
+    }
     window._mhOpenPlaylistPage = function () {
         var page = document.getElementById('music-playlist-page');
         if (!page) return;
-        renderPlaylistList();
-        renderSettings();
+        _mhBindTabsOnce();
+        _mhSwitchTab('list');
         page.classList.add('music-playlist-open');
         var back = page.querySelector('.music-playlist-back-btn');
         if (back) back.setAttribute('onclick', 'window._mhClosePlaylistPage()');
@@ -504,10 +507,11 @@
     }
 
     function syncVinylImage() {
-        var label = document.querySelector('#cs-panel-musichall .mh-vinyl-label');
-        if (label) {
-            if (conf.vinylLabel) { label.className = 'mh-vinyl-label has-img'; label.style.backgroundImage = 'url(\'' + conf.vinylLabel + '\')'; }
-            else { label.className = 'mh-vinyl-label'; label.style.backgroundImage = ''; }
+        // 自定义唱片图显示在外圈蓝色圆环（.mh-vinyl-art），中间白色圆固定
+        var art = document.querySelector('#cs-panel-musichall .mh-vinyl-art');
+        if (art) {
+            if (conf.vinylLabel) art.style.backgroundImage = 'url(\'' + conf.vinylLabel + '\')';
+            else art.style.backgroundImage = '';
         }
     }
 
@@ -532,13 +536,20 @@
         var data = msg.musicInviteData || {};
         var song = data.songTitle || '';
         var pn = partnerName();
+        var avatarHTML = (typeof _avEl === 'function')
+            ? _avEl(true, 36)   // 与「看电影」邀请卡一致：显示真实的梦角头像
+            : '<div class="mm-avatar mh-inv-av">' + esc(pn.charAt(0)) + '</div>'; // 兜底：首字母
         var wrap = document.createElement('div');
         wrap.className = 'message-wrapper received music-invite-msg-wrap';
         wrap.dataset.id = msg.id;
         wrap.innerHTML =
-            '<div class="message-avatar"><div class="mm-avatar mh-inv-av">' + esc(pn.charAt(0)) + '</div></div>' +
+            '<div class="message-avatar">' + avatarHTML + '</div>' +
             '<div class="message-content-wrapper">' +
                 '<div class="music-invite-card" data-mh-id="' + esc(String(data.id || '')) + '" data-mh-song="' + esc(song) + '">' +
+                    '<div class="music-invite-decor">' +
+                        '<span class="d1">💿</span><span class="d2">🎧</span>' +
+                        '<span class="d3">💫</span><span class="d4">💖</span>' +
+                    '</div>' +
                     '<div class="music-invite-banner">MUSIC</div>' +
                     '<div class="music-invite-line">想和你一起听歌</div>' +
                     (song ? '<div class="music-invite-song">' + esc(song) + '</div>' : '') +
