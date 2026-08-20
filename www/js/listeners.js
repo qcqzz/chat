@@ -3837,6 +3837,16 @@ window.exitCollapseMode = function() {
                 _cropKey = null;
                 return;
             }
+            if (_cropKey === 'polaroid') {
+                // 拍立得：交给桌面拍立得模块处理（写入对应相纸位并刷新）
+                if (window.Polaroid && typeof window.Polaroid.accept === 'function') {
+                    window.Polaroid.accept(dataURL);
+                }
+                const modal = $('redpacket-crop-modal');
+                if (modal && typeof hideModal === 'function') hideModal(modal);
+                _cropKey = null;
+                return;
+            }
             if (typeof settings === 'object' && settings) settings[_cropKey] = dataURL;
             if (typeof saveData === 'function') { try { saveData(); } catch (err) {} }
             if (typeof renderMessages === 'function') { try { renderMessages(); } catch (err) {} }

@@ -229,28 +229,15 @@
         }
     }
     function pickPolaroidFile(slot) {
-        var input = $('polaroid-file-input');
-        if (!input) return;
+        if (!window.RedpacketCrop || typeof window.RedpacketCrop.start !== 'function') return;
         _plSlot = slot;
-        input.value = '';
-        input.click();
-    }
-    function onPolaroidFileChange() {
-        var input = $('polaroid-file-input');
-        if (!input || !input.files || !input.files[0]) return;
-        var file = input.files[0];
-        if (file.size > 4 * 1024 * 1024) {
-            showNotification && showNotification('图片过大，请选择 4MB 以内的图片', 'error');
-            return;
-        }
-        var reader = new FileReader();
-        reader.onload = function () {
-            setPl(_plSlot, reader.result);
-            renderPolaroidGallery();
-            renderPolaroid();
-            showNotification && showNotification('拍立得第 ' + (_plSlot + 1) + ' 张已更新', 'success');
-        };
-        reader.readAsDataURL(file);
+        // 依据拍立得相纸上照片显示区域的实际宽高比，规则与顶栏/桌面背景等自定义裁剪一致
+        var ratio = 1;
+        try {
+            var img = document.querySelector('#dt-polaroid .dt-polaroid-card img');
+            if (img && img.clientWidth && img.clientHeight) ratio = img.clientWidth / img.clientHeight;
+        } catch (e) {}
+        window.RedpacketCrop.start('polaroid', ratio);
     }
     function resetAllPolaroid() {
         setPl(0, ''); setPl(1, ''); setPl(2, '');
@@ -258,6 +245,17 @@
         renderPolaroid();
         showNotification && showNotification('已恢复默认灰底图', 'success');
     }
+    // 拍立得裁剪结果接收（与 DesktopBg/DesktopTopbar.accept 同规则）
+    window.Polaroid = {
+        accept: function (dataURL) {
+            if (!dataURL || dataURL.indexOf('data:') !== 0) return;
+            setPl(_plSlot, dataURL);
+            renderPolaroidGallery();
+            renderPolaroid();
+            showNotification && showNotification('拍立得第 ' + (_plSlot + 1) + ' 张已更新', 'success');
+        },
+        refresh: function () { renderPolaroidGallery(); renderPolaroid(); }
+    };
 
     // ── 纪念日方块：收集所有重要日（相遇 + 各纪念日），点击循环切换 ──
     var _annEntries = [];
@@ -459,8 +457,6 @@
         var pl = $('dt-polaroid');
         if (pl) pl.addEventListener('click', cyclePolaroid);
 
-        var plInput = $('polaroid-file-input');
-        if (plInput) plInput.addEventListener('change', onPolaroidFileChange);
         var plReset = $('reset-all-polaroid');
         if (plReset) plReset.addEventListener('click', resetAllPolaroid);
 
