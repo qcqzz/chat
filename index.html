@@ -133,10 +133,11 @@ html[data-theme="dark"] #chat-transition-overlay{
 #ent-transition-overlay svg{width:100%;height:auto;display:block;overflow:visible;}
 #ent-transition-overlay .ent-star{transform-box:fill-box;transform-origin:center;animation:entTwinkle 2.8s ease-in-out infinite;}
 #ent-transition-overlay .ent-cat{transform-box:fill-box;transform-origin:center bottom;animation:entCatBob 2.2s ease-in-out infinite;}
-#ent-transition-overlay .ent-scene{transform-box:fill-box;transform-origin:center bottom;animation:entCatBob 2.2s ease-in-out infinite;}
 #ent-transition-overlay .ent-catR{animation-delay:.18s;}
+#ent-transition-overlay .ent-ball{transform-box:fill-box;transform-origin:center;animation:entBall 3.6s ease-in-out infinite;}
 @keyframes entTwinkle{0%,100%{opacity:.32;transform:scale(.7);}50%{opacity:1;transform:scale(1.25);}}
 @keyframes entCatBob{0%,100%{transform:translateY(0);}30%{transform:translateY(-6px);}55%{transform:translateY(0);}}
+@keyframes entBall{0%,100%{transform:rotate(-6deg) translateY(0);}50%{transform:rotate(6deg) translateY(-4px);}}
 @media(prefers-reduced-motion:reduce){#ent-transition-overlay *{animation-play-state:paused!important;}}
 </style>
 </head>
@@ -609,7 +610,7 @@ html[data-theme="dark"] #chat-transition-overlay{
     </g>
   </svg>
   <div class="ct-heart-wrap">
-    <svg class="ct-heart-err" viewBox="0 0 629 342" style="filter:drop-shadow(0 16px 26px var(--ct-heart-shadow));">
+    <svg class="ct-heart-err" viewBox="0 0 629 342">
       <defs>
         <linearGradient id="ctHeartG" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="var(--ct-heart-top)"/>
@@ -864,6 +865,13 @@ html[data-theme="dark"] #chat-transition-overlay{
           <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
           <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
+        <radialGradient id="entBallG" cx="0.5" cy="0.4" r="0.75">
+          <stop offset="0" stop-color="#ffe3e4"/><stop offset="0.55" stop-color="#ffc9cc"/><stop offset="1" stop-color="#ffacb4"/>
+        </radialGradient>
+        <clipPath id="entBallClip"><circle cx="400" cy="306" r="44"/></clipPath>
+        <filter id="entSoft" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#9aa0ad" flood-opacity=".28"/>
+        </filter>
       </defs>
 
       <!-- 银色四芒星：散发白色光晕，闪烁（外层 translate，内层动画避免 transform 冲突） -->
@@ -885,9 +893,74 @@ html[data-theme="dark"] #chat-transition-overlay{
         <g transform="translate(756,398) scale(.42)"><g class="ent-star" style="animation-delay:1.9s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
       </g>
 
-      <!-- 参照图场景：灰调猫咪，取代手绘双猫，保证和参考图一致 -->
-      <g class="ent-scene">
-        <image x="20" y="6" width="760" height="470" href="assets/ent-cat-scene.png" preserveAspectRatio="xMidYMid meet"/>
+      <!-- 地面柔影 -->
+      <ellipse cx="400" cy="392" rx="150" ry="16" fill="#e2e4ea" opacity=".7"/>
+
+      <!-- 松散毛线 -->
+      <path d="M404,352 C420,398 340,394 288,376" fill="none" stroke="#ff9aa6" stroke-width="4" stroke-linecap="round"/>
+      <path d="M396,352 C380,398 460,398 512,376" fill="none" stroke="#ff9aa6" stroke-width="4" stroke-linecap="round"/>
+
+      <!-- 浅粉色毛线球 -->
+      <g class="ent-ball" filter="url(#entSoft)">
+        <circle cx="400" cy="306" r="44" fill="url(#entBallG)"/>
+        <g clip-path="url(#entBallClip)">
+          <path d="M358,300 C376,284 424,284 442,300" fill="none" stroke="#ff9faa" stroke-width="6" stroke-linecap="round"/>
+          <path d="M360,312 C380,330 420,330 440,312" fill="none" stroke="#ff8f9b" stroke-width="6" stroke-linecap="round"/>
+          <path d="M360,326 C378,344 422,344 440,326" fill="none" stroke="#ffc2c8" stroke-width="5" stroke-linecap="round"/>
+          <path d="M376,286 C362,318 362,342 380,360" fill="none" stroke="#ffb9c0" stroke-width="5" stroke-linecap="round"/>
+          <path d="M424,286 C436,312 436,332 424,356" fill="none" stroke="#ff9faa" stroke-width="5" stroke-linecap="round"/>
+          <ellipse cx="384" cy="286" rx="11" ry="8" fill="#ffffff" opacity=".5" transform="rotate(-28 384 286)"/>
+        </g>
+      </g>
+
+      <!-- 灰调猫咪（左）：手绘，仅以参照图为灵感，不追求完全一致 -->
+      <g class="ent-cat ent-catL" filter="url(#entSoft)">
+        <path d="M272,352 C300,360 318,344 314,318" fill="none" stroke="#8b909c" stroke-width="13" stroke-linecap="round"/>
+        <ellipse cx="250" cy="336" rx="50" ry="44" fill="#9aa0ac"/>
+        <path d="M282,318 C298,320 312,328 322,338" fill="none" stroke="#8b909c" stroke-width="16" stroke-linecap="round"/>
+        <ellipse cx="306" cy="352" rx="15" ry="10" fill="#8b909c" transform="rotate(20 306 352)"/>
+        <ellipse cx="318" cy="330" rx="12" ry="8" fill="#8b909c" transform="rotate(-18 318 330)"/>
+        <circle cx="250" cy="272" r="39" fill="#9aa0ac"/>
+        <polygon points="214,242 208,194 242,233" fill="#9aa0ac"/>
+        <polygon points="288,242 294,194 260,233" fill="#9aa0ac"/>
+        <polygon points="218,233 213,204 232,231" fill="#b8b7bd"/>
+        <polygon points="284,233 289,204 270,231" fill="#b8b7bd"/>
+        <ellipse cx="233" cy="270" rx="7" ry="8.5" fill="#ffffff"/>
+        <circle cx="234" cy="269" r="3.6" fill="#1b1b22"/><circle cx="232" cy="266" r="1.2" fill="#ffffff"/>
+        <ellipse cx="267" cy="270" rx="7" ry="8.5" fill="#ffffff"/>
+        <circle cx="266" cy="269" r="3.6" fill="#1b1b22"/><circle cx="264" cy="266" r="1.2" fill="#ffffff"/>
+        <polygon points="247,284 250,291 253,284" fill="#ffb3b3"/>
+        <path d="M240 300 Q247 304 250 301 Q253 304 260 300" fill="none" stroke="#3a3f4a" stroke-width="2.2" stroke-linecap="round"/>
+        <g stroke="#3a3f4a" stroke-width="1.8" stroke-linecap="round">
+          <path d="M210 286 L182 280"/><path d="M208 294 L180 294"/><path d="M210 302 L184 308"/>
+          <path d="M290 286 L318 280"/><path d="M292 294 L320 294"/><path d="M290 302 L316 308"/>
+        </g>
+      </g>
+
+      <!-- 灰调猫咪（右）：手绘，仅以参照图为灵感 -->
+      <g class="ent-cat ent-catR" filter="url(#entSoft)">
+        <path d="M528,352 C500,360 482,344 486,318" fill="none" stroke="#9aa0ac" stroke-width="14" stroke-linecap="round"/>
+        <path d="M528,352 C500,360 482,344 486,318" fill="none" stroke="#c6cad1" stroke-width="10" stroke-linecap="round"/>
+        <ellipse cx="550" cy="336" rx="50" ry="44" fill="#c6cad1" stroke="#9aa0ac" stroke-width="2"/>
+        <path d="M518,318 C502,320 488,328 478,338" fill="none" stroke="#9aa0ac" stroke-width="18" stroke-linecap="round"/>
+        <path d="M518,318 C502,320 488,328 478,338" fill="none" stroke="#c6cad1" stroke-width="14" stroke-linecap="round"/>
+        <ellipse cx="492" cy="352" rx="15" ry="10" fill="#c6cad1" stroke="#9aa0ac" stroke-width="2" transform="rotate(-20 492 352)"/>
+        <ellipse cx="480" cy="330" rx="12" ry="8" fill="#c6cad1" stroke="#9aa0ac" stroke-width="2" transform="rotate(18 480 330)"/>
+        <circle cx="550" cy="272" r="39" fill="#c6cad1" stroke="#9aa0ac" stroke-width="2"/>
+        <polygon points="586,242 592,194 558,233" fill="#c6cad1" stroke="#9aa0ac" stroke-width="2"/>
+        <polygon points="512,242 506,194 540,233" fill="#c6cad1" stroke="#9aa0ac" stroke-width="2"/>
+        <polygon points="582,233 587,204 568,231" fill="#ffd0d4"/>
+        <polygon points="516,233 511,204 530,231" fill="#ffd0d4"/>
+        <ellipse cx="533" cy="270" rx="6.5" ry="8" fill="#2b2e36"/>
+        <circle cx="532" cy="266" r="1.5" fill="#ffffff"/>
+        <ellipse cx="567" cy="270" rx="6.5" ry="8" fill="#2b2e36"/>
+        <circle cx="566" cy="266" r="1.5" fill="#ffffff"/>
+        <polygon points="547,284 550,291 553,284" fill="#ffb3b3"/>
+        <path d="M540 300 Q547 304 550 301 Q553 304 560 300" fill="none" stroke="#7a7f89" stroke-width="2.2" stroke-linecap="round"/>
+        <g stroke="#7a7f89" stroke-width="1.8" stroke-linecap="round">
+          <path d="M590 286 L618 280"/><path d="M592 294 L620 294"/><path d="M590 302 L616 308"/>
+          <path d="M510 286 L482 280"/><path d="M508 294 L480 294"/><path d="M510 302 L484 308"/>
+        </g>
       </g>
 
     </svg>

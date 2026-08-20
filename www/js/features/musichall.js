@@ -81,8 +81,8 @@
                 '<div class="mh-song-sub" id="mh-song-sub">' + (song && song.sub ? esc(song.sub) : '') + '</div>' +
                 '<div class="mh-hb-line">' +
                     '<svg viewBox="0 0 372 165" class="mh-hb-svg" preserveAspectRatio="none">' +
-                        '<path id="mh-hb-path" class="mh-hb-path" d="M0,82 L22,82 L38,78 L46,86 L58,74 L68,88 L82,76 L92,90 L106,78 L118,94 L136,78 L152,98 L174,72 L198,102 L218,110 L230,54 L250,86 L272,78 L286,98 L308,78 L332,82 L372,82" fill="none" stroke="var(--mh-hb-c)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
-                        '<path id="mh-hb-flow" class="mh-hb-flow" d="M0,82 L22,82 L38,78 L46,86 L58,74 L68,88 L82,76 L92,90 L106,78 L118,94 L136,78 L152,98 L174,72 L198,102 L218,110 L230,54 L250,86 L272,78 L286,98 L308,78 L332,82 L372,82" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' +
+                        '<path id="mh-hb-path" class="mh-hb-path" d="M13,83 L14,83 L15,83 L16,83 L17,83 L18,83 L19,83 L20,83 L21,83 L22,83 L23,83 L24,83 L25,83 L26,83 L27,83 L28,83 L29,83 L30,83 L31,83 L32,83 L33,83 L34,82 L35,81 L36,79 L37,74 L38,69 L39,65 L40,62 L41,62 L42,62 L43,74 L44,88 L45,97 L46,97 L47,97 L48,93 L49,89 L50,85 L51,82 L52,78 L53,78 L54,78 L55,79 L56,81 L57,82 L58,83 L59,83 L60,83 L61,81 L62,79 L63,78 L64,76 L65,73 L66,72 L67,71 L68,71 L69,71 L70,74 L71,76 L72,79 L73,82 L74,85 L75,88 L76,88 L77,88 L78,84 L79,79 L80,79 L81,79 L82,81 L83,85 L84,87 L85,91 L86,94 L87,94 L88,94 L89,83 L90,83 L91,83 L92,88 L93,88 L94,88 L95,83 L96,80 L97,76 L98,74 L99,74 L100,74 L101,77 L102,80 L103,83 L104,86 L105,86 L106,86 L107,85 L108,83 L109,82 L110,80 L111,79 L112,78 L113,78 L114,78 L115,78 L116,78 L117,79 L118,80 L119,81 L120,82 L121,82 L122,82 L123,80 L124,77 L125,74 L126,73 L127,73 L128,73 L129,77 L130,80 L131,84 L132,87 L133,91 L134,91 L135,91 L136,87 L137,83 L138,79 L139,74 L140,70 L141,70 L142,70 L143,74 L144,80 L145,87 L146,94 L147,94 L148,94 L149,90 L150,79 L151,65 L152,58 L153,58 L154,58 L155,64 L156,72 L157,78 L158,84 L159,86 L160,86 L161,86 L162,84 L163,81 L164,79 L165,78 L166,77 L167,77 L168,77 L169,77 L170,78 L171,79 L172,79 L173,80 L174,82 L175,83 L176,83 L177,83 L178,83 L179,83 L180,82 L181,81 L182,81 L183,81 L184,82 L185,82 L186,82 L187,80 L188,78 L189,77 L190,75 L191,75 L192,75 L193,78 L194,81 L195,84 L196,87 L197,89 L198,89 L199,89 L200,86 L201,83 L202,79 L203,75 L204,70 L205,65 L206,59 L207,59 L208,59 L209,65 L210,70 L211,76 L212,82 L213,89 L214,93 L215,104 L216,104 L217,104 L218,111 L219,111 L220,105 L221,105 L222,105 L223,99 L224,94 L225,89 L226,84 L227,78 L228,75 L229,70 L230,68 L231,68 L232,68 L233,71 L234,75 L235,78 L236,82 L237,85 L238,86 L239,86 L240,86 L241,84 L242,81 L243,80 L244,78 L245,77 L246,77 L247,77 L248,77 L249,78 L250,79 L251,81 L252,83 L253,85 L254,88 L255,88 L256,88 L257,86 L258,81 L259,78 L260,75 L261,75 L262,75 L263,79 L264,83 L265,86 L266,86 L267,86 L268,77 L269,70 L270,70 L271,62 L272,58 L273,58 L274,64 L275,75 L276,75 L277,88 L278,97 L279,104 L280,104 L281,104 L282,99 L283,94 L284,89 L285,85 L286,80 L287,76 L288,72 L289,69 L290,67 L291,67 L292,67 L293,70 L294,72 L295,75 L296,78 L297,81 L298,83 L299,85 L300,85 L301,85 L302,84 L303,83 L304,82 L305,81 L306,79 L307,78 L308,77 L309,77 L310,77 L311,77 L312,77 L313,77 L314,78 L315,79 L316,79 L317,80 L318,81 L319,82 L320,84 L321,84 L322,84 L323,82 L324,81 L325,80 L326,79 L327,78 L328,78 L329,78 L330,78 L331,79 L332,81 L333,82 L334,83 L335,83 L336,83 L337,83 L338,83 L339,83 L340,83 L341,83 L342,83 L343,83 L344,83 L345,83 L346,83 L347,83 L348,83 L349,83 L350,83 L351,83 L352,83 L353,83 L354,83 L355,83 L356,83 L357,82" fill="none" stroke="var(--mh-hb-c)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+                        '<path id="mh-hb-flow" class="mh-hb-flow" d="M13,83 L14,83 L15,83 L16,83 L17,83 L18,83 L19,83 L20,83 L21,83 L22,83 L23,83 L24,83 L25,83 L26,83 L27,83 L28,83 L29,83 L30,83 L31,83 L32,83 L33,83 L34,82 L35,81 L36,79 L37,74 L38,69 L39,65 L40,62 L41,62 L42,62 L43,74 L44,88 L45,97 L46,97 L47,97 L48,93 L49,89 L50,85 L51,82 L52,78 L53,78 L54,78 L55,79 L56,81 L57,82 L58,83 L59,83 L60,83 L61,81 L62,79 L63,78 L64,76 L65,73 L66,72 L67,71 L68,71 L69,71 L70,74 L71,76 L72,79 L73,82 L74,85 L75,88 L76,88 L77,88 L78,84 L79,79 L80,79 L81,79 L82,81 L83,85 L84,87 L85,91 L86,94 L87,94 L88,94 L89,83 L90,83 L91,83 L92,88 L93,88 L94,88 L95,83 L96,80 L97,76 L98,74 L99,74 L100,74 L101,77 L102,80 L103,83 L104,86 L105,86 L106,86 L107,85 L108,83 L109,82 L110,80 L111,79 L112,78 L113,78 L114,78 L115,78 L116,78 L117,79 L118,80 L119,81 L120,82 L121,82 L122,82 L123,80 L124,77 L125,74 L126,73 L127,73 L128,73 L129,77 L130,80 L131,84 L132,87 L133,91 L134,91 L135,91 L136,87 L137,83 L138,79 L139,74 L140,70 L141,70 L142,70 L143,74 L144,80 L145,87 L146,94 L147,94 L148,94 L149,90 L150,79 L151,65 L152,58 L153,58 L154,58 L155,64 L156,72 L157,78 L158,84 L159,86 L160,86 L161,86 L162,84 L163,81 L164,79 L165,78 L166,77 L167,77 L168,77 L169,77 L170,78 L171,79 L172,79 L173,80 L174,82 L175,83 L176,83 L177,83 L178,83 L179,83 L180,82 L181,81 L182,81 L183,81 L184,82 L185,82 L186,82 L187,80 L188,78 L189,77 L190,75 L191,75 L192,75 L193,78 L194,81 L195,84 L196,87 L197,89 L198,89 L199,89 L200,86 L201,83 L202,79 L203,75 L204,70 L205,65 L206,59 L207,59 L208,59 L209,65 L210,70 L211,76 L212,82 L213,89 L214,93 L215,104 L216,104 L217,104 L218,111 L219,111 L220,105 L221,105 L222,105 L223,99 L224,94 L225,89 L226,84 L227,78 L228,75 L229,70 L230,68 L231,68 L232,68 L233,71 L234,75 L235,78 L236,82 L237,85 L238,86 L239,86 L240,86 L241,84 L242,81 L243,80 L244,78 L245,77 L246,77 L247,77 L248,77 L249,78 L250,79 L251,81 L252,83 L253,85 L254,88 L255,88 L256,88 L257,86 L258,81 L259,78 L260,75 L261,75 L262,75 L263,79 L264,83 L265,86 L266,86 L267,86 L268,77 L269,70 L270,70 L271,62 L272,58 L273,58 L274,64 L275,75 L276,75 L277,88 L278,97 L279,104 L280,104 L281,104 L282,99 L283,94 L284,89 L285,85 L286,80 L287,76 L288,72 L289,69 L290,67 L291,67 L292,67 L293,70 L294,72 L295,75 L296,78 L297,81 L298,83 L299,85 L300,85 L301,85 L302,84 L303,83 L304,82 L305,81 L306,79 L307,78 L308,77 L309,77 L310,77 L311,77 L312,77 L313,77 L314,78 L315,79 L316,79 L317,80 L318,81 L319,82 L320,84 L321,84 L322,84 L323,82 L324,81 L325,80 L326,79 L327,78 L328,78 L329,78 L330,78 L331,79 L332,81 L333,82 L334,83 L335,83 L336,83 L337,83 L338,83 L339,83 L340,83 L341,83 L342,83 L343,83 L344,83 L345,83 L346,83 L347,83 L348,83 L349,83 L350,83 L351,83 L352,83 L353,83 L354,83 L355,83 L356,83 L357,82" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' +
                     '</svg>' +
                 '</div>' +
                 '<div class="mh-controls">' +
@@ -119,7 +119,9 @@
                     ? '<div class="mh-chat-empty"><i class="far fa-comment-dots"></i><p>边听歌边聊聊吧</p></div>'
                     : messages.map(_msgHTML).join('')) +
             '</div>' +
+            '<div class="mh-emoji-panel" id="mh-emoji-panel"></div>' +
             '<div class="mh-chat-input-row">' +
+                '<button class="mh-chat-emoji" id="mh-chat-emoji" title="表情"><i class="fas fa-smile"></i></button>' +
                 '<input class="mh-chat-input" id="mh-chat-input" placeholder="说点什么…" maxlength="500">' +
                 '<button class="mh-chat-send" id="mh-chat-send"><i class="fas fa-paper-plane"></i></button>' +
             '</div>' +
@@ -128,9 +130,16 @@
 
     function _msgHTML(m) {
         var mine = m.sender === 'user';
+        var bubble;
+        if (m.image) {
+            var isCloud = String(m.image).indexOf('oss://') === 0;
+            bubble = '<div class="mh-msg-bubble mh-msg-img"><img data-mh-cloud="' + (isCloud ? '1' : '0') + '" ' + (isCloud ? '' : 'src="' + esc(m.image) + '"') + ' alt="表情"></div>';
+        } else {
+            bubble = '<div class="mh-msg-bubble">' + esc(m.content) + '</div>';
+        }
         return '<div class="mh-msg ' + (mine ? 'mh-msg--me' : 'mh-msg--partner') + '">' +
             (mine ? '' : '<div class="mh-msg-av"><i class="fas fa-music"></i></div>') +
-            '<div class="mh-msg-bubble">' + esc(m.content) + '</div>' +
+            bubble +
             (mine ? '<div class="mh-msg-av"><i class="fas fa-user"></i></div>' : '') +
         '</div>';
     }
@@ -222,6 +231,9 @@
     function bindChat(panel) {
         var input = panel.querySelector('#mh-chat-input');
         var send = panel.querySelector('#mh-chat-send');
+        var emojiBtn = panel.querySelector('#mh-chat-emoji');
+        var emojiPanel = panel.querySelector('#mh-emoji-panel');
+        if (emojiBtn && emojiPanel) { buildEmojiPanel(emojiPanel); }
         function doSend() {
             if (!input) return;
             var text = input.value.trim();
@@ -229,6 +241,7 @@
             messages.push({ sender: 'user', content: text, ts: Date.now() });
             appendMsg(messages[messages.length - 1]);
             input.value = '';
+            if (emojiPanel) emojiPanel.classList.remove('open');
             if (typeof addMessage === 'function') {
                 addMessage({
                     id: Date.now() + Math.random(),
@@ -241,9 +254,28 @@
                     note: null
                 });
             }
+            // 与陪伴页消息规则一致：真实用户消息后触发梦角回复
+            mhTriggerReply();
         }
         if (send) send.addEventListener('click', doSend);
         if (input) input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); doSend(); } });
+        if (emojiBtn && emojiPanel) {
+            emojiBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (!emojiPanel.classList.contains('open') && typeof buildEmojiPanel === 'function') buildEmojiPanel(emojiPanel);
+                emojiPanel.classList.toggle('open');
+            });
+        }
+        if (!window._mhEmojiDocBound) {
+            window._mhEmojiDocBound = true;
+            document.addEventListener('click', function (e) {
+                var p = document.getElementById('mh-emoji-panel');
+                var b = document.getElementById('mh-chat-emoji');
+                if (!p || !p.classList.contains('open')) return;
+                if (p.contains(e.target) || (b && b.contains(e.target))) return;
+                p.classList.remove('open');
+            });
+        }
     }
     function appendMsg(m) {
         var area = document.getElementById('mh-chat-area');
@@ -254,6 +286,118 @@
         tmp.innerHTML = _msgHTML(m);
         area.appendChild(tmp.firstChild);
         area.scrollTop = area.scrollHeight;
+    }
+
+    // ── 音乐厅聊天：表情包（与聊天页表情功能一致；样式仿微信：添加表情标题＋加号格子＋4列贴纸网格） ─────────
+    // 表情包图片源：我的表情 + 对方表情（与聊天页一致）
+    function mhStickerArray() {
+        var out = [];
+        if (typeof myStickerLibrary !== 'undefined' && Array.isArray(myStickerLibrary)) out = out.concat(myStickerLibrary);
+        if (typeof stickerLibrary !== 'undefined' && Array.isArray(stickerLibrary)) out = out.concat(stickerLibrary);
+        return out;
+    }
+    // 触发梦角回复：与陪伴页/主聊天同一回复引擎，保证消息规则一致（含 readNoReply、清陪伴静默标志）
+    function mhTriggerReply() {
+        if (typeof window._triggerDelayedReply === 'function') {
+            window._triggerDelayedReply(true);
+            return;
+        }
+        if (typeof simulateReply !== 'function') return;
+        var dmin = (typeof settings !== 'undefined' && settings.replyDelayMin) ? settings.replyDelayMin : 700;
+        var dmax = (typeof settings !== 'undefined' && settings.replyDelayMax) ? settings.replyDelayMax : 1500;
+        setTimeout(simulateReply, dmin + Math.random() * (dmax - dmin));
+    }
+    // 发送表情包图片（同步主聊天并触发梦角回复）
+    function mhSendImage(src) {
+        var s = String(src || '');
+        if (!s) return;
+        messages.push({ sender: 'user', content: '', image: s, ts: Date.now() });
+        appendMsg(messages[messages.length - 1]);
+        if (typeof addMessage === 'function') {
+            addMessage({ id: Date.now() + Math.random(), sender: 'user', text: '', image: s, timestamp: new Date(), status: 'sent', type: 'normal', favorited: false, note: null });
+        }
+        if (typeof playSound === 'function') playSound('send');
+        var panel = document.getElementById('mh-emoji-panel');
+        if (panel) panel.classList.remove('open');
+        mhTriggerReply();
+    }
+    function buildEmojiPanel(panel) {
+        panel.innerHTML = '';
+        var content = document.createElement('div');
+        content.className = 'combo-content-area mh-combo-content';
+        panel.appendChild(content);
+
+        var header = document.createElement('div');
+        header.className = 'mh-emoji-header';
+        header.textContent = '添加表情';
+        content.appendChild(header);
+
+        function render() {
+            var old = content.querySelector('.sticker-grid-view');
+            if (old) old.remove();
+            var grid = document.createElement('div');
+            grid.className = 'sticker-grid-view';
+            content.appendChild(grid);
+
+            // 加号格子（点击 = 上传我的表情库，与聊天页一致）
+            var add = document.createElement('div');
+            add.className = 'sticker-grid-add';
+            add.title = '添加表情';
+            add.innerHTML = '<i class="fas fa-plus"></i>';
+            add.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var up = document.getElementById('my-sticker-quick-upload');
+                if (up) up.click();
+            });
+            grid.appendChild(add);
+
+            // 表情包图片（点击直接发送，我的表情 + 对方表情，与聊天页一致）
+            mhStickerArray().forEach(function (src) {
+                var item = document.createElement('div');
+                item.className = 'sticker-grid-item';
+                var isCloud = String(src).indexOf('oss://') === 0;
+                var img = document.createElement('img');
+                img.alt = '表情';
+                if (isCloud && window.CloudMedia) window.CloudMedia.bindLazyImage(img, src);
+                else img.src = src;
+                item.appendChild(img);
+                item.addEventListener('click', function (e) { e.stopPropagation(); mhSendImage(src); });
+                grid.appendChild(item);
+            });
+        }
+        render();
+        window._mhRefreshStickerGrid = render;
+
+        // 上传后自动刷新面板（只绑定一次，避免重复监听到处刷）
+        if (!window._mhStickerUploadBound) {
+            window._mhStickerUploadBound = true;
+            var up = document.getElementById('my-sticker-quick-upload');
+            if (up) up.addEventListener('change', function () {
+                var len0 = (typeof myStickerLibrary !== 'undefined' && Array.isArray(myStickerLibrary)) ? myStickerLibrary.length : 0;
+                var tries = 0;
+                var chk = setInterval(function () {
+                    tries++;
+                    var now = (typeof myStickerLibrary !== 'undefined' && Array.isArray(myStickerLibrary)) ? myStickerLibrary.length : 0;
+                    if (now > len0) { clearInterval(chk); if (window._mhRefreshStickerGrid) window._mhRefreshStickerGrid(); }
+                    else if (tries > 25) clearInterval(chk);
+                }, 200);
+            });
+        }
+    }
+
+    // 镜像梦角消息（文字/表情包图片）进音乐厅聊天区，规则与陪伴页一致（复用同一回复引擎）
+    // 只镜像 live 消息，避免重复渲染用户自己的消息
+    if (window._registerPartnerMessageListener && !window._mhPartnerMirrorBound) {
+        window._mhPartnerMirrorBound = true;
+        window._registerPartnerMessageListener(function (m) {
+            try {
+                if (!m || m.type !== 'normal') return;
+                if (m.sender === 'user') return;
+                if (!m.text && !m.image) return;
+                messages.push({ sender: 'partner', content: m.text || '', image: m.image || null, ts: Date.now() });
+                appendMsg(messages[messages.length - 1]);
+            } catch (e) { console.warn('[musichall] mirror partner msg failed', e); }
+        });
     }
 
     // ── 播放指定（供邀请卡"现在听"） ────────────────────

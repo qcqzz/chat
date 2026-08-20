@@ -356,6 +356,44 @@
     font-size: 13px;
     flex-shrink: 0;
 }
+.mh-chat-emoji {
+    border: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(var(--accent-color-rgb), .12);
+    color: var(--accent-color);
+    cursor: pointer;
+    font-size: 14px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.mh-chat-emoji:hover { background: rgba(var(--accent-color-rgb), .2); }
+.mh-emoji-panel {
+    display: none;
+    flex-direction: column;
+    border-top: 1px solid var(--border-color, rgba(128,128,128,.15));
+    background: var(--bg-color, #fff);
+}
+.mh-emoji-panel.open { display: flex; }
+.mh-emoji-header {
+    padding: 12px 12px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary, #333);
+    opacity: .9;
+}
+.mh-combo-content {
+    padding: 16px 16px 24px;
+    overflow-y: auto;
+    max-height: 220px;
+}
+.mh-combo-content .sticker-grid-view {
+    gap: 14px;
+}
+.mh-msg-img img { width: 100%; max-width: 180px; border-radius: 12px; }
 
 /* ═══ 歌单页（全屏覆盖，与电影院档案页一致：顶部 tabs + 单内容区） ═══ */
 .music-playlist-page {
