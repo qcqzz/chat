@@ -592,6 +592,19 @@ function applyGlobalThemeCss(cssCode) {
 
 async function exportAllData() {
     try {
+        if (typeof ChatBackup !== 'undefined' && ChatBackup.exportBackupToFile) {
+            await ChatBackup.exportBackupToFile({
+                inclMsgs: true,
+                inclSet: true,
+                inclCustom: true,
+                inclAnn: true,
+                inclThemes: true,
+                inclDg: true,
+                inclStickers: true,
+                inclCS: true
+            });
+            return;
+        }
         if (typeof ChatBackup !== 'undefined' && ChatBackup.buildBackupPayload && ChatBackup.serializeBackupV4) {
             const payload = await ChatBackup.buildBackupPayload({
                 inclMsgs: true,
@@ -600,7 +613,8 @@ async function exportAllData() {
                 inclAnn: true,
                 inclThemes: true,
                 inclDg: true,
-                inclStickers: true
+                inclStickers: true,
+                inclCS: true
             });
             const jsonString = ChatBackup.serializeBackupV4(payload);
             const dateStr = new Date().toISOString().slice(0, 10);

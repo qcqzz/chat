@@ -193,8 +193,6 @@
 
     function shouldSkipKeyGroupChat(key, flags) {
         if (!key) return true;
-        if (key.startsWith('annHeaderBg_')) return true;
-        if (key.indexOf('dg_header_bg') !== -1 || key.indexOf('dg_overlay_bg') !== -1) return true;
         var patterns = buildModuleSkipPatterns(flags || {});
         return patterns.some(function (p) { return key.indexOf(p) !== -1; });
     }

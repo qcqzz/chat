@@ -335,17 +335,21 @@ if (exportAllBtn) {
                 closeBkDialog();
 
                 try {
-                    if (typeof ChatBackup !== 'undefined' && ChatBackup.buildBackupPayload && ChatBackup.serializeBackupV4) {
-                        const payload = await ChatBackup.buildBackupPayload({
-                            inclMsgs: inclMsgs,
-                            inclSet: inclSet,
-                            inclCustom: inclCustom,
-                            inclAnn: inclAnn,
-                            inclThemes: inclThemes,
-                            inclDg: inclDg,
-                            inclCS: inclCS,
-                            inclStickers: inclStickers
-                        });
+                    const backupFlags = {
+                        inclMsgs: inclMsgs,
+                        inclSet: inclSet,
+                        inclCustom: inclCustom,
+                        inclAnn: inclAnn,
+                        inclThemes: inclThemes,
+                        inclDg: inclDg,
+                        inclCS: inclCS,
+                        inclStickers: inclStickers
+                    };
+                    if (typeof ChatBackup !== 'undefined' && ChatBackup.exportBackupToFile) {
+                        // 默认导出 ZIP：backup.json 只存结构与引用、大图放 media/，避免单文件 JSON 过大导致无法导出全部数据
+                        await ChatBackup.exportBackupToFile(backupFlags);
+                    } else if (typeof ChatBackup !== 'undefined' && ChatBackup.buildBackupPayload && ChatBackup.serializeBackupV4) {
+                        const payload = await ChatBackup.buildBackupPayload(backupFlags);
                         const jsonString = ChatBackup.serializeBackupV4(payload);
                         const dateStr = new Date().toISOString().slice(0, 10);
                         const fileName = `chatapp-backup-${dateStr}.json`;
