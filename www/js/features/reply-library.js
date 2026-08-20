@@ -880,6 +880,7 @@ function _renderEmojiTab(list, itemsToRender) {
     }
 }
 
+let _stickerImgPool = new Map(); // src -> <img>，复用已解码图片，避免重渲染时图片重新解码/重载而闪烁
 function _renderStickerTab(list, itemsToRender) {
     const disabledSet = _getDisabledStickerItemsSet();
     itemsToRender.forEach((item, index) => {
@@ -895,10 +896,18 @@ function _renderStickerTab(list, itemsToRender) {
             <div class="sticker-delete-btn"><i class="fas fa-times"></i></div>
         `;
         const imgEl = div.querySelector('img');
-        if (isCloud) {
-            if (window.CloudMedia) window.CloudMedia.bindLazyImage(imgEl, item);
+        const cached = _stickerImgPool.get(item);
+        if (cached) {
+            // 复用旧 <img>（已解码），直接迁移到新格子，避免重新解码/加载造成闪烁
+            div.replaceChild(cached, imgEl);
+        } else if (isCloud) {
+            if (window.CloudMedia) {
+                window.CloudMedia.bindLazyImage(imgEl, item);
+                _stickerImgPool.set(item, imgEl);
+            }
         } else {
             imgEl.src = item;
+            _stickerImgPool.set(item, imgEl);
         }
         div.addEventListener('click', () => {
             if (!_batchModeActive) return;
@@ -926,6 +935,7 @@ function _renderStickerTab(list, itemsToRender) {
                     _saveDisabledStickerItemsSet(disabledSet);
                 }
                 stickerLibrary.splice(index, 1);
+                _stickerImgPool.delete(item);
                 _batchSelectedIndices.clear();
                 throttledSaveData();
                 renderReplyLibrary();

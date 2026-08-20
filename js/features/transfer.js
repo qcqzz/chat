@@ -137,8 +137,11 @@
         var rpId = (rp && rp.id != null) ? rp.id : null;
         // 阶段1：红包消息先显示「已读」（对方读到了消息，卡片仍显示「待领取」）
         setTimeout(function () { _markRpRead(rpId); }, 1600);
-        // 阶段2：再把红包卡片标记为「已领取」（对方拆开红包）+ 中间系统提示
-        setTimeout(function () { _pushClaimedNotice(rpId); }, 3200);
+        // 阶段2：80% 概率领取 / 20% 不领取；领取时间随机 2s~30s（对方拆开红包）+ 中间系统提示
+        if (Math.random() < 0.8) {
+            var claimDelay = 2000 + Math.random() * 28000; // 2~30 秒
+            setTimeout(function () { _pushClaimedNotice(rpId); }, claimDelay);
+        }
     }
 
     // 阶段1：把指定（或最近一条「我发出的、未读」）红包消息标记为已读

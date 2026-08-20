@@ -243,20 +243,20 @@
             input.value = '';
             if (emojiPanel) emojiPanel.classList.remove('open');
             if (typeof addMessage === 'function') {
-                addMessage({
-                    id: Date.now() + Math.random(),
-                    sender: 'user',
-                    text: text,
-                    timestamp: new Date(),
-                    status: 'sent',
-                    type: 'normal',
-                    favorited: false,
-                    note: null
-                });
+                    addMessage({
+                        id: Date.now() + Math.random(),
+                        sender: 'user',
+                        text: text,
+                        timestamp: new Date(),
+                        status: 'sent',
+                        type: 'normal',
+                        favorited: false,
+                        note: null
+                    });
+                }
+                // 与陪伴页消息规则一致：真实用户消息后触发梦角回复
+                mhTriggerReply();
             }
-            // 与陪伴页消息规则一致：真实用户消息后触发梦角回复
-            mhTriggerReply();
-        }
         if (send) send.addEventListener('click', doSend);
         if (input) input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); doSend(); } });
         if (emojiBtn && emojiPanel) {

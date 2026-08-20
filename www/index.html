@@ -41,7 +41,7 @@
 #cs-transition-overlay.cs-trans-visible{opacity:1;}
 #cs-transition-overlay .cs-trans-inner{width:88vw;max-width:480px;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;}
 @supports not (aspect-ratio:16/9){#cs-transition-overlay .cs-trans-inner{padding-bottom:56.25%;}}
-#cs-transition-overlay svg{width:82%;height:auto;overflow:visible;}
+#cs-transition-overlay svg{width:82%;height:auto;overflow:visible;transform:translateZ(0);-webkit-backface-visibility:hidden;backface-visibility:hidden;}
 #cs-transition-overlay .cs-lp{transform-origin:220px 240px;animation:csLeftMove 6s cubic-bezier(.2,.75,.2,1) infinite;}
 #cs-transition-overlay .cs-rp{transform-origin:580px 240px;animation:csRightMove 6s cubic-bezier(.2,.75,.2,1) infinite;}
 #cs-transition-overlay .cs-lf,#cs-transition-overlay .cs-rf{transform-box:fill-box;transform-origin:center;animation:csSquash 6s ease-in-out infinite;}
@@ -72,9 +72,6 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
 /* ── 进入聊天页动画：白底 + 漂浮云雾 + 中央银色爱心(参照图) + 两侧系统色翅膀 ── */
 #chat-transition-overlay{
   --ct-ov-bg: #ffffff;
-  --ct-cloud-a: rgba(var(--accent-color-rgb),.42);
-  --ct-cloud-b: rgba(var(--accent-color-rgb),.28);
-  --ct-cloud-c: rgba(var(--accent-color-rgb),.18);
   --ct-heart-top:#fcfdfe; --ct-heart-mid:#e7eaf0; --ct-heart-deep:#b3bac6;
   --ct-heart-high:#ffffff; --ct-heart-shadow:rgba(138,150,165,.30);
   --ct-heart-glow:rgba(var(--accent-color-rgb),.30);
@@ -87,17 +84,6 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
 #chat-transition-overlay.ct-show{display:flex; pointer-events:all;}
 #chat-transition-overlay.ct-visible{opacity:1;}
 
-/* 漂浮云雾（系统色低透明度，全幅漂移）*/
-#chat-transition-overlay .ct-clouds{position:absolute; top:0; left:0; width:100%; height:100%;}
-#chat-transition-overlay .ct-cloud{transition:opacity 1s ease;}
-#chat-transition-overlay .ct-c1{fill:var(--ct-cloud-a); animation:ctDrift 15s ease-in-out infinite;}
-#chat-transition-overlay .ct-c2{fill:var(--ct-cloud-b); animation:ctDrift 21s ease-in-out infinite; animation-delay:-6s;}
-#chat-transition-overlay .ct-c3{fill:var(--ct-cloud-c); animation:ctDrift 27s ease-in-out infinite; animation-delay:-12s;}
-@keyframes ctDrift{0%{transform:translateX(-40px);}50%{transform:translateX(40px);}100%{transform:translateX(-40px);}}
-/* 层次感：远云更淡/更小，近云更清晰/更大 */
-#chat-transition-overlay .ct-far{opacity:.55;}
-#chat-transition-overlay .ct-fg{opacity:.98;}
-
 /* 两侧翅膀：跟随系统强调色，轻微浮动 */
 #chat-transition-overlay .ct-wing{pointer-events:none; animation:ctWingBreathe 3.4s ease-in-out infinite;}
 #chat-transition-overlay .ct-w1{fill:var(--accent-color);}
@@ -107,7 +93,7 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
 @keyframes ctWingBreathe{0%,100%{opacity:.9;transform:translateY(0);}50%{opacity:1;transform:translateY(-3px);}}
 
 /* 中央银色爱心（参照图）+ 立体层次 */
-#chat-transition-overlay .ct-heart-wrap{position:relative; width:74vw; max-width:480px; aspect-ratio:629/342; display:flex; align-items:center; justify-content:center;}
+#chat-transition-overlay .ct-heart-wrap{position:relative; z-index:1; width:74vw; max-width:480px; aspect-ratio:629/342; display:flex; align-items:center; justify-content:center;}
 #chat-transition-overlay .ct-heart-err{width:100%; height:100%; display:block; transform-box:fill-box; transform-origin:center 62%;}
 /* 参考图（爱心+翅膀）整体轻微浮动跳动 */
 #chat-transition-overlay .ct-heart-img{transform-box:fill-box; transform-origin:center; animation:ctBeat 2.6s cubic-bezier(.3,.7,.3,1) infinite; isolation:isolate;}
@@ -116,27 +102,31 @@ html[data-theme="dark"] #cs-transition-overlay{background:radial-gradient(circle
 @keyframes ctBeat{0%,42%,100%{transform:scale(1);}10%{transform:scale(1.16) translateY(-4px);}20%{transform:scale(.95);}30%{transform:scale(1.09) translateY(-2px);}}
 @keyframes ctGlow{0%,42%,100%{transform:scale(.9);opacity:.5;}10%{transform:scale(1.28);opacity:.9;}20%{transform:scale(.9);opacity:.55;}30%{transform:scale(1.2);opacity:.8;}}
 
+/* 背景空心爱心（四芒星同款光晕，空心描边，跟随系统强调色）*/
+#chat-transition-overlay svg.ct-hearts{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;}
+#chat-transition-overlay .ct-hh{transform-box:fill-box;transform-origin:center;animation:ctHeartTwinkle 3.2s ease-in-out infinite;}
+@keyframes ctHeartTwinkle{0%,100%{opacity:.3;transform:scale(.7);}50%{opacity:.95;transform:scale(1.18);}}
+
 @media(prefers-reduced-motion:reduce){#chat-transition-overlay *{animation-play-state:paused!important;}}
 html[data-theme="dark"] #chat-transition-overlay{
   --ct-ov-bg: #ffffff;
-  --ct-cloud-a: rgba(var(--accent-color-rgb),.40);
-  --ct-cloud-b: rgba(var(--accent-color-rgb),.26);
-  --ct-cloud-c: rgba(var(--accent-color-rgb),.16);
   --ct-heart-shadow:rgba(96,106,120,.38);
   --ct-heart-glow:rgba(var(--accent-color-rgb),.36);
 }
 </style>
 <style id="ent-transition-styles">
-/* ── 进入娱乐页动画：白底 + 闪烁银色四芒星(白色光晕) + 中央灰调猫咪(参照图) ── */
+/* ── 进入娱乐页动画：白底 + 闪烁银色四芒星(白色光晕) + 参照图猫咪场景 ── */
 #ent-transition-overlay{position:fixed;top:0;right:0;bottom:0;left:0;inset:0;z-index:1600;display:none;align-items:center;justify-content:center;background:#ffffff;opacity:0;transition:opacity .5s ease;pointer-events:none;overflow:hidden;}
 #ent-transition-overlay.ent-show{display:flex;pointer-events:all;}
 #ent-transition-overlay.ent-visible{opacity:1;}
-#ent-transition-overlay .ent-inner{width:92vw;max-width:560px;aspect-ratio:800/480;}
+#ent-transition-overlay .ent-inner{position:relative;z-index:1;width:92vw;max-width:560px;aspect-ratio:800/480;}
 @supports not (aspect-ratio:800/480){#ent-transition-overlay .ent-inner{padding-bottom:60%;}}
+/* 四芒星全屏独立层：铺满整个屏幕，不受中央内容容器限制 */
+#ent-transition-overlay svg.ent-stars{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;}
 #ent-transition-overlay svg{width:100%;height:auto;display:block;overflow:visible;}
 #ent-transition-overlay .ent-star{transform-box:fill-box;transform-origin:center;animation:entTwinkle 2.8s ease-in-out infinite;}
 #ent-transition-overlay .ent-scene{transform-box:fill-box;transform-origin:center bottom;animation:entCatBob 2.2s ease-in-out infinite;}
-@keyframes entTwinkle{0%,100%{opacity:.32;transform:scale(.7);}50%{opacity:1;transform:scale(1.25);}}
+@keyframes entTwinkle{0%,100%{opacity:.55;transform:scale(.8);}50%{opacity:1;transform:scale(1.3);}}
 @keyframes entCatBob{0%,100%{transform:translateY(0);}30%{transform:translateY(-6px);}55%{transform:translateY(0);}}
 @media(prefers-reduced-motion:reduce){#ent-transition-overlay *{animation-play-state:paused!important;}}
 </style>
@@ -592,35 +582,24 @@ html[data-theme="dark"] #chat-transition-overlay{
 </div>
 <!-- ── 进入聊天页过渡层：轻薄云雾 + 中央立体爱心 ── -->
 <div id="chat-transition-overlay">
-  <svg class="ct-clouds" viewBox="0 0 800 480" preserveAspectRatio="xMidYMid slice" role="img" aria-label="轻柔分层云朵">
-    <!-- 远景云（淡、大、慢速漂移） -->
-    <g class="ct-cloud ct-c3 ct-far" transform="translate(52,44) scale(1.4)">
-      <ellipse cx="0" cy="0" rx="120" ry="26"/><ellipse cx="-72" cy="-12" rx="58" ry="20"/><ellipse cx="74" cy="-10" rx="62" ry="19"/>
-    </g>
-    <g class="ct-cloud ct-c3 ct-far" transform="translate(700,60) scale(1.1)">
-      <ellipse cx="0" cy="0" rx="140" ry="30"/><ellipse cx="-82" cy="-14" rx="66" ry="22"/><ellipse cx="86" cy="-12" rx="70" ry="21"/>
-    </g>
-    <g class="ct-cloud ct-c3 ct-far" transform="translate(430,22) scale(1.0)">
-      <ellipse cx="0" cy="0" rx="120" ry="24"/><ellipse cx="-70" cy="-12" rx="58" ry="18"/><ellipse cx="72" cy="-10" rx="60" ry="18"/>
-    </g>
-    <!-- 中景云（系统色中阶、横向错落） -->
-    <g class="ct-cloud ct-c2" transform="translate(160,250) scale(1.1)">
-      <ellipse cx="0" cy="0" rx="150" ry="30"/><ellipse cx="-88" cy="-14" rx="70" ry="22"/><ellipse cx="92" cy="-12" rx="76" ry="21"/>
-    </g>
-    <g class="ct-cloud ct-c2" transform="translate(680,190) scale(1.15)">
-      <ellipse cx="0" cy="0" rx="140" ry="28"/><ellipse cx="-80" cy="-13" rx="66" ry="20"/><ellipse cx="84" cy="-11" rx="70" ry="20"/>
-    </g>
-    <g class="ct-cloud ct-c2" transform="translate(340,96) scale(.9)">
-      <ellipse cx="0" cy="0" rx="120" ry="24"/><ellipse cx="-68" cy="-12" rx="58" ry="18"/><ellipse cx="70" cy="-10" rx="60" ry="17"/>
-    </g>
-    <!-- 近景云（更清晰，略微靠下增加纵深） -->
-    <g class="ct-cloud ct-c1 ct-fg" transform="translate(250,416) scale(1.25)">
-      <ellipse cx="0" cy="0" rx="130" ry="28"/><ellipse cx="-76" cy="-13" rx="62" ry="20"/><ellipse cx="80" cy="-11" rx="66" ry="20"/>
-    </g>
-    <g class="ct-cloud ct-c1 ct-fg" transform="translate(628,398) scale(1.0)">
-      <ellipse cx="0" cy="0" rx="120" ry="26"/><ellipse cx="-70" cy="-12" rx="58" ry="19"/><ellipse cx="72" cy="-10" rx="60" ry="18"/>
-    </g>
-  </svg>
+  
+  <svg class="ct-hearts" viewBox="0 0 400 720" preserveAspectRatio="xMidYMid slice" role="img" aria-label="空心爱心光晕">
+  <defs><filter id="ctHeartGlow" x="-160%" y="-160%" width="420%" height="420%"><feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<g transform="translate(34,60) scale(0.5)"><g class="ct-hh" style="animation-delay:1.2s"><path d="M0,-22 C-8,-30 -24,-24 -24,-12 C-24,0 -8,14 0,22 C8,14 24,0 24,-12 C24,-24 8,-30 0,-22 Z" fill="none" stroke="var(--accent-color)" stroke-width="3" filter="url(#ctHeartGlow)" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g transform="translate(88,128) scale(0.41)"><g class="ct-hh" style="animation-delay:0.6s"><path d="M0,-22 C-8,-30 -24,-24 -24,-12 C-24,0 -8,14 0,22 C8,14 24,0 24,-12 C24,-24 8,-30 0,-22 Z" fill="none" stroke="var(--accent-color)" stroke-width="3" filter="url(#ctHeartGlow)" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g transform="translate(54,300) scale(0.5)"><g class="ct-hh" style="animation-delay:1.2s"><path d="M0,-22 C-8,-30 -24,-24 -24,-12 C-24,0 -8,14 0,22 C8,14 24,0 24,-12 C24,-24 8,-30 0,-22 Z" fill="none" stroke="var(--accent-color)" stroke-width="3" filter="url(#ctHeartGlow)" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g transform="translate(148,88) scale(0.4)"><g class="ct-hh" style="animation-delay:0.6s"><path d="M0,-22 C-8,-30 -24,-24 -24,-12 C-24,0 -8,14 0,22 C8,14 24,0 24,-12 C24,-24 8,-30 0,-22 Z" fill="none" stroke="var(--accent-color)" stroke-width="3" filter="url(#ctHeartGlow)" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g transform="translate(118,250) scale(0.45)"><g class="ct-hh" style="animation-delay:0.6s"><path d="M0,-22 C-8,-30 -24,-24 -24,-12 C-24,0 -8,14 0,22 C8,14 24,0 24,-12 C24,-24 8,-30 0,-22 Z" fill="none" stroke="var(--accent-color)" stroke-width="3" filter="url(#ctHeartGlow)" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g transform="translate(206,168) scale(0.51)"><g class="ct-hh" style="animation-delay:0.0s"><path d="M0,-22 C-8,-30 -24,-24 -24,-12 C-24,0 -8,14 0,22 C8,14 24,0 24,-12 C24,-24 8,-30 0,-22 Z" fill="none" stroke="var(--accent-color)" stroke-width="3" filter="url(#ctHeartGlow)" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g transform="translate(172,420) scale(0.38)"><g class="ct-hh" style="animation-delay:2.4s"><path d="M0,-22 C-8,-30 -24,-24 -24,-12 C-24,0 -8,14 0,22 C8,14 24,0 24,-12 C24,-24 8,-30 0,-22 Z" fill="none" stroke="var(--accent-color)" stroke-width="3" filter="url(#ctHeartGlow)" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g transform="translate(246,330) scale(0.43)"><g class="ct-hh" style="animation-delay:0.6s"><path d="M0,-22 C-8,-30 -24,-24 -24,-12 C-24,0 -8,14 0,22 C8,14 24,0 24,-12 C24,-24 8,-30 0,-22 Z" fill="none" stroke="var(--accent-color)" stroke-width="3" filter="url(#ctHeartGlow)" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g transform="translate(300,480) scale(0.35)"><g class="ct-hh" style="animation-delay:0.6s"><path d="M0,-22 C-8,-30 -24,-24 -24,-12 C-24,0 -8,14 0,22 C8,14 24,0 24,-12 C24,-24 8,-30 0,-22 Z" fill="none" stroke="var(--accent-color)" stroke-width="3" filter="url(#ctHeartGlow)" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g transform="translate(352,620) scale(0.38)"><g class="ct-hh" style="animation-delay:2.4s"><path d="M0,-22 C-8,-30 -24,-24 -24,-12 C-24,0 -8,14 0,22 C8,14 24,0 24,-12 C24,-24 8,-30 0,-22 Z" fill="none" stroke="var(--accent-color)" stroke-width="3" filter="url(#ctHeartGlow)" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g transform="translate(330,200) scale(0.43)"><g class="ct-hh" style="animation-delay:2.4s"><path d="M0,-22 C-8,-30 -24,-24 -24,-12 C-24,0 -8,14 0,22 C8,14 24,0 24,-12 C24,-24 8,-30 0,-22 Z" fill="none" stroke="var(--accent-color)" stroke-width="3" filter="url(#ctHeartGlow)" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g transform="translate(284,610) scale(0.39)"><g class="ct-hh" style="animation-delay:0.0s"><path d="M0,-22 C-8,-30 -24,-24 -24,-12 C-24,0 -8,14 0,22 C8,14 24,0 24,-12 C24,-24 8,-30 0,-22 Z" fill="none" stroke="var(--accent-color)" stroke-width="3" filter="url(#ctHeartGlow)" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g transform="translate(76,520) scale(0.53)"><g class="ct-hh" style="animation-delay:1.8s"><path d="M0,-22 C-8,-30 -24,-24 -24,-12 C-24,0 -8,14 0,22 C8,14 24,0 24,-12 C24,-24 8,-30 0,-22 Z" fill="none" stroke="var(--accent-color)" stroke-width="3" filter="url(#ctHeartGlow)" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g transform="translate(210,380) scale(0.44)"><g class="ct-hh" style="animation-delay:0.0s"><path d="M0,-22 C-8,-30 -24,-24 -24,-12 C-24,0 -8,14 0,22 C8,14 24,0 24,-12 C24,-24 8,-30 0,-22 Z" fill="none" stroke="var(--accent-color)" stroke-width="3" filter="url(#ctHeartGlow)" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+</svg>
   <div class="ct-heart-wrap">
     <svg class="ct-heart-err" viewBox="0 0 629 342">
       <defs>
@@ -633,23 +612,18 @@ html[data-theme="dark"] #chat-transition-overlay{
           <stop offset="0" stop-color="var(--ct-heart-glow)" stop-opacity="1"/>
           <stop offset="1" stop-color="var(--ct-heart-glow)" stop-opacity="0"/>
         </radialGradient>
-        <!-- 翅膀混色遮罩：中央爱心区域抠空，避免系统色 color 混合染到爱心靠近翅膀的小角 -->
-        <mask id="ctWingMask" maskUnits="userSpaceOnUse" x="0" y="0" width="629" height="342">
-          <rect width="629" height="342" fill="#ffffff"/>
-          <circle cx="314.5" cy="170" r="72" fill="#000000"/>
+        <!-- 翅膀着色遮罩：基于参考图离线生成的像素级翅膀蒙版(仅翅膀不透明，爱心与背景透明)，色块只附着在翅膀像素上，绝不会染到爱心 -->
+        <mask id="ctWingColorMask" maskUnits="userSpaceOnUse" x="0" y="0" width="629" height="342" maskType="alpha">
+          <image href="assets/ct-wings-mask.png" xlink:href="assets/ct-wings-mask.png" x="0" y="0" width="629" height="342" preserveAspectRatio="xMidYMid meet"/>
         </mask>
+        <mask id="ctHeartFade" maskUnits="userSpaceOnUse" x="0" y="0" width="629" height="342"><rect x="0" y="0" width="629" height="342" fill="url(#ctHeartFadeG)"/></mask>
+        <radialGradient id="ctHeartFadeG" gradientUnits="userSpaceOnUse" cx="314.5" cy="171" r="340"><stop offset="0" stop-color="#ffffff"/><stop offset="0.9" stop-color="#ffffff"/><stop offset="1" stop-color="#000000"/></radialGradient>
       </defs>
-      <!-- 爱心翅膀图案：参考图作底 + 系统色翅膀混合色，爱心保持参考图原样 -->
-      <g class="ct-heart-img">
+      <!-- 爱心翅膀图案：参考图作底 + 系统色附着于翅膀原始形状上，爱心保持参考图原样 -->
+      <g class="ct-heart-img" mask="url(#ctHeartFade)">
         <image href="assets/ct-heart-wings.png" xlink:href="assets/ct-heart-wings.png" x="0" y="0" width="629" height="342" preserveAspectRatio="xMidYMid meet"/>
-        <!-- 系统色翅膀：color 混合只改色相，且经遮罩避开中央爱心，小角不影响爱心 -->
-        <g mask="url(#ctWingMask)">
-          <path class="ct-wb" d="M59 94 L51 98 L46 102 L43 106 L40 110 L38 114 L36 118 L34 122 L34 126 L33 130 L33 134 L33 138 L33 142 L33 146 L34 150 L34 154 L36 158 L39 162 L44 166 L49 170 L56 174 L56 178 L56 182 L56 186 L56 190 L56 194 L59 198 L69 202 L136 201 L163 197 L171 193 L171 189 L192 185 L192 181 L192 177 L154 173 L148 169 L143 165 L138 161 L134 157 L130 153 L126 149 L122 145 L119 141 L116 137 L113 133 L111 129 L108 125 L106 121 L104 117 L101 113 L99 109 L96 105 L93 101 L88 97 Z"/>
-        </g>
-        <!-- 右翼：镜像 -->
-        <g mask="url(#ctWingMask)" transform="translate(629,0) scale(-1,1)">
-          <path class="ct-wb" d="M59 94 L51 98 L46 102 L43 106 L40 110 L38 114 L36 118 L34 122 L34 126 L33 130 L33 134 L33 138 L33 142 L33 146 L34 150 L34 154 L36 158 L39 162 L44 166 L49 170 L56 174 L56 178 L56 182 L56 186 L56 190 L56 194 L59 198 L69 202 L136 201 L163 197 L171 193 L171 189 L192 185 L192 181 L192 177 L154 173 L148 169 L143 165 L138 161 L134 157 L130 153 L126 149 L122 145 L119 141 L116 137 L113 133 L111 129 L108 125 L106 121 L104 117 L101 113 L99 109 L96 105 L93 101 L88 97 Z"/>
-        </g>
+        <!-- 系统色翅膀：color 混合只改色相，经参考图alpha遮罩精确贴合翅膀形状(零改动)，中央爱心抠空 -->
+        <rect class="ct-wb" width="629" height="342" fill="var(--accent-color)" mask="url(#ctWingColorMask)"/>
       </g>
     </svg>
   </div>
@@ -874,40 +848,62 @@ html[data-theme="dark"] #chat-transition-overlay{
 
 <!-- 进入娱乐页动画：白底 + 闪烁银色四芒星(白色光晕) + 中央灰调猫咪(参照图) -->
 <div id="ent-transition-overlay">
+  <!-- 全屏四芒星层：独立铺满整个屏幕，不受中央容器限制 -->
+  <svg class="ent-stars" viewBox="0 0 400 720" preserveAspectRatio="xMidYMid slice" role="img" aria-label="银色四芒星">
+  <defs><filter id="entStarGlow" x="-150%" y="-150%" width="400%" height="400%"><feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <mask id="entSceneFade" maskUnits="userSpaceOnUse" x="0" y="0" width="800" height="480"><rect x="0" y="0" width="800" height="480" fill="url(#entSceneFadeGrad)"/></mask>
+        <radialGradient id="entSceneFadeGrad" gradientUnits="userSpaceOnUse" cx="400" cy="240" r="360"><stop offset="0" stop-color="#ffffff"/><stop offset="0.62" stop-color="#ffffff"/><stop offset="1" stop-color="#000000"/></radialGradient>
+      </defs>
+<g transform="translate(362.5,608.6) scale(0.41)"><g class="ent-star" style="animation-delay:0.3s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(10.6,560.2) scale(0.39)"><g class="ent-star" style="animation-delay:1.8s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(317.2,193.3) scale(0.36)"><g class="ent-star" style="animation-delay:1.2s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(315.7,497.2) scale(0.34)"><g class="ent-star" style="animation-delay:0.3s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(110.0,68.2) scale(0.49)"><g class="ent-star" style="animation-delay:1.8s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(363.0,69.5) scale(0.38)"><g class="ent-star" style="animation-delay:0.0s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(220.6,69.8) scale(0.54)"><g class="ent-star" style="animation-delay:0.0s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(117.7,374.0) scale(0.37)"><g class="ent-star" style="animation-delay:1.8s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(64.8,616.9) scale(0.34)"><g class="ent-star" style="animation-delay:1.8s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(365.8,672.7) scale(0.55)"><g class="ent-star" style="animation-delay:1.5s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(260.2,193.6) scale(0.35)"><g class="ent-star" style="animation-delay:0.0s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(12.0,370.5) scale(0.42)"><g class="ent-star" style="animation-delay:0.3s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(164.3,369.0) scale(0.34)"><g class="ent-star" style="animation-delay:0.0s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(112.4,676.4) scale(0.45)"><g class="ent-star" style="animation-delay:1.8s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(13.2,668.0) scale(0.58)"><g class="ent-star" style="animation-delay:0.9s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(169.6,199.4) scale(0.56)"><g class="ent-star" style="animation-delay:1.5s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(16.8,16.6) scale(0.43)"><g class="ent-star" style="animation-delay:1.5s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(265.8,551.6) scale(0.58)"><g class="ent-star" style="animation-delay:1.8s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(359.8,260.8) scale(0.35)"><g class="ent-star" style="animation-delay:1.2s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(161.6,669.6) scale(0.42)"><g class="ent-star" style="animation-delay:0.9s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(319.0,550.5) scale(0.41)"><g class="ent-star" style="animation-delay:0.0s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(221.3,199.4) scale(0.38)"><g class="ent-star" style="animation-delay:1.5s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(263.8,310.3) scale(0.38)"><g class="ent-star" style="animation-delay:0.0s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(60.6,548.8) scale(0.43)"><g class="ent-star" style="animation-delay:0.0s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(258.9,140.2) scale(0.52)"><g class="ent-star" style="animation-delay:0.0s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(219.3,131.8) scale(0.51)"><g class="ent-star" style="animation-delay:1.8s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(8.2,260.6) scale(0.42)"><g class="ent-star" style="animation-delay:1.2s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(317.6,16.8) scale(0.55)"><g class="ent-star" style="animation-delay:1.5s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(215.1,249.9) scale(0.44)"><g class="ent-star" style="animation-delay:1.5s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(269.1,619.4) scale(0.38)"><g class="ent-star" style="animation-delay:1.8s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(166.8,611.9) scale(0.36)"><g class="ent-star" style="animation-delay:0.0s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(13.8,617.4) scale(0.43)"><g class="ent-star" style="animation-delay:1.2s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(364.8,316.6) scale(0.37)"><g class="ent-star" style="animation-delay:0.6s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+<g transform="translate(212.8,21.2) scale(0.4)"><g class="ent-star" style="animation-delay:0.6s"><path d="M0,-14 L5.2,-5.2 L14,0 L5.2,5.2 L0,14 L-5.2,5.2 L-14,0 L-5.2,-5.2 Z" fill="#a6afbd" filter="url(#entStarGlow)"/></g></g>
+</svg>
   <div class="ent-inner">
     <svg viewBox="0 0 800 480" role="img" aria-label="灰调猫咪">
       <defs>
         <radialGradient id="entHalo" cx="0.5" cy="0.5" r="0.5">
           <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
         </radialGradient>
-        <filter id="entStarGlow" x="-150%" y="-150%" width="400%" height="400%">
+        <filter id="entStarGlow2" x="-150%" y="-150%" width="400%" height="400%">
           <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
           <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
       </defs>
 
-      <!-- 银色四芒星：散发白色光晕，闪烁（外层 translate，内层动画避免 transform 冲突） -->
-      <g>
-        <g transform="translate(96,72) scale(1.1)"><g class="ent-star" style="animation-delay:0s"><circle cx="0" cy="0" r="30" fill="url(#entHalo)"/><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
-        <g transform="translate(216,96) scale(.7)"><g class="ent-star" style="animation-delay:.4s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
-        <g transform="translate(368,60) scale(.95)"><g class="ent-star" style="animation-delay:.9s"><circle cx="0" cy="0" r="28" fill="url(#entHalo)"/><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
-        <g transform="translate(560,84) scale(.75)"><g class="ent-star" style="animation-delay:1.3s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
-        <g transform="translate(712,92) scale(1.1)"><g class="ent-star" style="animation-delay:.6s"><circle cx="0" cy="0" r="30" fill="url(#entHalo)"/><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
-        <g transform="translate(60,220) scale(.55)"><g class="ent-star" style="animation-delay:1.8s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
-        <g transform="translate(744,214) scale(.6)"><g class="ent-star" style="animation-delay:.2s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
-        <g transform="translate(118,330) scale(.5)"><g class="ent-star" style="animation-delay:1.1s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
-        <g transform="translate(704,336) scale(.52)"><g class="ent-star" style="animation-delay:1.5s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
-        <g transform="translate(180,428) scale(.65)"><g class="ent-star" style="animation-delay:.7s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
-        <g transform="translate(330,436) scale(.55)"><g class="ent-star" style="animation-delay:1.7s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
-        <g transform="translate(478,438) scale(.6)"><g class="ent-star" style="animation-delay:.3s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
-        <g transform="translate(644,424) scale(.7)"><g class="ent-star" style="animation-delay:1.4s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
-        <g transform="translate(52,404) scale(.4)"><g class="ent-star" style="animation-delay:.5s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
-        <g transform="translate(756,398) scale(.42)"><g class="ent-star" style="animation-delay:1.9s"><path d="M0,-15 L5.6,-5.6 L15,0 L5.6,5.6 L0,15 L-5.6,5.6 L-15,0 L-5.6,-5.6 Z" fill="#ccd1dc" filter="url(#entStarGlow)"/></g></g>
-      </g>
-
-      <!-- 参照图场景：灰调猫咪，取代手绘双猫，保证和参考图一致 -->
-      <g class="ent-scene">
-        <image x="20" y="6" width="760" height="470" href="assets/ent-cat-scene.png" preserveAspectRatio="xMidYMid meet"/>
+      <!-- 参照图场景：灰调猫咪，保证和参考图一致（四芒星全屏层在其上方） -->
+      <g class="ent-scene" mask="url(#entSceneFade)">
+        <image x="123" y="0" width="554" height="480" href="assets/ent-scene.png" preserveAspectRatio="xMidYMid meet"/>
       </g>
 
     </svg>
@@ -3441,7 +3437,7 @@ html[data-theme="dark"] #chat-transition-overlay{
                 </button>
             </div>
     
-            <div class="ann-list-container" id="ann-list-container">
+            <div class="ann-list-container" id="ann-modal-list">
             </div>
     
             <div class="ann-footer">
@@ -3483,7 +3479,7 @@ html[data-theme="dark"] #chat-transition-overlay{
                             </div>
                         </div>
                         <div style="font-size: 12px; color: var(--text-secondary); margin-top: 10px; opacity: 0.7; padding: 0 2px;">
-                            <span id="ann-type-desc">计算从过去某一天到现在已经过了多少天</span>
+                            <span id="ann-modal-type-desc">计算从过去某一天到现在已经过了多少天</span>
                         </div>
                     </div>
     

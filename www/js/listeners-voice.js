@@ -141,7 +141,9 @@
             if (!msgId) return;
             const msg = findMessage(msgId);
             if (!msg) return;
-            if (msg.voice || msg.image || msg.type === 'system') return;
+            if (msg.voice || msg.image) return;
+            // 只把普通文本消息转成伪语音；红包/转账等卡片消息带 type，绝不能转成语音
+            if (msg.type && msg.type !== 'normal') return;
             if (!msg.text || !msg.text.trim()) return;
             if (msg._fakeVoiceConsidered) return;
             msg._fakeVoiceConsidered = true;

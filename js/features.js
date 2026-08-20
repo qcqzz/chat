@@ -507,8 +507,11 @@ function showEmojiTab() {
                 
                 const delayRange = settings.replyDelayMax - settings.replyDelayMin;
                 const randomDelay = settings.replyDelayMin + Math.random() * delayRange;
-                if (window._pendingReplyTimer) clearTimeout(window._pendingReplyTimer);
-                window._pendingReplyTimer = setTimeout(() => { window._pendingReplyTimer = null; simulateReply(); }, randomDelay);
+                if (window._queueReply) {
+                    window._queueReply(() => simulateReply());
+                } else {
+                    window._pendingReplyTimer = setTimeout(() => { window._pendingReplyTimer = null; simulateReply(); }, randomDelay);
+                }
             }
             document.getElementById('user-sticker-picker').classList.remove('active');
         };

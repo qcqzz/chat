@@ -186,8 +186,10 @@
         if (!flags.inclAnn) p.push('anniversaries');
         if (!flags.inclThemes) p.push('customThemes', 'themeSchemes');
         if (!flags.inclDg) p.push('dg_custom_data', 'dg_status_pool', 'weekly_fortune', 'daily_fortune', 'customWeather_');
-        // 情侣空间：动态 / 相册 / 壁纸 / 影院 / 纪念日封面与设置（默认纳入，勾选关闭时排除）
-        if (flags.inclCS === false) p.push('momentsData', 'albumData', 'csSpaceSettings', 'csWallpaper', 'csWallpaperGallery', '_cinema', 'annMeetOverride', 'annPinnedId', 'annCoverBg_');
+        // 空间：动态 / 相册 / 壁纸 / 纪念日封面与设置（默认纳入，勾选关闭时排除）
+        if (flags.inclCS === false) p.push('momentsData', 'albumData', 'csSpaceSettings', 'csWallpaper', 'csWallpaperGallery', 'annMeetOverride', 'annPinnedId', 'annCoverBg_');
+        // 娱乐：影院 / 音乐厅 / 自定义音乐（默认纳入，勾选关闭时排除）
+        if (flags.inclEnt === false) p.push('_cinema', 'customSongs', '__mh');
         return p;
     }
 
@@ -203,7 +205,8 @@
     async function buildBackupPayload(flags) {
         flags = flags || {
             inclMsgs: true, inclSet: true, inclCustom: true, inclAnn: true,
-            inclThemes: true, inclDg: true, inclStickers: false, inclCS: true
+            inclThemes: true, inclDg: true, inclStickers: false, inclCS: true,
+            inclEnt: true
         };
         var lfData = {};
         var keys = await localforage.keys();
@@ -649,8 +652,11 @@
         var lsRaw = data.localStorage || {};
 
         if (selective && opt.selectedCategoryIds && opt.categories) {
-            lfRaw = filterLfByCategories(lfRaw, opt.selectedCategoryIds, opt.categories);
-            lsRaw = filterLsByCategories(lsRaw, opt.selectedCategoryIds, opt.categories);
+            // 全选（未做取舍）时不按分类 needle 过滤，完整恢复文件中的所有键，避免白名单外内容丢失
+            if (opt.selectedCategoryIds.length < opt.categories.length) {
+                lfRaw = filterLfByCategories(lfRaw, opt.selectedCategoryIds, opt.categories);
+                lsRaw = filterLsByCategories(lsRaw, opt.selectedCategoryIds, opt.categories);
+            }
         }
 
         var lfKeys = Object.keys(lfRaw);
@@ -675,7 +681,15 @@
             var targetLsKey = needRemap ? remapLfKey(k, backupSid, curSid, appPfx) : k;
             try {
                 var lsv = processLocalStorageValueForImport(lsRaw[k], mediaStore);
-                if (typeof lsv === 'string' && lsv.indexOf('data:image/') === 0 && lsv.length > 2000) continue;
+                // 不再因“是较长 data URL”而整条丢弃：先尝试写入，仅在实际写失败（如超出配额）时才跳过该项
+                if (typeof lsv === 'string' && lsv.indexOf('data:image/') === 0 && lsv.length > 2000) {
+                    try {
+                        localStorage.setItem(targetLsKey, lsv);
+                    } catch (qerr) {
+                        console.warn('[backup] localStorage 图片过大，跳过', targetLsKey, qerr);
+                    }
+                    continue;
+                }
                 localStorage.setItem(targetLsKey, lsv);
             } catch (e2) {
                 console.warn('[backup] localStorage 恢复失败', targetLsKey, e2);

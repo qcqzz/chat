@@ -295,7 +295,12 @@ if (exportAllBtn) {
                         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border:1px solid var(--border-color);border-radius:12px;background:var(--primary-bg);font-size:13px;color:var(--text-primary);">
                             <input type="checkbox" id="_bk_cs" checked style="accent-color:var(--accent-color);width:15px;height:15px;">
                             <i class="fas fa-home-heart" style="color:var(--accent-color);width:16px;text-align:center;"></i>
-                            <span>情侣空间（动态 / 相册 / 壁纸 / 影院 / 纪念日）</span>
+                            <span>空间（动态 / 相册 / 壁纸 / 纪念日）</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border:1px solid var(--border-color);border-radius:12px;background:var(--primary-bg);font-size:13px;color:var(--text-primary);">
+                            <input type="checkbox" id="_bk_ent" checked style="accent-color:var(--accent-color);width:15px;height:15px;">
+                            <i class="fas fa-icons" style="color:var(--accent-color);width:16px;text-align:center;"></i>
+                            <span>娱乐（影院 / 音乐厅 / 观影记录）</span>
                         </label>
                         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border:1px solid var(--border-color);border-radius:12px;background:var(--primary-bg);font-size:13px;color:var(--text-primary);">
                             <input type="checkbox" id="_bk_stickers" style="accent-color:var(--accent-color);width:15px;height:15px;">
@@ -326,9 +331,10 @@ if (exportAllBtn) {
                 const inclThemes  = document.getElementById('_bk_themes').checked;
                 const inclDg      = document.getElementById('_bk_dg').checked;
                 const inclCS      = document.getElementById('_bk_cs').checked;
+                const inclEnt     = document.getElementById('_bk_ent').checked;
                 const inclStickers = document.getElementById('_bk_stickers') && document.getElementById('_bk_stickers').checked;
 
-                if (!inclMsgs && !inclSet && !inclCustom && !inclAnn && !inclThemes && !inclDg && !inclCS && !inclStickers) {
+                if (!inclMsgs && !inclSet && !inclCustom && !inclAnn && !inclThemes && !inclDg && !inclCS && !inclEnt && !inclStickers) {
                     showNotification('请至少选择一项', 'error');
                     return;
                 }
@@ -343,6 +349,7 @@ if (exportAllBtn) {
                         inclThemes: inclThemes,
                         inclDg: inclDg,
                         inclCS: inclCS,
+                        inclEnt: inclEnt,
                         inclStickers: inclStickers
                     };
                     if (typeof ChatBackup !== 'undefined' && ChatBackup.exportBackupToFile) {

@@ -701,9 +701,15 @@ async function importAllData(file) {
             },
             {
                 id: 'cs',
-                label: '情侣空间（动态 / 相册 / 壁纸 / 影院 / 纪念日封面）',
-                indexedDBNeedles: ['momentsData', 'albumData', 'csSpaceSettings', 'csWallpaper', 'csWallpaperGallery', '_cinema', 'annMeetOverride', 'annPinnedId', 'annCoverBg_'],
+                label: '空间（动态 / 相册 / 壁纸 / 纪念日封面）',
+                indexedDBNeedles: ['momentsData', 'albumData', 'csSpaceSettings', 'csWallpaper', 'csWallpaperGallery', 'annMeetOverride', 'annPinnedId', 'annCoverBg_'],
                 localStorageNeedles: []
+            },
+            {
+                id: 'ent',
+                label: '娱乐（影院 / 音乐厅 / 观影记录）',
+                indexedDBNeedles: ['_cinema', 'customSongs'],
+                localStorageNeedles: ['__mh']
             },
             {
                 id: 'mood',

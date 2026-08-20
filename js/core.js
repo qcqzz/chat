@@ -2074,6 +2074,30 @@ if (!isBatchMode && type === 'normal') {
         // 通用：触发"模拟用户发了消息后的延迟回复"机制
         //   isUserMessage: true 表示真实有用户消息（默认），false 表示陪伴页点击触发（不存在的虚拟消息）
         //   返回 true 表示已排队等待回复，false 表示被"已读不回"概率拦截
+        // ─── 回复排队：连续触发不互相取消，按顺序依次回复 ───────────
+        window._replyQueue = [];
+        function _drainReplyQueue() {
+            if (!window._replyQueue || window._replyQueue.length === 0) return;
+            const task = window._replyQueue[0];
+            const delayRange = settings.replyDelayMax - settings.replyDelayMin;
+            const randomDelay = settings.replyDelayMin + Math.random() * delayRange;
+            setTimeout(() => {
+                if (window._replyQueue.length > 0) window._replyQueue.shift();
+                try {
+                    window._simulateReplyLockUntil = 0; // 让每条排队的回复都能正常触发
+                    task();
+                } catch (e) {}
+                _drainReplyQueue();
+            }, randomDelay);
+        }
+        function _queueReply(task) {
+            if (!window._replyQueue) window._replyQueue = [];
+            const wasEmpty = window._replyQueue.length === 0;
+            window._replyQueue.push(task);
+            if (wasEmpty) _drainReplyQueue();
+        }
+        window._queueReply = _queueReply;
+
         window._triggerDelayedReply = function(isUserMessage) {
             if (isBatchMode) return false;
             // 真实用户消息一定要清除陪伴静默标志（避免陪伴中点了一下，回首页发消息时还跳过引用）
@@ -2101,10 +2125,7 @@ if (!isBatchMode && type === 'normal') {
                 }, readDelay);
             }
 
-            // 取消之前排队的回复（连续触发时只保留最后一次）
-            if (window._pendingReplyTimer) clearTimeout(window._pendingReplyTimer);
-            window._pendingReplyTimer = null;
-
+            // 排队：不取消之前已排队的回复，连续触发按顺序依次回复
             if (shouldIgnore) return false;
 
             // 显示 typing
@@ -2124,13 +2145,12 @@ if (!isBatchMode && type === 'normal') {
                 if (_isCaughtUpToLatest() && DOMElements.chatContainer) DOMElements.chatContainer.scrollTop = DOMElements.chatContainer.scrollHeight;
             }
 
-            // 排队回复
-            window._pendingReplyTimer = setTimeout(() => {
-                window._pendingReplyTimer = null;
+            // 排队回复（不覆盖已有排队，连续触发会在前面回复完成后依次执行）
+            _queueReply(() => {
                 simulateReply();
                 // 清除陪伴静默标志：延迟清除，确保 simulateReply 内部所有消息都已取到 recentUserMsgs 之后再清
                 setTimeout(() => { window._companionSilentTrigger = false; }, (settings.replyDelayMax || 3000) + 500);
-            }, randomDelay);
+            });
             return true;
         };
 
@@ -2394,6 +2414,7 @@ function showModal(modalElement, focusElement = null) {
                 modalElement._hideTimeout = null;
             }
             modalElement.style.display = 'flex';
+            modalElement.style.opacity = '';
             requestAnimationFrame(() => {
                 const content = modalElement.querySelector('.modal-content');
                 if (content) {
@@ -2412,9 +2433,14 @@ function showModal(modalElement, focusElement = null) {
                 content.style.opacity = '0';
                 content.style.transform = 'translateY(20px) scale(0.95)';
             }
+            // 遮罩连同透明一起淡出，避免 display:none 时黑底突然消失造成闪屏
+            modalElement.style.opacity = '0';
+            modalElement.style.transition = 'opacity 0.28s ease';
             if (modalElement._hideTimeout) clearTimeout(modalElement._hideTimeout);
             modalElement._hideTimeout = setTimeout(() => {
                 modalElement.style.display = 'none';
+                modalElement.style.opacity = '';
+                modalElement.style.transition = '';
             }, 300);
         }
 
