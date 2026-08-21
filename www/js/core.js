@@ -1378,7 +1378,10 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
 
     let messageHTML = '';
     if (msg.replyTo) {
-        const repliedText = _escapeHtml(msg.replyTo.text || (msg.replyTo.voice ? '语音 ' + (msg.replyTo.voice.duration || 0) + '"' : (msg.replyTo.image ? '🖼 图片' : '[消息]')));
+        const quotedRecalled = msg.replyTo.id ? messages.some(m => m.id === msg.replyTo.id && m.recalled) : false;
+        const repliedText = quotedRecalled
+            ? '该消息已被撤回'
+            : _escapeHtml(msg.replyTo.text || (msg.replyTo.voice ? '语音 ' + (msg.replyTo.voice.duration || 0) + '"' : (msg.replyTo.image ? '🖼 图片' : '[消息]')));
         const repliedSender = _escapeHtml(msg.replyTo.sender === 'user' ? (settings.myName || '我') : (settings.partnerName || '对方'));
         messageHTML += `<div class="reply-indicator" data-reply-id="${msg.replyTo.id || ''}" style="cursor:pointer;" onclick="scrollToQuotedMessage(this)"><span class="reply-indicator-sender">${repliedSender}</span><span class="reply-indicator-text">${repliedText}</span></div>`;
     }
@@ -2322,7 +2325,7 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
             let delay = 0;
             // 陪伴页静默触发时不引用用户消息（陪伴中的触发不是用户发了某条具体消息）
             const recentUserMsgs = (settings.replyEnabled && !window._companionSilentTrigger)
-                ? messages.filter(m => m.sender === 'user' && m.text).slice(-10)
+                ? messages.filter(m => m.sender === 'user' && m.text && !m.recalled).slice(-10)
                 : [];
 
             // 前台服务保活确保 WebView 持续运行，setTimeout 可正常触发通知
