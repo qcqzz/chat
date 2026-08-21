@@ -213,12 +213,16 @@ function deduplicateContentArray(arr, baseSystemArray = []) {
                 }).then(function (uriResult) {
                     console.log('[utils] 文件 URI:', uriResult.uri);
                     if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
-                        return window.Capacitor.Plugins.Share.share({
+                        // 用 files 数组真实携带本地文件 URI 分享文件内容。
+                        // 若只用 url:（file:// 本地 URI），Android/iOS 会把文件路径当"链接"分享，
+                        // 接收端常得到空文件或无法打开。
+                        var shareOpts = {
                             title: '传讯 - 保存备份',
                             text: '备份文件：' + fileName,
-                            url: uriResult.uri,
                             dialogTitle: '保存备份文件'
-                        });
+                        };
+                        if (uriResult && uriResult.uri) shareOpts.files = [uriResult.uri];
+                        return window.Capacitor.Plugins.Share.share(shareOpts);
                     }
                     var file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
                     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {

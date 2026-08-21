@@ -578,6 +578,40 @@ const loadData = async () => {
         if (savedCustomThemes) customThemes = savedCustomThemes;
         if (savedThemeSchemes) themeSchemes = savedThemeSchemes;
         try { const ce = await localforage.getItem(getStorageKey('customEmojis')); if (ce && Array.isArray(ce)) customEmojis = ce; } catch(e) {}
+
+        // 字卡数据兜底恢复：当 IndexedDB(localforage) 里对应的键缺失（null，通常发生在更新/重装后
+        // WebView 存储被清理时）才从本地紧急备份恢复。注意只在"键不存在"时恢复，
+        // 用户主动清空（空数组 []）属正常状态，不会误覆盖。与上方聊天消息的备份恢复逻辑一致。
+        if (!savedCustomReplies || !savedReplyGroups || !savedVoiceCards || !savedVoiceGroups || savedVoiceCardEnabled === null) {
+            try {
+                const _cardBackup = _tryRecoverFromBackup();
+                if (_cardBackup) {
+                    if (!savedCustomReplies && Array.isArray(_cardBackup.customReplies) && _cardBackup.customReplies.length) {
+                        customReplies = _cardBackup.customReplies;
+                    }
+                    if (!savedReplyGroups && Array.isArray(_cardBackup.customReplyGroups) && _cardBackup.customReplyGroups.length) {
+                        window.customReplyGroups = _cardBackup.customReplyGroups;
+                    }
+                    if (!savedVoiceCards && Array.isArray(_cardBackup.customVoiceCards) && _cardBackup.customVoiceCards.length) {
+                        voiceCards = _cardBackup.customVoiceCards;
+                        window._voiceCards = voiceCards;
+                    }
+                    if (!savedVoiceGroups && Array.isArray(_cardBackup.customVoiceGroups) && _cardBackup.customVoiceGroups.length) {
+                        window.customVoiceGroups = _cardBackup.customVoiceGroups;
+                    }
+                    if (savedVoiceCardEnabled === null && _cardBackup.voiceCardEnabled !== undefined) {
+                        voiceCardEnabled = !!_cardBackup.voiceCardEnabled;
+                    }
+                    // 恢复了语音字卡相关数据后，重刷设置面板里的语音字卡开关状态
+                    try {
+                        if (typeof window._syncVoiceCardUI === 'function') window._syncVoiceCardUI();
+                    } catch (e) {}
+                }
+            } catch (e) {
+                console.warn('[loadData] 从本地备份恢复字卡失败:', e);
+            }
+        }
+
         window._customReplies = customReplies;
         window._CONSTANTS = CONSTANTS;
 
@@ -726,15 +760,30 @@ window.deleteAnniversaryItem = function(id) {
 };
 
 const _BACKUP_PREFIX = 'BACKUP_V1_';
-function _backupCriticalData() {
+// 备份节流时间戳：避免拿全部消息在主线程做同步 JSON.stringify 写 localStorage，导致聊天时反复卡顿。
+// 每次 saveData() 都会走到这里（每条消息 + 500ms 节流都会触发），这里把真正落盘限制为每 10 秒最多一次，
+// 页面隐藏/关闭时会通过 flush() 强制落盘，保证退出前数据不丢。
+let _lastBackupTs = 0;
+const _BACKUP_THROTTLE_MS = 10000;
+function _backupCriticalData(force) {
     if (window._skipBackup) return;
+    const now = Date.now();
+    if (!force && _lastBackupTs && (now - _lastBackupTs) < _BACKUP_THROTTLE_MS) return;
+    _lastBackupTs = now;
     try {
         const backupPayload = {
-            ts: Date.now(),
+            ts: now,
             messages: messages,
             settings: settings,
             sessionId: SESSION_ID,
-            anniversaries: anniversaries
+            anniversaries: anniversaries,
+            // 字卡数据一并纳入本地紧急备份：与消息一致，在 IndexedDB 数据异常/更新安装后被清理时，
+            // 可以通过同一份备份恢复，避免"更新安装后字卡丢失、只有聊天记录还在"。
+            customReplies: customReplies || [],
+            customReplyGroups: (window.customReplyGroups) || [],
+            customVoiceCards: voiceCards || [],
+            customVoiceGroups: (window.customVoiceGroups) || [],
+            voiceCardEnabled: !!voiceCardEnabled
         };
 
         let payloadToStore = backupPayload;
@@ -750,9 +799,13 @@ function _backupCriticalData() {
         const json = JSON.stringify(payloadToStore);
 
         if (json.length > 4.5 * 1024 * 1024) {
+            // 太大：先只保留消息（牺牲字卡备份，字卡通常是纯文本在此场景很少触发）
             const smallerPayload = {
-                ...payloadToStore,
+                ts: now,
                 messages: messages.slice(-50),
+                settings: settings,
+                sessionId: SESSION_ID,
+                anniversaries: anniversaries,
                 _truncated: true
             };
             const smallerJson = JSON.stringify(smallerPayload);
@@ -760,10 +813,14 @@ function _backupCriticalData() {
         } else {
             localStorage.setItem(_BACKUP_PREFIX + 'critical', json);
         }
-        localStorage.setItem(_BACKUP_PREFIX + 'timestamp', String(Date.now()));
+        localStorage.setItem(_BACKUP_PREFIX + 'timestamp', String(now));
     } catch (e) {
         console.warn('localStorage 备份写入失败（可能存储已满）:', e);
     }
+}
+// 页面隐藏/关闭时强制落盘（绕过节流），保证退出前最新数据已备份。
+function _flushCriticalBackup() {
+    try { _backupCriticalData(true); } catch (e) { console.warn('强制备份失败:', e); }
 }
 
 function _tryRecoverFromBackup() {

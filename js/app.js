@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 try {
                     if (typeof saveTimeout !== 'undefined') clearTimeout(saveTimeout);
                 } catch (e) {}
-                try { _backupCriticalData(); } catch (e) { console.warn('[visibilitychange] 紧急备份失败:', e); }
+                try { if (typeof _flushCriticalBackup === 'function') _flushCriticalBackup(); else _backupCriticalData(); } catch (e) { console.warn('[visibilitychange] 紧急备份失败:', e); }
                 // 进入后台时重新拉起前台服务/定时唤醒，确保长时间后台保活
                 try {
                     if (typeof ForegroundBridge !== 'undefined' && ForegroundBridge.isSupported()) {
@@ -211,11 +211,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         window.addEventListener('pagehide', () => {
-            try { _backupCriticalData(); } catch (e) {}
+            try { if (typeof _flushCriticalBackup === 'function') _flushCriticalBackup(); else _backupCriticalData(); } catch (e) {}
         });
 
         window.addEventListener('beforeunload', () => {
-            try { _backupCriticalData(); } catch (e) {}
+            try { if (typeof _flushCriticalBackup === 'function') _flushCriticalBackup(); else _backupCriticalData(); } catch (e) {}
         });
 
         setInterval(() => {

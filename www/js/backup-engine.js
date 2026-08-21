@@ -310,14 +310,16 @@
                 return fs.getUri({ path: filePath, directory: 'CACHE' });
             }).then(function (uriResult) {
                 console.log('[backup] 文件 URI:', uriResult.uri);
-                // 使用 Share 插件分享文件
+                // 使用 Share 插件分享文件（files 携带本地 URI 真实分享文件内容；
+                // 仅 url: 会把本地 file:// 当链接分享，接收端常得到空文件/无法打开）
                 if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
-                    return window.Capacitor.Plugins.Share.share({
+                    var shareOpts = {
                         title: '传讯 - 保存备份',
                         text: '备份文件：' + fileName,
-                        url: uriResult.uri,
                         dialogTitle: '保存备份文件'
-                    });
+                    };
+                    if (uriResult && uriResult.uri) shareOpts.files = [uriResult.uri];
+                    return window.Capacitor.Plugins.Share.share(shareOpts);
                 }
                 // 回退：用 navigator.share
                 var file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
