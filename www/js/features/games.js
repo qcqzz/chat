@@ -448,7 +448,6 @@
     function recordHTML(r) {
         if (state.game === '2048') return recordHTML2048(r);
         var dW = partnerName();
-        var uW = r.winner === 'user' ? '你' : '';
         var who = r.winner === 'user' ? esc(myName()) + ' 获胜' : dW + ' 获胜';
         return '<div class="gs-rec">'
             + '<span class="gs-recd">' + esc(r.d) + '</span>'
