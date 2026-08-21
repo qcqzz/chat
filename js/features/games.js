@@ -581,8 +581,10 @@
 
     function scheduleAi() {
         clearAi();
-        // 梦角响应时间随机 2s ~ 30s，营造思考延迟
-        var delay = 2000 + Math.floor(Math.random() * 28000);
+        // 梦角响应时间：五子棋随机 2s ~ 15s，围棋随机 2s ~ 30s，营造思考延迟
+        var delay = (state.game === 'gomoku')
+            ? 2000 + Math.floor(Math.random() * 13000)
+            : 2000 + Math.floor(Math.random() * 28000);
         aiTimer = setTimeout(function () {
             aiTimer = null;
             if (!state || state.sessionOver || state.over || state.turn !== 'dream') return;
@@ -1161,11 +1163,13 @@
                 // 若我方可在本手成五，直接落子致胜
                 if (dream >= 5) { bestV = 1e12; best = cand.length; }
                 var v = dream * 100 + user * 74;   // 攻守并重，稍偏防守
-                if (user >= 4) v += 400;           // 必须堵住对方的活四/冲四
-                if (dream >= 4) v += 650;          // 我方冲四/活四，制造必胜
+                if (user >= 4) v += 420;           // 必须堵住对方的活四/冲四
+                if (dream >= 4) v += 680;          // 我方冲四/活四，制造必胜
+                if (user >= 3) v += 120;           // 对方活三/冲三也尽早防备
+                if (dream >= 3) v += 150;          // 我方成三多占一点，便于后续发展
                 var dist = Math.abs(r - center) + Math.abs(c - center);
                 v += (n - dist) * 0.5;
-                v += Math.random() * 1.5;
+                v += Math.random() * 0.8;
                 if (v > bestV) { bestV = v; best = cand.length; }
                 cand.push({ v: v, r: r, c: c });
             }
