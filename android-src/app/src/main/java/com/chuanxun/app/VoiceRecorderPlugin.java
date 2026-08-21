@@ -4,6 +4,7 @@ import android.Manifest;
 import android.media.MediaRecorder;
 import android.util.Base64;
 
+import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
