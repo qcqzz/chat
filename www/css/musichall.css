@@ -832,3 +832,34 @@
     color: #fff;
     box-shadow: 0 4px 12px rgba(217,128,146,.35);
 }
+
+/* 字体 & 气泡自定义CSS（与主设置"字体 & 气泡"一致） */
+.mh-css-hint {
+    font-size: 11px;
+    color: var(--text-secondary);
+    opacity: .85;
+    line-height: 1.5;
+    margin-bottom: 8px;
+}
+.mh-css-area {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--border-color, rgba(128,128,128,.25));
+    border-radius: 10px;
+    padding: 9px 10px;
+    font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    background: var(--bg-color, #fff);
+    color: var(--text-primary);
+    outline: none;
+    resize: vertical;
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+.mh-css-area:focus { border-color: var(--accent-color); }
+.mh-css-btns {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.mh-css-act { flex: 1; min-width: 84px; }

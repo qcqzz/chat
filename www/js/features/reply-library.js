@@ -6,6 +6,10 @@ if (typeof customStatusGroups === 'undefined') window.customStatusGroups = [];
 // 根据当前 tab 返回对应的分组上下文 {groups, items, itemLabel}
 function _getGroupCtx(tab) {
     tab = tab || currentSubTab;
+    if (tab === 'voices') {
+        if (!window.customVoiceGroups) window.customVoiceGroups = [];
+        return { groups: window.customVoiceGroups, items: voiceCards || [], itemLabel: '语音字卡' };
+    }
     if (tab === 'pokes') {
         if (!window.customPokeGroups) window.customPokeGroups = [];
         return { groups: window.customPokeGroups, items: customPokes, itemLabel: '拍一拍' };
@@ -22,7 +26,7 @@ function _getGroupCtx(tab) {
 // 判断当前 tab 是否支持分组
 function _tabHasGroups(tab) {
     tab = tab || currentSubTab;
-    return tab === 'custom' || tab === 'pokes' || tab === 'statuses';
+    return tab === 'custom' || tab === 'voices' || tab === 'pokes' || tab === 'statuses';
 }
 
 // ── 语音字卡：稳定 id / 分组 / 屏蔽 ──────────────────────────────
@@ -44,6 +48,13 @@ function _getVoiceGroupCtx() {
 
 function _getVoiceGroupOfId(id) {
     return (window.customVoiceGroups || []).find(g => g.items && g.items.includes(id)) || null;
+}
+
+// 判断某条内容是否属于某个分组（语音字卡用 id 判定，其余用内容本身判定）
+function _itemInGroup(group, item) {
+    if (!group || !group.items) return false;
+    if (currentSubTab === 'voices') return group.items.includes(_vcId(item));
+    return group.items.includes(item);
 }
 
 function _getDisabledVoiceSet() {
@@ -204,7 +215,15 @@ function _renderListContentOnly() {
     if (renderType === 'image') { _renderStickerTab(list, itemsToRender); return; }
     if (renderType === 'voice') {
         const vq = _searchQuery.toLowerCase().trim();
-        const vfiltered = vq ? itemsToRender.filter(v => ((v && v.text) || '').toLowerCase().includes(vq)) : itemsToRender;
+        let vfiltered = itemsToRender;
+        if (vq) vfiltered = vfiltered.filter(v => ((v && v.text) || '').toLowerCase().includes(vq));
+        const vGroups = window.customVoiceGroups || [];
+        if (_activeGroupFilter === 'ungrouped') {
+            vfiltered = vfiltered.filter(v => !vGroups.some(g => _itemInGroup(g, v)));
+        } else if (_activeGroupFilter !== null) {
+            const gid = _activeGroupFilter;
+            vfiltered = vfiltered.filter(v => vGroups.some(g => String(g.id) === String(gid) && _itemInGroup(g, v)));
+        }
         if (vfiltered.length === 0) {
             const empty = document.createElement('div');
             empty.innerHTML = renderEmptyState(vq ? `未找到 "${vq}"` : '暂无语音字卡');
@@ -308,7 +327,16 @@ function renderReplyLibrary() {
     if (renderType === 'image') { _renderStickerTab(list, itemsToRender); list.scrollTop = savedScrollTop; requestAnimationFrame(() => { list.scrollTop = savedScrollTop; }); return; }
     if (renderType === 'voice') {
         const vq = _searchQuery.toLowerCase().trim();
-        const vfiltered = vq ? itemsToRender.filter(v => ((v && v.text) || '').toLowerCase().includes(vq)) : itemsToRender;
+        let vfiltered = itemsToRender;
+        if (vq) vfiltered = vfiltered.filter(v => ((v && v.text) || '').toLowerCase().includes(vq));
+        // 分组过滤（与主字卡一致）
+        const vGroups = window.customVoiceGroups || [];
+        if (_activeGroupFilter === 'ungrouped') {
+            vfiltered = vfiltered.filter(v => !vGroups.some(g => _itemInGroup(g, v)));
+        } else if (_activeGroupFilter !== null) {
+            const gid = _activeGroupFilter;
+            vfiltered = vfiltered.filter(v => vGroups.some(g => String(g.id) === String(gid) && _itemInGroup(g, v)));
+        }
         if (!vfiltered.length) {
             list.innerHTML = renderEmptyState(vq ? `未找到"${vq}"` : '暂无语音字卡，点下方「添加」导入语音文件');
             list.scrollTop = savedScrollTop; return;
@@ -367,7 +395,7 @@ function _renderModernToolbar() {
     if (hasGroupSupport && ctx.groups && ctx.groups.length > 0) {
         const allCount = ctx.items.length;
         const ungroupedCount = ctx.items.filter(item =>
-            !ctx.groups.some(g => g.items && g.items.includes(item))
+            !ctx.groups.some(g => _itemInGroup(g, item))
         ).length;
         groupFilterHtml = `
             <div id="group-filter-pills" style="
@@ -381,7 +409,7 @@ function _renderModernToolbar() {
                     未分组 <span class="gfp-count">${ungroupedCount}</span>
                 </button>
                 ${ctx.groups.map(g => {
-                    const cnt = (g.items || []).filter(item => ctx.items.includes(item)).length;
+                    const cnt = ctx.items.filter(item => _itemInGroup(g, item)).length;
                     return `<button class="gfp-btn ${_activeGroupFilter === g.id ? 'gfp-active' : ''} ${g.disabled ? 'gfp-disabled' : ''}"
                         data-filter="${g.id}"
                         style="${_activeGroupFilter === g.id ? `background:${g.color}22;border-color:${g.color};color:${g.color};` : ''}">
@@ -492,10 +520,6 @@ function _renderModernToolbar() {
             <button class="toolbar-icon-btn ${_batchModeActive ? 'active' : ''}" id="tb-batch-btn" title="${_batchModeActive ? '退出批量' : '批量管理'}">
                 ${ICONS.batch}
             </button>` : ''}
-            ${isVoicesTab ? `
-            <button class="toolbar-icon-btn" id="tb-add-voice-btn" title="添加语音字卡" style="color:var(--accent-color);border-color:rgba(var(--accent-color-rgb,180,140,100),0.5);">
-                ${ICONS.plus}
-            </button>` : ''}
             <button class="toolbar-icon-btn" id="tb-import-btn" title="导入">
                 ${ICONS.import}
             </button>
@@ -566,7 +590,6 @@ function _renderModernToolbar() {
     toolbar.querySelector('#tb-dedup-btn')?.addEventListener('click', _runDedup);
     toolbar.querySelector('#tb-import-btn')?.addEventListener('click', () => document.getElementById('import-replies-input')?.click());
     toolbar.querySelector('#tb-export-btn')?.addEventListener('click', _showExportUI);
-    toolbar.querySelector('#tb-add-voice-btn')?.addEventListener('click', () => _openVoiceImportWizard());
 
     toolbar.querySelectorAll('.gfp-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -586,14 +609,14 @@ function _renderModernToolbar() {
             renderReplyLibrary();
         });
         toolbar.querySelector('#batch-group-btn')?.addEventListener('click', () => {
-            if (!isMainCustom) return;
+            if (isStickersTab) return;
             if (_batchSelectedIndices.size === 0) return;
             _showBatchGroupPicker();
         });
         toolbar.querySelector('#batch-disable-btn')?.addEventListener('click', () => {
             if (_batchSelectedIndices.size === 0) return;
-            if (isVoicesTab) return; // 语音字卡不支持批量屏蔽
-            if (isStickersTab) _batchToggleDisableStickers();
+            if (isVoicesTab) _batchToggleDisableVoices();
+            else if (isStickersTab) _batchToggleDisableStickers();
             else _batchToggleDisable();
         });
         toolbar.querySelector('#batch-delete-btn')?.addEventListener('click', async () => {
@@ -1162,7 +1185,45 @@ function _createVoiceCard(vc, index) {
     div.querySelector('[data-action="tag"]').onclick = (e) => { e.stopPropagation(); _showSingleItemGroupPicker(vcId, _getVoiceGroupCtx()); };
     const playEl = div.querySelector('.vc-bubble');
     playEl.addEventListener('click', (e) => { e.stopPropagation(); _playVcCard(playEl, audio); });
+    // 点击卡片主体（空白/文字区）即作为一条语音消息发送给梦角
+    div.addEventListener('click', (e) => {
+        if (e.target.closest('.rl-card-actions')) return;
+        if (e.target.closest('.vc-bubble')) return;
+        _sendVoiceCardToPartner(vc);
+    });
     return div;
+}
+
+// 点击语音字卡：作为一条语音消息发送给梦角
+function _sendVoiceCardToPartner(vc) {
+    _stopVcAudio();
+    if (!vc || !vc.audio) {
+        if (typeof showNotification === 'function') showNotification('语音字卡音频无效，无法发送', 'warning');
+        return;
+    }
+    if (typeof window.addMessage !== 'function') return;
+    try {
+        window.addMessage({
+            id: Date.now(),
+            sender: 'user',
+            text: (vc && vc.text) || '',
+            voice: { url: vc.audio, duration: (vc && vc.duration) || 3, transcript: (vc && vc.text) || '' },
+            timestamp: new Date(),
+            status: 'sent',
+            favorited: false,
+            note: null,
+            replyTo: null,
+            type: 'normal'
+        });
+        if (typeof playSound === 'function') playSound('send');
+        // 触发对方延迟回复
+        if (typeof window._triggerDelayedReply === 'function') { try { window._triggerDelayedReply(true); } catch (e) {} }
+        // 关闭回复库弹窗
+        if (typeof hideModal === 'function' && typeof DOMElements !== 'undefined' && DOMElements.customRepliesModal && DOMElements.customRepliesModal.modal) {
+            hideModal(DOMElements.customRepliesModal.modal);
+        }
+        if (typeof showNotification === 'function') showNotification('已发送语音字卡', 'success');
+    } catch (e) { console.warn('[reply-library] 发送语音字卡失败', e); }
 }
 
 function _playVcCard(bubble, audio) {
@@ -1189,7 +1250,13 @@ function _playVcCard(bubble, audio) {
 
 function _deleteVoiceCard(index) {
     if (!confirm('确定删除此语音字卡吗？')) return;
+    const removed = (voiceCards || [])[index];
     voiceCards.splice(index, 1);
+    // 同步从其所在分组中移除（与主字卡一致）
+    if (removed && window.customVoiceGroups) {
+        const id = _vcId(removed);
+        window.customVoiceGroups.forEach(g => { if (g.items) g.items = g.items.filter(x => x !== id); });
+    }
     _batchSelectedIndices.clear();
     throttledSaveData();
     renderReplyLibrary();
@@ -1489,6 +1556,21 @@ function _saveDisabledStickerItemsSet(set) {
     localStorage.setItem('disabledStickerItems', JSON.stringify([...set]));
 }
 
+function _batchToggleDisableVoices() {
+    const set = _getDisabledVoiceSet();
+    const selected = [..._batchSelectedIndices].map(i => (voiceCards || [])[i]).filter(Boolean);
+    if (!selected.length) return;
+    const ids = selected.map(v => _vcId(v));
+    const allDisabled = ids.every(id => set.has(id));
+    if (allDisabled) ids.forEach(id => set.delete(id));
+    else ids.forEach(id => set.add(id));
+    if (allDisabled) showNotification(`已启用 ${selected.length} 个语音字卡`, 'success');
+    else showNotification(`已屏蔽 ${selected.length} 个语音字卡`, 'info');
+    _saveDisabledVoiceSet(set);
+    _batchSelectedIndices.clear();
+    renderReplyLibrary();
+}
+
 function _saveDisabledItemsSet(set) {
     localStorage.setItem('disabledReplyItems', JSON.stringify([...set]));
 }
@@ -1549,6 +1631,18 @@ function _runDedup() {
     const preEmoji = customEmojis.length;
     customEmojis = [...new Set(customEmojis)];
     totalRemoved += (preEmoji - customEmojis.length);
+    // 语音字卡去重（音频相同或文本相同视为重复，与主字卡一致）
+    if (Array.isArray(voiceCards)) {
+        const seen = new Set();
+        const beforeVoice = voiceCards.length;
+        voiceCards = voiceCards.filter(v => {
+            const key = (v && (v.audio || v.text || '')) || '';
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+        totalRemoved += (beforeVoice - voiceCards.length);
+    }
     if (totalRemoved > 0) {
         throttledSaveData(); renderReplyLibrary();
         showNotification(`🧹 共清理了 ${totalRemoved} 条重复内容`, 'success');
@@ -1578,7 +1672,7 @@ function _showGroupManager() {
                 ">
                     <span style="width:12px;height:12px;border-radius:50%;background:${g.color||'#868E96'};flex-shrink:0;box-shadow:0 0 0 2px ${g.color||'#868E96'}30;"></span>
                     <span style="flex:1;font-size:13px;color:var(--text-primary);font-weight:600;">${g.name}</span>
-                    <span style="font-size:11px;color:var(--text-secondary);">${(g.items||[]).filter(t=>sourceItems.includes(t)).length} 条</span>
+                    <span style="font-size:11px;color:var(--text-secondary);">${sourceItems.filter(t => _itemInGroup(g, t)).length} 条</span>
                     <button data-action="toggle" data-i="${i}" style="
                         width:28px;height:28px;border-radius:8px;border:1px solid var(--border-color);
                         background:${g.disabled ? 'var(--accent-color)' : 'transparent'};
@@ -1902,12 +1996,14 @@ function _showBatchGroupPicker() {
     panel.querySelector('#bgp-save').onclick = () => {
         const checked = panel.querySelector('input[name="bgp"]:checked');
         if (!checked) return;
-        groups.forEach(g => { if (g.items) g.items = g.items.filter(t => !selectedItems.includes(t)); });
+        // 语音字卡以 vcId 作为分组项，其余以内容本身作为分组项
+        const keys = (currentSubTab === 'voices') ? selectedItems.map(v => _vcId(v)) : selectedItems;
+        groups.forEach(g => { if (g.items) g.items = g.items.filter(t => !keys.includes(t)); });
         if (checked.value !== '') {
             const idx = parseInt(checked.value);
             if (!groups[idx].items) groups[idx].items = [];
-            selectedItems.forEach(item => {
-                if (!groups[idx].items.includes(item)) groups[idx].items.push(item);
+            keys.forEach(k => {
+                if (!groups[idx].items.includes(k)) groups[idx].items.push(k);
             });
         }
         throttledSaveData();
@@ -2865,6 +2961,9 @@ function initReplyLibraryListeners() {
     const addBtn = document.getElementById('add-custom-reply');
     if (addBtn) {
         addBtn.addEventListener('click', () => {
+            if (currentSubTab === 'voices') {
+                _openVoiceImportWizard(); return;
+            }
             if (currentSubTab === 'stickers') {
                 document.getElementById('sticker-file-input')?.click(); return;
             }

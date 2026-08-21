@@ -399,7 +399,7 @@ const tourSteps = [
     {
         element: '#app-entertain',
         title: "🎵 娱乐",
-        content: "进入娱乐一起度过你们的休闲时光<br>• <b>电影院</b>：约定时间一起看电影 🎬",
+        content: "进入娱乐一起度过你们的休闲时光<br>• <b>电影院</b>：约定时间一起看电影 🎬<br>• <b>音乐厅</b>：一起体验音乐 🎶<br>• <b>游戏室</b>：一起玩点小游戏",
         position: 'top',
         iconHighlight: true,
         onBefore: () => { if (window.DesktopTopbar && typeof window.DesktopTopbar.showDesktop === 'function') window.DesktopTopbar.showDesktop(); }

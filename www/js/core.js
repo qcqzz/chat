@@ -498,6 +498,10 @@ const loadData = async () => {
         if (Array.isArray(savedVoiceCards)) voiceCards = savedVoiceCards;
         if (savedVoiceCardEnabled !== null) voiceCardEnabled = !!savedVoiceCardEnabled;
         window._voiceCards = voiceCards;
+        // 数据加载完成后根据持久化的语音字卡开关，重刷设置面板开关样式
+        if (typeof window._syncVoiceCardUI === 'function') {
+            try { window._syncVoiceCardUI(); } catch (e) {}
+        }
 
         // 语音字卡分组（自定义 key，独立于上方 Promise 下标）
         const savedVoiceGroups = await localforage.getItem(getStorageKey('customVoiceGroups'));
@@ -2300,10 +2304,18 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                 .filter(r => !disabledItemsOnce.has(r) && !disabledGroupItemsOnce.has(r))
                 .map(r => String(r || '').trim())
                 .filter(Boolean);
-            if (!replyPoolOnce.length) {
-                showNotification('回复库可用内容为空（可能被分组禁用或屏蔽），请到「自定义回复」中调整', 'info', 4000);
-                return;
-            }
+            // 语音字卡池（开启开关且未被屏蔽的字卡；与文字字卡一同作为回复内容）
+        const vcEnabledReply = (typeof voiceCardEnabled !== 'undefined') ? !!voiceCardEnabled : true;
+        let disabledVoiceIdsOnce = new Set();
+        try {
+            const raw = localStorage.getItem('disabledVoiceCards');
+            if (raw) disabledVoiceIdsOnce = new Set(JSON.parse(raw));
+        } catch (e) {}
+        const enabledVoicePool = vcEnabledReply ? (voiceCards || []).filter(v => v && v.audio && !disabledVoiceIdsOnce.has(v.id)) : [];
+        if (!replyPoolOnce.length && !enabledVoicePool.length) {
+            showNotification('回复库可用内容为空（无可用文字字卡或语音字卡），请到「自定义回复」中调整', 'info', 4000);
+            return;
+        }
 
             // 确认有可用回复后再展示“正在输入中”，避免空转
             showTypingIndicator();
@@ -2318,8 +2330,40 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
             for (let i = 0; i < replyCount; i++) {
                 const delayRange = settings.replyDelayMax - settings.replyDelayMin;
                 delay += settings.replyDelayMin + Math.random() * delayRange;
+                // 文字字卡与语音字卡混合回复：无文字字卡时用语音卡兜底，否则约35%概率本条改为发语音字卡
+                const slotIsVoice = enabledVoicePool.length > 0 && (replyPoolOnce.length === 0 || Math.random() < 0.35);
+                const slotVc = slotIsVoice ? enabledVoicePool[Math.floor(Math.random() * enabledVoicePool.length)] : null;
                 setTimeout(() => {
                     try {
+                    if (slotVc) {
+                        // 本条回复为语音字卡：上方为语音条可点击播放，下方为上传时编辑的文字内容
+                        addMessage({
+                            id: Date.now() + i + 3000,
+                            sender: settings.partnerName || '对方',
+                            text: '',
+                            timestamp: new Date(),
+                            voice: {
+                                url: slotVc.audio || '',
+                                duration: Number(slotVc.duration || 0) || Math.max(1, Math.round((slotVc.text || '').length / 3)),
+                                fakeText: slotVc.text || '',
+                                transcript: ''
+                            },
+                            status: 'received',
+                            favorited: false,
+                            note: null,
+                            replyTo: (i === 0 && recentUserMsgs.length > 0 && Math.random() < 0.3)
+                                ? (function(){ const m = recentUserMsgs[Math.floor(Math.random() * recentUserMsgs.length)]; return { id: m.id, text: m.text, sender: m.sender }; })()
+                                : null,
+                            type: 'normal'
+                        });
+                        if (typeof window._sendPartnerNotification === 'function') {
+                            window._sendPartnerNotification(settings.partnerName || '对方', slotVc.text ? `[语音]${slotVc.text}` : '[语音]');
+                        }
+                        playSound('message');
+                        if (i === replyCount - 1) {
+                            (function(){try{if(window._typingIndicatorAutoHideTimer){clearTimeout(window._typingIndicatorAutoHideTimer);window._typingIndicatorAutoHideTimer=null;}}catch(e){}var _tiW=document.getElementById('typing-indicator-wrapper');if(_tiW){var _tiInner=_tiW.querySelector('.typing-indicator');if(_tiInner){_tiInner.classList.add('hiding');setTimeout(function(){_tiW.style.display='none';if(_tiInner)_tiInner.classList.remove('hiding');},240);}else{_tiW.style.display='none';}}})();
+                        }
+                    } else {
                     // 前台服务保活后 WebView 持续运行，始终发送通知
                     const replyPool = replyPoolOnce;
                     // 被屏蔽或无效项直接换下一个，尽量保证每次都产出可用回复
@@ -2354,15 +2398,6 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                     } catch (e) {}
                     const enabledStickerPool = (stickerLibrary || []).filter(s => !disabledStickerItems.has(s));
                     const shouldSendSticker = enabledStickerPool.length > 0 && Math.random() < 0.2;
-
-                    const vcEnabled = (typeof voiceCardEnabled !== 'undefined') ? !!voiceCardEnabled : true;
-                    let disabledVoiceIds = new Set();
-                    try {
-                        const raw = localStorage.getItem('disabledVoiceCards');
-                        if (raw) disabledVoiceIds = new Set(JSON.parse(raw));
-                    } catch (e) {}
-                    const enabledVoicePool = vcEnabled ? (voiceCards || []).filter(v => v && v.audio && !disabledVoiceIds.has(v.id)) : [];
-                    const shouldSendVoiceCard = enabledVoicePool.length > 0 && Math.random() < 0.2;
 
                     let finalText = replyText;
                     let separateEmoji = null;
@@ -2436,33 +2471,6 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                         }, 300 + Math.random() * 400);
                     }
 
-                    // 语音字卡：开启时按概率发送（与主字卡同样走 addMessage，渲染成语音条+下方文字）
-                    if (shouldSendVoiceCard) {
-                        const vc = enabledVoicePool[Math.floor(Math.random() * enabledVoicePool.length)];
-                        setTimeout(() => {
-                            addMessage({
-                                id: Date.now() + i + 3000,
-                                sender: settings.partnerName || '对方',
-                                text: '',
-                                timestamp: new Date(),
-                                voice: {
-                                    url: vc.audio || '',
-                                    duration: Number(vc.duration || 0) || Math.max(1, Math.round((vc.text || '').length / 3)),
-                                    fakeText: vc.text || '',
-                                    transcript: ''
-                                },
-                                status: 'received',
-                                favorited: false,
-                                note: null,
-                                type: 'normal'
-                            });
-                            playSound('message');
-                            if (typeof window._sendPartnerNotification === 'function') {
-                                window._sendPartnerNotification(settings.partnerName || '对方', vc.text ? `[语音]${vc.text}` : '[语音]');
-                            }
-                        }, 500 + Math.random() * 700);
-                    }
-
                     if (i === replyCount - 1) {
                         (function() {
                             try {
@@ -2485,6 +2493,7 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                                 }
                             }
                         })();
+                    }
                     }
                     } catch (e) {
                         console.error('[simulateReply] 渲染/回填出错:', e);

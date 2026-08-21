@@ -29,9 +29,11 @@
         return typeof voiceCardEnabled !== 'undefined' ? !!voiceCardEnabled : true;
     }
     function _syncVoiceCardUI() {
-        const swit = document.getElementById('voice-card-switch');
-        if (swit) swit.classList.toggle('active', _isVoiceCardOn());
+        const row = document.getElementById('voice-card-toggle');
+        if (row) row.classList.toggle('active', _isVoiceCardOn());
     }
+    // 暴露给 core.js：数据加载完成后重刷一次开关（避免初始时序导致状态显示错误）
+    window._syncVoiceCardUI = _syncVoiceCardUI;
     window._toggleVoiceCard = function() {
         if (typeof voiceCardEnabled === 'undefined') return;
         voiceCardEnabled = !_isVoiceCardOn();

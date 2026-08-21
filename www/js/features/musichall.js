@@ -24,7 +24,7 @@
 
     // ── 状态 ──────────────────────────────────────────────
     var songs = lsGet(LS_PLAYLIST, []);
-    var conf = Object.assign({ hbColor: '#ff9f9d', progColor: '#c5a47e', vinylLabel: null, playMode: 'list', bubbleStyle: 'standard' }, lsGet(LS_SETTINGS, {}));
+    var conf = Object.assign({ hbColor: '#ff9f9d', progColor: '#c5a47e', vinylLabel: null, playMode: 'list', bubbleStyle: 'standard', mhCss: '' }, lsGet(LS_SETTINGS, {}));
     var cur = -1, playing = false, mode = conf.playMode || 'list'; // list(歌单循环) | single(单曲循环) | shuffle(随机播放)
     var messages = [];
     var invite = lsGet(LS_INVITE, { next: 0, missed: 0, active: null });
@@ -68,6 +68,8 @@
 
         bindControls(panel);
         bindChat(panel);
+
+        applyMhCustomCss(conf.mhCss);
 
         syncPlayerUI();
     }
@@ -727,6 +729,16 @@
                         '</button>';
                     }).join('') +
                 '</div>' +
+            '</div>' +
+            '<div class="mh-set-section">' +
+                '<div class="mh-set-title"><i class="fas fa-palette"></i>字体 & 气泡自定义CSS</div>' +
+                '<div class="mh-css-hint">与『设置 → 字体 & 气泡 → 自定义CSS』一致，可粘贴 CSS 定制音乐厅聊天气泡与字体（如 .mh-msg-bubble、.mh-msg、.mh-chat-txt 等）。</div>' +
+                '<textarea class="mh-css-area" id="mh-css-area" rows="4" placeholder="粘贴自定义 CSS…">' + esc(conf.mhCss || (typeof settings !== 'undefined' ? (settings.customBubbleCss || '') : '')) + '</textarea>' +
+                '<div class="mh-css-btns">' +
+                    '<button class="mh-mode-btn mh-css-act" id="mh-css-apply">应用</button>' +
+                    '<button class="mh-mode-btn mh-css-act" id="mh-css-frommain" style="opacity:.85;">读取主设置</button>' +
+                    '<button class="mh-mode-btn mh-css-act" id="mh-css-clear" style="opacity:.85;">清空</button>' +
+                '</div>' +
             '</div>';
         el.querySelectorAll('[data-bubble]').forEach(function (b) {
             b.addEventListener('click', function () {
@@ -743,6 +755,40 @@
                 showNotification('气泡样式已切换为' + (names[conf.bubbleStyle] || '标准'), 'info');
             });
         });
+        var applyBtn = el.querySelector('#mh-css-apply');
+        if (applyBtn) applyBtn.addEventListener('click', function () {
+            var v = (el.querySelector('#mh-css-area') || {}).value || '';
+            conf.mhCss = v;
+            saveConf();
+            applyMhCustomCss(v);
+            showNotification(v ? '自定义CSS已应用' : '已清除自定义CSS', 'info');
+        });
+        var frommainBtn = el.querySelector('#mh-css-frommain');
+        if (frommainBtn) frommainBtn.addEventListener('click', function () {
+            var mainCss = (typeof settings !== 'undefined' && settings.customBubbleCss) ? settings.customBubbleCss : '';
+            var ta = el.querySelector('#mh-css-area');
+            if (ta) ta.value = mainCss;
+            if (typeof applyCustomBubbleCss === 'function') { try { applyCustomBubbleCss(mainCss); } catch (e) {} }
+            showNotification('已填入主设置的自定义CSS', 'info');
+        });
+        var clearBtn = el.querySelector('#mh-css-clear');
+        if (clearBtn) clearBtn.addEventListener('click', function () {
+            var ta = el.querySelector('#mh-css-area');
+            if (ta) ta.value = '';
+            conf.mhCss = '';
+            saveConf();
+            applyMhCustomCss('');
+            showNotification('已清空自定义CSS', 'info');
+        });
+    }
+
+    // 音乐厅自定义CSS：独立注入（作用目标为音乐厅气泡/聊天，如 .mh-msg-bubble）
+    function applyMhCustomCss(cssCode) {
+        var styleId = 'mh-user-custom-style';
+        var styleTag = document.getElementById(styleId);
+        if (!cssCode || !cssCode.trim()) { if (styleTag) styleTag.remove(); return; }
+        if (!styleTag) { styleTag = document.createElement('style'); styleTag.id = styleId; document.head.appendChild(styleTag); }
+        styleTag.textContent = cssCode;
     }
 
     function syncVinylImage() {
