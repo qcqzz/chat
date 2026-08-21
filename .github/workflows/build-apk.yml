@@ -134,7 +134,7 @@ jobs:
           cd android
           echo "sdk.dir=$ANDROID_HOME" > local.properties
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleRelease
 
       - name: 签名 APK (v1+v2+v3)
         run: |
@@ -147,8 +147,9 @@ jobs:
             --v1-signing-enabled true \
             --v2-signing-enabled true \
             --v3-signing-enabled true \
-            android/app/build/outputs/apk/debug/app-debug.apk
-          $ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose android/app/build/outputs/apk/debug/app-debug.apk
+            --out android/app/build/outputs/apk/release/app-release.apk \
+            android/app/build/outputs/apk/release/app-release-unsigned.apk
+          $ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose android/app/build/outputs/apk/release/app-release.apk
           rm release.keystore
 
       - name: 覆盖发布到 Release v2.0.0
@@ -157,10 +158,10 @@ jobs:
         run: |
           # 若 v2.0.0 release 不存在则先创建，存在则用 --clobber 覆盖同名 APK
           gh release view v2.0.0 >/dev/null 2>&1 || gh release create v2.0.0 --title "v2.0.0" --notes "传讯 v2.0.0"
-          gh release upload v2.0.0 android/app/build/outputs/apk/debug/app-debug.apk --clobber
+          gh release upload v2.0.0 android/app/build/outputs/apk/release/app-release.apk --clobber
 
       - name: 上传 APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: app-release
+          path: android/app/build/outputs/apk/release/app-release.apk
