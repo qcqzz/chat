@@ -581,10 +581,8 @@
 
     function scheduleAi() {
         clearAi();
-        // 梦角响应时间：五子棋随机 2s ~ 15s，围棋随机 2s ~ 30s，营造思考延迟
-        var delay = (state.game === 'gomoku')
-            ? 2000 + Math.floor(Math.random() * 13000)
-            : 2000 + Math.floor(Math.random() * 28000);
+        // 梦角响应时间：五子棋/围棋随机 2s ~ 15s，营造思考延迟
+        var delay = 2000 + Math.floor(Math.random() * 13000);
         aiTimer = setTimeout(function () {
             aiTimer = null;
             if (!state || state.sessionOver || state.over || state.turn !== 'dream') return;
@@ -1232,7 +1230,7 @@
                 var sim = simulateMove(r, c, DREAM);
                 if (!sim) continue;
                 var score = 0;
-                if (sim.prisoners[1] > prePris) score += 140; // 吃子（大优）
+                if (sim.prisoners[1] > prePris) score += 150; // 吃子（大优，略升）
                 // 接子/靠子：贴近己方利于扩张，逼近对方便于攻击
                 var ownN = 0, oppN = 0;
                 for (var d = 0; d < ADJ.length; d++) {
@@ -1241,14 +1239,14 @@
                     var v = state.board[nr][nc];
                     if (v === DREAM) ownN++; else if (v === USER) oppN++;
                 }
-                score += ownN * 26 + oppN * 18;
+                score += ownN * 26 + oppN * 20;
                 // 落点自身气数：气少易被吃的先手劣后，避开自杀式落子
                 var own = groupInfo(sim.board, n, r, c);
-                if (own.libs === 1 && !(sim.prisoners[1] > prePris)) score -= 40;
-                else if (own.libs >= 3) score += 8;
+                if (own.libs === 1 && !(sim.prisoners[1] > prePris)) score -= 45;
+                else if (own.libs >= 3) score += 12;
                 // 靠近中心，抢占开阔地
                 score += (n - (Math.abs(r - center) + Math.abs(c - center))) * 1.2;
-                score += Math.random() * 2;
+                score += Math.random() * 1.0;
                 legal.push({ sim: sim, r: r, c: c, s: score });
             }
         }
