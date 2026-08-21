@@ -16,6 +16,7 @@ public class MainActivity extends BridgeActivity {
         // registerPlugin 必须在 super.onCreate() 之前调用（Capacitor 8 要求）
         registerPlugin(ForegroundPlugin.class);
         registerPlugin(NotificationPlugin.class);
+        registerPlugin(VoiceRecorderPlugin.class);
         super.onCreate(savedInstanceState);
 
         // 覆盖 WebChromeClient，直接放行 WebView 的麦克风/摄像头权限请求。

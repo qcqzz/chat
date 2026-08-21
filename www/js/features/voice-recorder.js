@@ -1,16 +1,18 @@
 /* ═══════════════════════════════════════════════════════════════
    voice-recorder.js · 语音消息（仿微信按住说话）：
    · 聊天框右侧麦克风按钮，点击切换「按住说话」语音模式
-   · 第一次使用请求麦克风权限（getUserMedia，Capacitor WebView 自动授权）
+   · 第一次使用请求麦克风权限
    · 按住说话录音，松开发送，上滑取消；再次点麦克风切回文字输入
-   · 录制结果存为 base64 数据 URL，复用既有 voice 消息结构与语音气泡渲染
+   · App(Capacitor)：优先走原生 VoiceRecorder 插件（MediaRecorder），稳定可靠；
+     web 预览等无原生环境时回退到 getUserMedia + MediaRecorder
+   · 都产出 base64 data URL，复用既有 voice 消息结构与语音气泡播放
    ═══════════════════════════════════════════════════════════════ */
 (function () {
     'use strict';
 
     var state = {
         mode: false,        // false=文字输入 true=语音(按住说话)
-        stream: null,       // 麦克风流（复用，录制结束不停流，便于连续录音）
+        stream: null,       // 麦克风流（仅 web 回退路径使用）
         mediaRecorder: null,
         chunks: [],
         startTime: 0,
@@ -33,7 +35,12 @@
         recHint = $('voice-rec-hint');
     }
 
-    function supportsRecorder() {
+    function hasNativeRecorder() {
+        return !!(window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.VoiceRecorder);
+    }
+
+    // web 回退：浏览器 getUserMedia 支持检测
+    function supportsWebRecorder() {
         return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
     }
 
@@ -42,21 +49,13 @@
     }
 
     async function ensurePermission() {
-        if (!supportsRecorder()) throw new Error('当前环境不支持麦克风录音');
+        // 原生路径：权限在 start() 时由系统弹窗请求，这里无需预取
+        if (hasNativeRecorder()) return;
+        if (!supportsWebRecorder()) throw new Error('当前环境不支持麦克风录音');
         if (!state.stream) {
             state.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         }
         return state.stream;
-    }
-
-    function pickMime() {
-        if (window.MediaRecorder && MediaRecorder.isTypeSupported) {
-            var list = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/aac'];
-            for (var i = 0; i < list.length; i++) {
-                if (MediaRecorder.isTypeSupported(list[i])) return list[i];
-            }
-        }
-        return '';
     }
 
     // ── 模式切换 ──────────────────────────────
@@ -96,19 +95,62 @@
         initEls();
         if (state.mode) { exitVoiceMode(); return; }
         try {
-            await ensurePermission(); // 第一次进入在此触发麦克风权限请求
+            await ensurePermission(); // 首次进入触发权限请求
         } catch (e) {
             console.error('[voice-recorder] 权限获取失败', e);
-            var denied = e && e.message && /denied|NotAllowed|permission/i.test(e.message);
+            var denied = e && (e.name || e.message) && /denied|NotAllowed|permission/i.test((e.name || '') + ' ' + (e.message || ''));
             notify(denied ? '麦克风权限被拒绝，请在系统设置中开启后重试' : ('无法使用麦克风：' + (e && e.message ? e.message : '未知原因')), 'error');
             return;
         }
         enterVoiceMode();
     }
 
-    // ── 录音控制 ──────────────────────────────
+    // ── 录音 UI 通用 ──────────────────────────
+    function beginRecUi() {
+        if (holdWrap) { holdWrap.classList.add('recording'); holdWrap.classList.remove('cancelling'); }
+        if (holdLabel) holdLabel.textContent = '松开 发送';
+        if (recHint) recHint.style.opacity = '1';
+        state.timer = setInterval(function () {
+            var sec = Math.max(1, Math.floor((Date.now() - state.startTime) / 1000) + 1);
+            if (holdLabel) holdLabel.textContent = sec + '"';
+        }, 500);
+    }
+
+    function resetHoldUI() {
+        if (holdWrap) { holdWrap.classList.remove('recording'); holdWrap.classList.remove('cancelling'); }
+        if (holdLabel) holdLabel.textContent = '按住 说话';
+        if (recHint) recHint.style.opacity = '0';
+    }
+
+    function setCancelling(on) {
+        if (!state.recording) return;
+        state.cancelling = on;
+        if (holdWrap) holdWrap.classList.toggle('cancelling', on);
+        if (holdLabel) holdLabel.textContent = on ? '松开 取消' : '松开 发送';
+    }
+
+    // ── 录音控制（原生优先）───────────────────
     function startRecording() {
-        if (state.recording || !state.stream) return;
+        if (state.recording) return;
+        if (hasNativeRecorder()) {
+            state.recording = true;
+            state.startTime = Date.now();
+            state.cancelling = false;
+            beginRecUi();
+            Capacitor.Plugins.VoiceRecorder.start().catch(function (e) {
+                stopNativeRec(false, e);
+            });
+            return;
+        }
+        // web 回退
+        if (state.stream) {
+            startWebRecorder();
+        } else {
+            toggleVoiceMode();
+        }
+    }
+
+    function startWebRecorder() {
         try {
             var mime = pickMime();
             var rec = new MediaRecorder(state.stream, mime ? { mimeType: mime } : undefined);
@@ -119,14 +161,7 @@
             state.recording = true;
             state.startTime = Date.now();
             state.cancelling = false;
-            holdWrap.classList.add('recording');
-            holdWrap.classList.remove('cancelling');
-            if (holdLabel) holdLabel.textContent = '松开 发送';
-            if (recHint) recHint.style.opacity = '1';
-            state.timer = setInterval(function () {
-                var sec = Math.max(1, Math.floor((Date.now() - state.startTime) / 1000) + 1);
-                if (holdLabel) holdLabel.textContent = sec + '"';
-            }, 500);
+            beginRecUi();
         } catch (e) {
             console.error('[voice-recorder] 开始录音失败', e);
             notify('开始录音失败：' + (e && e.message ? e.message : e), 'error');
@@ -135,20 +170,60 @@
     }
 
     function stopRecording() {
-        if (!state.recording || !state.mediaRecorder) return;
-        var rec = state.mediaRecorder;
+        if (!state.recording) return;
         var duration = (Date.now() - state.startTime) / 1000;
         var shouldSend = !state.cancelling;
         var tooShort = duration < 1;
         if (state.timer) { clearInterval(state.timer); state.timer = null; }
-        rec.stop();
         state.recording = false;
         resetHoldUI();
+
+        if (hasNativeRecorder()) {
+            stopNativeRec(true, null, { duration: duration, shouldSend: shouldSend, tooShort: tooShort });
+            return;
+        }
+        stopWebRecorder(duration, shouldSend, tooShort);
+    }
+
+    function stopNativeRec(send, startErr, info) {
+        var duration = (info && info.duration) || 0;
+        var shouldSend = send ? !!(info && info.shouldSend) : false;
+        var tooShort = send ? !!(info && info.tooShort) : false;
+
+        if (startErr) {
+            if (state.timer) { clearInterval(state.timer); state.timer = null; }
+            notify('无法开始录音：' + (startErr && startErr.message ? startErr.message : '未知原因'), 'error');
+            return;
+        }
+        if (!shouldSend || tooShort) {
+            // 上滑取消 / 时长过短 → 放弃
+            if (Capacitor.Plugins.VoiceRecorder.cancel) {
+                Capacitor.Plugins.VoiceRecorder.cancel().catch(function () {});
+            }
+            if (tooShort) notify('说话时间太短，请说长一点再发送', 'info');
+            if (!tooShort) notify('已取消录音', 'info');
+            return;
+        }
+        Capacitor.Plugins.VoiceRecorder.stop().then(function (res) {
+            var base64 = (res && res.base64) || '';
+            var mime = (res && res.mimeType) || 'audio/mp4';
+            var dur = Math.max(1, Math.round((res && res.duration) || duration));
+            if (!base64) { notify('录音数据无效，请重试', 'error'); return; }
+            deliverVoice('data:' + mime + ';base64,' + base64, dur);
+        }).catch(function (e) {
+            notify('录音失败：' + (e && e.message ? e.message : '未知原因'), 'error');
+        });
+    }
+
+    function stopWebRecorder(duration, shouldSend, tooShort) {
+        var rec = state.mediaRecorder;
+        if (!rec) return;
+        rec.stop();
         rec.onstop = function () {
             var blob = new Blob(state.chunks, { type: rec.mimeType || 'audio/webm' });
             state.chunks = [];
             if (tooShort) { notify('说话时间太短，请说长一点再发送', 'info'); return; }
-            if (!shouldSend) return; // 上滑取消
+            if (!shouldSend) { notify('已取消录音', 'info'); return; }
             var reader = new FileReader();
             reader.onloadend = function () {
                 deliverVoice(String(reader.result || ''), Math.max(1, Math.round(duration)));
@@ -164,19 +239,6 @@
         } else {
             resetHoldUI();
         }
-    }
-
-    function setCancelling(on) {
-        if (!state.recording) return;
-        state.cancelling = on;
-        if (holdWrap) holdWrap.classList.toggle('cancelling', on);
-        if (holdLabel) holdLabel.textContent = on ? '松开 取消' : '松开 发送';
-    }
-
-    function resetHoldUI() {
-        if (holdWrap) { holdWrap.classList.remove('recording'); holdWrap.classList.remove('cancelling'); }
-        if (holdLabel) holdLabel.textContent = '按住 说话';
-        if (recHint) recHint.style.opacity = '0';
     }
 
     // ── 发送 ──────────────────────────────────
@@ -203,6 +265,17 @@
         }
     }
 
+    // web 回退：选择支持录音的 MIME 类型
+    function pickMime() {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported) {
+            var list = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/aac'];
+            for (var i = 0; i < list.length; i++) {
+                if (MediaRecorder.isTypeSupported(list[i])) return list[i];
+            }
+        }
+        return '';
+    }
+
     // ── 事件绑定 ──────────────────────────────
     function bind() {
         initEls();
@@ -215,6 +288,7 @@
         holdBtn.addEventListener('pointerdown', function (e) {
             e.preventDefault();
             if (!state.mode) return;
+            if (hasNativeRecorder()) { startRecording(); return; }
             if (!state.stream) { toggleVoiceMode(); return; }
             startRecording();
         });
