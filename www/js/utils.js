@@ -812,11 +812,11 @@ async function importAllData(file) {
 }
 
 // ====== 软件更新检查 ======
-var APP_VERSION = '2.1.0';
+var APP_VERSION = '2.2.0';
 var GITHUB_REPO = 'qcqzz/chat';
 var GITHUB_RELEASES_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest';
 var GITHUB_API_URL = 'https://api.github.com/repos/' + GITHUB_REPO + '/releases/latest';
-var GITHUB_DOWNLOAD_LATEST_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest/download/app-debug.apk';
+var GITHUB_DOWNLOAD_LATEST_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest/download/app-release.apk';
 var _updatePendingInfo = null; // 待处理的更新信息，供弹窗按钮使用
 
 // 比较两个版本号，返回 1（a>b）、-1（a<b）、0（相等）

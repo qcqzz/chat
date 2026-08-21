@@ -552,6 +552,7 @@ window.openCoupleSpace=window.openMomentsModal=function(scrollToPostId){
     }));
 };
 window.closeCoupleSpace=window.closeMomentsModal=function(){
+    if(typeof window._csCancelOpen==='function')window._csCancelOpen(); // 取消未完成的打开动画
     const page=document.getElementById('couple-space-page');if(!page)return;
     page.classList.remove('cs-open');window.closeAllCsSheets();_csExpandFeedHeader();
     [document.getElementById('cs-notif-popup'),document.getElementById('cs-sticker-picker')].forEach(el=>{if(el)el.style.display='none';});

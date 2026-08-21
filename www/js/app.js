@@ -9,9 +9,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const mem = (nav.deviceMemory || 0) * 1024 * 1024 * 1024;   // 字节；Chrome/Chromium 提供
         const cores = nav.hardwareConcurrency || 0;
         const isLite = (
-            (mem > 0 && mem <= 5 * 1024 * 1024 * 1024) ||          // ≤5GB 内存（覆盖主流中端机）
-            (cores > 0 && cores <= 3) ||                            // ≤3 核
-            (androidVer >= 5 && androidVer < 10)                    // 老/中端安卓(5-9)
+            (mem > 0 && mem <= 6 * 1024 * 1024 * 1024) ||          // ≤6GB 内存（覆盖主流中端机）
+            (cores > 0 && cores <= 6) ||                            // ≤6 核
+            (androidVer >= 5 && androidVer < 11)                    // 老/中端安卓(5-10)
         );
         if (isLite) {
             document.documentElement.setAttribute('data-lite', '1');

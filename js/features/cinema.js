@@ -1852,13 +1852,25 @@
     };
 
     // ── 娱乐页打开/关闭（电影院已整体迁移到娱乐模块）──
+    // 防连点：进入动画用单个定时器组管理，重复点击先清掉旧定时器；
+    // 页面已在打开/已打开时直接忽略，避免定时器和动画叠加导致卡顿/卡死
+    var _entOpenTimers = [];
+    var _entOpening = false;
+    function _entClearOpenTimers() {
+        for (var i = 0; i < _entOpenTimers.length; i++) clearTimeout(_entOpenTimers[i]);
+        _entOpenTimers = [];
+    }
     window.openEntertainment = function () {
+        var page = document.getElementById('entertainment-page');
+        if (!page) return;
+        if (_entOpening) return;                       // 动画播放中，忽略重复点击
+        if (page.classList.contains('cs-open')) return; // 已经打开，忽略重复点击
+        _entOpening = true;
+        _entClearOpenTimers();
         // 打开娱乐页前，先收起其它全屏页面/弹层，避免叠加
         if (typeof closeCoupleSpace === 'function') closeCoupleSpace();
         var sm = document.getElementById('settings-modal');
         if (sm && typeof hideModal === 'function') hideModal(sm);
-        var page = document.getElementById('entertainment-page');
-        if (!page) return;
         var ov = document.getElementById('ent-transition-overlay');
         function direct() {
             page.style.display = 'flex';
@@ -1870,15 +1882,18 @@
                 });
             });
         }
-        if (!ov) { direct(); return; }
+        if (!ov) { direct(); _entOpening = false; return; }
         // 进入动画：白色 overlay（闪烁银色四芒星 + 黑白小猫玩浅粉色毛线球）先播放，再淡出露出娱乐页
         ov.classList.add('ent-show');
         requestAnimationFrame(function () { requestAnimationFrame(function () { ov.classList.add('ent-visible'); }); });
-        setTimeout(function () { direct(); }, 2300);
-        setTimeout(function () { ov.classList.remove('ent-visible'); }, 2750);
-        setTimeout(function () { ov.classList.remove('ent-show'); }, 3250);
+        _entOpenTimers.push(setTimeout(function () { direct(); _entOpening = false; }, 2300));
+        _entOpenTimers.push(setTimeout(function () { ov.classList.remove('ent-visible'); }, 2750));
+        _entOpenTimers.push(setTimeout(function () { ov.classList.remove('ent-show'); }, 3250));
     };
     window.closeEntertainment = window.closeEntertainmentFn = function () {
+        // 关闭时把未完成的打开动画一并取消，防止 2.3s 后又被开回来
+        _entOpening = false;
+        _entClearOpenTimers();
         var page = document.getElementById('entertainment-page');
         if (!page) return;
         var archive = document.getElementById('cinema-archive-page');

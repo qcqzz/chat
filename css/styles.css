@@ -14513,7 +14513,7 @@ html[data-theme="dark"] .app-grid{background:rgba(24,28,40,.5);border-color:rgba
 html[data-theme="dark"] .pl-set-label{color:var(--accent-color-dark);}
 /* 拍立得：三层相纸堆叠，点击切换顺序 */
 .dt-polaroid{position:relative;width:150px;height:190px;flex:0 0 150px;margin-left:40px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;}
-.dt-polaroid-card{position:absolute;top:0;left:0;width:100%;height:100%;box-sizing:border-box;background:rgba(255,255,255,.42);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);border-radius:8px;padding:10px 12px 24px;box-shadow:0 10px 30px rgba(0,0,0,.12);display:flex;flex-direction:column;border:1px solid rgba(255,255,255,.6);transition:transform .38s cubic-bezier(.2,.7,.3,1.2),opacity .3s ease;transform-origin:50% 100%;}
+.dt-polaroid-card{position:absolute;top:0;left:0;width:100%;height:100%;box-sizing:border-box;background:rgba(255,255,255,.42);border-radius:8px;padding:10px 12px 24px;box-shadow:0 10px 30px rgba(0,0,0,.12);display:flex;flex-direction:column;border:1px solid rgba(255,255,255,.6);transition:transform .38s cubic-bezier(.2,.7,.3,1.2),opacity .3s ease;transform-origin:50% 100%;}
 .dt-polaroid-card img{flex:1;min-height:0;width:100%;display:block;object-fit:cover;border-radius:5px;background:#e6e2da;}
 .dt-polaroid-card span{height:12px;flex:0 0 12px;display:block;background:transparent;}
 .dt-polaroid .pl-1{transform:translate(3px,6px) rotate(-4deg) scale(.92);z-index:3;}
@@ -14523,7 +14523,7 @@ html[data-theme="dark"] .pl-set-label{color:var(--accent-color-dark);}
 .dt-polaroid .pl-hint{position:absolute;left:0;right:0;bottom:-24px;text-align:center;font-size:11px;color:var(--text-secondary);letter-spacing:1px;opacity:.85;pointer-events:none;}
 .pl-hint i{margin-right:3px;}
 /* 纪念日方块 */
-.dt-anniversary{width:114px;flex:0 0 114px;height:190px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border-radius:22px;background:rgba(255,255,255,.42);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);border:1px solid rgba(255,255,255,.6);box-shadow:0 10px 30px rgba(0,0,0,.12);padding:16px 10px;color:var(--text-primary);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;position:relative;margin-left:auto;margin-right:0;}
+.dt-anniversary{width:114px;flex:0 0 114px;height:190px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border-radius:22px;background:rgba(255,255,255,.42);border:1px solid rgba(255,255,255,.6);box-shadow:0 10px 30px rgba(0,0,0,.12);padding:16px 10px;color:var(--text-primary);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;position:relative;margin-left:auto;margin-right:0;}
 .dt-anniversary:active{transform:scale(.97);}
 .dt-ann-badge{position:absolute;top:9px;right:10px;font-size:10px;font-weight:700;color:#fff;background:rgba(var(--accent-color-rgb),.85);border-radius:10px;padding:2px 6px;letter-spacing:.5px;line-height:1;}
 .dt-ann-badge:empty{display:none;}

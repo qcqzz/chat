@@ -4013,26 +4013,47 @@ html[data-theme="dark"] #chat-transition-overlay{
 })();
 </script>
 <script>
+// ── 桌面组件打开动画：防连点（快速多次点击不再叠加定时器/动画导致卡死）──
+var _csOpenTimers = [], _csOpening = false;
+window._csCancelOpen = function () {
+  _csOpening = false;
+  for (var i = 0; i < _csOpenTimers.length; i++) clearTimeout(_csOpenTimers[i]);
+  _csOpenTimers = [];
+};
+var _chatOpenTimers = [], _chatOpening = false;
+window._chatCancelOpen = function () {
+  _chatOpening = false;
+  for (var i = 0; i < _chatOpenTimers.length; i++) clearTimeout(_chatOpenTimers[i]);
+  _chatOpenTimers = [];
+};
 function openMomentsWithTransition(){
   var ov=document.getElementById('cs-transition-overlay');
+  var page=document.getElementById('couple-space-page');
+  if(_csOpening)return;                                    // 动画播放中，忽略重复点击
+  if(page&&(page.classList.contains('cs-open')||page.style.display==='flex'))return; // 已打开
+  _csOpening=true;
+  for (var ci=0; ci<_csOpenTimers.length; ci++) clearTimeout(_csOpenTimers[ci]);
+  _csOpenTimers=[];
   if(!ov){
     if(typeof window.openMomentsModal==='function'){window.openMomentsModal();}
     else{_csFallbackOpen();}
+    _csOpening=false;
     return;
   }
   ov.classList.add('cs-trans-show');
   requestAnimationFrame(function(){requestAnimationFrame(function(){ov.classList.add('cs-trans-visible');});});
-  setTimeout(function(){
-    var page=document.getElementById('couple-space-page');
-    if(page){page.style.transition='none';}
+  _csOpenTimers.push(setTimeout(function(){
+    var p=document.getElementById('couple-space-page');
+    if(p){p.style.transition='none';}
     if(typeof window.openMomentsModal==='function'){window.openMomentsModal();}
     else{_csFallbackOpen();}
-    setTimeout(function(){if(page){page.style.transition='';} },150);
-  },3700);
-  setTimeout(function(){
+    setTimeout(function(){if(p){p.style.transition='';} },150);
+    _csOpening=false;
+  },3700));
+  _csOpenTimers.push(setTimeout(function(){
     ov.classList.remove('cs-trans-visible');
     setTimeout(function(){ov.classList.remove('cs-trans-show');},500);
-  },4000);
+  },4000));
 }
 function _csFallbackOpen(){
   var page=document.getElementById('couple-space-page');
@@ -4048,16 +4069,22 @@ function _csFallbackOpen(){
   }
 }
 function openChatWithTransition(){
+  if(_chatOpening)return;                                  // 动画播放中，忽略重复点击
+  if(!document.body.classList.contains('dt-view'))return;   // 已在聊天页，忽略重复点击
+  _chatOpening=true;
+  for (var ci=0; ci<_chatOpenTimers.length; ci++) clearTimeout(_chatOpenTimers[ci]);
+  _chatOpenTimers=[];
   var ov=document.getElementById('chat-transition-overlay');
   function direct(){
+    _chatOpening=false;
     if(window.DesktopTopbar&&typeof window.DesktopTopbar.openChat==='function'){window.DesktopTopbar.openChat();}
   }
   if(!ov){direct();return;}
   ov.classList.add('ct-show');
   requestAnimationFrame(function(){requestAnimationFrame(function(){ov.classList.add('ct-visible');});});
-  setTimeout(function(){direct();},2400);
-  setTimeout(function(){ov.classList.remove('ct-visible');},2850);
-  setTimeout(function(){ov.classList.remove('ct-show');},3400);
+  _chatOpenTimers.push(setTimeout(function(){direct();},2400));
+  _chatOpenTimers.push(setTimeout(function(){ov.classList.remove('ct-visible');},2850));
+  _chatOpenTimers.push(setTimeout(function(){ov.classList.remove('ct-show');},3400));
 }
 </script>
 </body>

@@ -57,30 +57,37 @@
 
     // ── 两侧头像 / 昵称跟随聊天设置 ──
     var _synced = false;
+    // 缓存上一次写入的值，3s 轮询只在真正变化时才更新 DOM/重解码图片，
+    // 避免 base64 头像每 3 秒被重新 innerHTML 注入造成持续卡顿
+    var _lastAvP = '', _lastAvM = '', _lastNameP = '', _lastNameM = '';
     function syncTopbarUsers() {
         var srcP = $('partner-avatar'), dstP = $('dt-avatar-partner');
         var srcM = $('my-avatar'), dstM = $('dt-avatar-me');
-        function fill(src, dst) {
-            if (!src || !dst) return;
+        function fill(src, dst, lastRef) {
+            if (!src || !dst) return lastRef;
             var img = src.querySelector('img');
-            if (img && img.src && img.src.indexOf('data:') === 0) {
-                dst.innerHTML = '<img src="' + img.src + '">';
-            } else if (img && img.src) {
+            var srcVal = (img && img.src) ? img.src : '';
+            if (srcVal === lastRef) return lastRef;   // 未变化：跳过，避免重复注入/解码
+            if (img && img.src) {
                 dst.innerHTML = '<img src="' + img.src + '">';
             } else {
                 dst.innerHTML = '<i class="fas fa-user"></i>';
             }
+            return srcVal;
         }
-        fill(srcP, dstP); fill(srcM, dstM);
-        setName('partner-name', 'dt-name-partner', '梦角');
-        setName('my-name', 'dt-name-me', '我');
+        _lastAvP = fill(srcP, dstP, _lastAvP);
+        _lastAvM = fill(srcM, dstM, _lastAvM);
+        _lastNameP = setName('partner-name', 'dt-name-partner', '梦角', _lastNameP);
+        _lastNameM = setName('my-name', 'dt-name-me', '我', _lastNameM);
         _synced = true;
     }
-    function setName(srcId, dstId, fallback) {
+    function setName(srcId, dstId, fallback, lastRef) {
         var src = $(srcId), dst = $(dstId);
-        if (!src || !dst) return;
-        var v = src.textContent.trim();
-        dst.textContent = v || fallback;
+        if (!src || !dst) return lastRef;
+        var v = src.textContent.trim() || fallback;
+        if (v === lastRef) return lastRef;            // 未变化：跳过 DOM 写入
+        dst.textContent = v;
+        return v;
     }
 
     // ── 顶部栏背景 ──
@@ -205,23 +212,29 @@
             if (img) {
                 var idx = _plOrder[i];
                 var custom = getPl(idx);
-                img.onerror = function () {
-                    // 图片缺失/未设置：展示灰底占位，且不再重复触发
-                    this.onerror = null;
-                    this.src = _plPlaceholder;
-                };
-                img.src = custom || POLAROID_DEFAULT;
+                var src = custom || POLAROID_DEFAULT;
+                // 图片未变化时不再重设 src，避免每次点击都重新解码大图导致低端机卡顿
+                if (img.getAttribute('src') !== src) {
+                    img.onerror = function () {
+                        // 图片缺失/未设置：展示灰底占位，且不再重复触发
+                        this.onerror = null;
+                        this.src = _plPlaceholder;
+                    };
+                    img.src = src;
+                }
             }
             cards[i].className = 'dt-polaroid-card ' + _plFronts[i];
         }
     }
+    var _plCycling = false;   // 防连点：翻牌动画进行中忽略重复点击
     function cyclePolaroid() {
         var c = $('dt-polaroid');
-        if (!c) return;
+        if (!c || _plCycling) return;
+        _plCycling = true;
         _plOrder.unshift(_plOrder.pop());        // 最底层翻到最前，其余依次后移
         renderPolaroid();
         c.classList.add('flip');
-        setTimeout(function () { c.classList.remove('flip'); }, 420);
+        setTimeout(function () { c.classList.remove('flip'); _plCycling = false; }, 430);
     }
 
     // ── 拍立得设置：三张照片分别上传（排版参考聊天背景） ──
@@ -350,10 +363,13 @@
         if (badge) badge.textContent = _annEntries.length > 1 ? (_annIndex + 1) + '/' + _annEntries.length : '';
     }
 
+    var _annCycling = false; // 防连点：短窗口内忽略重复点击，避免快速连点叠加渲染
     function cycleAnniversary() {
-        if (_annEntries.length > 1) {
+        if (_annEntries.length > 1 && !_annCycling) {
+            _annCycling = true;
             _annIndex = (_annIndex + 1) % _annEntries.length;
             renderAnniversary();
+            setTimeout(function () { _annCycling = false; }, 350);
         }
     }
 
@@ -464,6 +480,7 @@
     // ── 桌面 / 聊天视图切换 ──
     // 启动默认进入桌面页，点击「聊天」才打开聊天页；聊天页头部「返回桌面」按钮回到桌面。
     window.DesktopTopbar.showDesktop = function () {
+        if (typeof window._chatCancelOpen === 'function') window._chatCancelOpen(); // 取消未完成的聊天打开动画
         document.body.classList.add('dt-view');
     };
     window.DesktopTopbar.openChat = function () {
