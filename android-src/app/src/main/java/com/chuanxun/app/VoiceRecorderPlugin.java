@@ -4,12 +4,13 @@ import android.Manifest;
 import android.media.MediaRecorder;
 import android.util.Base64;
 
-import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -38,16 +39,16 @@ public class VoiceRecorderPlugin extends Plugin {
      */
     @PluginMethod
     public void start(PluginCall call) {
-        if (!getPermissionHelper().hasPermission(this, "recording")) {
-            getPermissionHelper().requestPermissions(this, call, "recording");
-            return;
+        if (getPermissionState("recording") != PermissionState.GRANTED) {
+            requestPermissionForAlias("recording", call, "startPermissionCallback");
+        } else {
+            startRecorder(call);
         }
-        startRecorder(call);
     }
 
-    @Override
-    protected void handleRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults, PluginCall call) {
-        if (getPermissionHelper().hasPermission(this, "recording")) {
+    @PermissionCallback
+    private void startPermissionCallback(PluginCall call) {
+        if (getPermissionState("recording") == PermissionState.GRANTED) {
             startRecorder(call);
         } else {
             call.reject("麦克风权限被拒绝");
