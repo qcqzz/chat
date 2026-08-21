@@ -2829,12 +2829,20 @@ function showModal(modalElement, focusElement = null) {
                 displaySrc = base64;
                 downloadHref = base64;
             }
+            // 防堆叠：快速连点多张图/多次打开时，先移除旧的全屏查看器，
+            // 避免多个 z-index:99999 全屏遮罩叠加拦截所有点击，让 App 看起来"卡死"
+            const oldViewers = document.querySelectorAll('.image-viewer-modal');
+            for (let i = 0; i < oldViewers.length; i++) {
+                if (oldViewers[i].parentNode) oldViewers[i].parentNode.removeChild(oldViewers[i]);
+            }
+
             const modal = document.createElement('div');
+            modal.className = 'image-viewer-modal';
             modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease;touch-action:pinch-zoom;';
             modal.innerHTML = `
                 <div style="position:relative;max-width:95vw;max-height:92vh;display:flex;align-items:center;justify-content:center;">
                     <img src="${displaySrc}" style="max-width:95vw;max-height:88vh;object-fit:contain;display:block;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.6);" draggable="false">
-                    <button onclick="this.closest('[style*=fixed]').remove()" style="position:fixed;top:16px;right:16px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.3);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);z-index:10;line-height:1;">×</button>
+                    <button onclick="this.closest('.image-viewer-modal').remove()" style="position:fixed;top:16px;right:16px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.3);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);z-index:10;line-height:1;">×</button>
                     <a href="${downloadHref}" download style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 24px;background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.3);border-radius:20px;color:#fff;font-size:13px;text-decoration:none;backdrop-filter:blur(8px);display:flex;align-items:center;gap:6px;"><i class="fas fa-download"></i> 保存图片</a>
                 </div>`;
             modal.addEventListener('click', (e) => {
