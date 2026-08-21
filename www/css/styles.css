@@ -13992,6 +13992,116 @@ html[data-theme="dark"] .redpacket-card-check { color: var(--accent-color-dark);
 .message-redpacket-bubble::before,
 .message-redpacket-bubble::after { display: none !important; }
 
+/* ── 问问你：问题/回答卡片（韩系简约花边 + 虚线分隔，跟随系统主题）── */
+.message-question-bubble {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 4px 6px !important;
+}
+.message-question-bubble::before,
+.message-question-bubble::after { display: none !important; }
+.question-card {
+    position: relative;
+    min-width: 218px;
+    max-width: 76vw;
+    box-sizing: border-box;
+    padding: 13px 15px 12px;
+    border-radius: 18px;
+    background: var(--primary-bg);
+    color: var(--text-primary);
+    /* 外圈虚线描边 + 内圈实线细边，形成简约韩系 lace 双层花边 */
+    border: 1px dashed var(--border-color);
+    outline: 1px solid var(--accent-color);
+    outline-offset: 4px;
+}
+html[data-theme="dark"] .question-card { outline-color: var(--accent-color-dark); }
+.question-card-q {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.55;
+    word-break: break-word;
+}
+.question-card-icon { flex: none; line-height: 1.3; }
+.question-card-text { flex: 1; min-width: 0; }
+.question-card-mode {
+    flex: none;
+    margin-left: 4px;
+    transform: translateY(1px);
+}
+.question-mode-tag {
+    flex: none;
+    display: inline-block;
+    margin-left: 4px;
+    transform: translateY(1px);
+    padding: 1px 6px;
+    border-radius: 7px;
+    background: var(--secondary-bg);
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 500;
+}
+.question-card-sep {
+    margin: 11px 0 10px;
+    border: 0;
+    border-top: 1px dashed var(--border-color);
+    opacity: 0.75;
+}
+.question-card-options { display: flex; flex-direction: column; gap: 6px; }
+.question-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: var(--secondary-bg);
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--text-primary);
+    word-break: break-word;
+}
+.question-option.chosen {
+    background: var(--secondary-bg);
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    font-weight: 600;
+}
+html[data-theme="dark"] .question-option.chosen { border-color: var(--accent-color-dark); color: var(--accent-color-dark); }
+.question-opt-tag {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+html[data-theme="dark"] .question-opt-tag { background: var(--accent-color-dark); }
+.question-opt-text { flex: 1; min-width: 0; }
+.question-opt-check { flex: none; color: var(--accent-color); font-weight: 700; }
+html[data-theme="dark"] .question-opt-check { color: var(--accent-color-dark); }
+.question-card-answer .question-card-q { color: var(--accent-color); }
+html[data-theme="dark"] .question-card-answer .question-card-q { color: var(--accent-color-dark); }
+.question-answer-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border-color);
+    font-size: 13px;
+}
+.question-answer-label { flex: none; color: var(--text-secondary); }
+.question-answer-val { flex: 1; color: var(--accent-color); font-weight: 700; word-break: break-word; }
+html[data-theme="dark"] .question-answer-val { color: var(--accent-color-dark); }
+
 /* ── 红包：发送弹窗（整体跟随系统主题）────────────── */
 .redpacket-send-content {
     width: 330px;

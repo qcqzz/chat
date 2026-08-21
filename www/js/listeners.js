@@ -3617,9 +3617,80 @@ window.dismissMorePanel = function() {
     var btn = document.getElementById('more-btn');
     if (panel && panel.classList.contains('open')) { panel.classList.remove('open'); if (btn) btn.classList.remove('open'); }
 };
-// 「问问你」：输入问题并发送给梦角
+// 「问问你」：输入问题 + 选项，以卡片消息发给梦角，梦角稍后作答并回卡片
+var _askChoiceMode = 'single';
+function _askOptionValues() {
+    var c = document.getElementById('ask-options-container');
+    if (!c) return [];
+    var vals = [];
+    var rows = c.querySelectorAll('input.ask-option-input');
+    for (var i = 0; i < rows.length; i++) {
+        var v = rows[i].value.trim();
+        if (v) vals.push(v);
+    }
+    return vals;
+}
+function _askRelabelOptions() {
+    var c = document.getElementById('ask-options-container');
+    if (!c) return;
+    var labels = c.querySelectorAll('.ask-option-label');
+    for (var i = 0; i < labels.length; i++) {
+        labels[i].textContent = String.fromCharCode(65 + i);
+    }
+}
+window.setAskMode = function(mode) {
+    _askChoiceMode = (mode === 'multiple') ? 'multiple' : 'single';
+    var s = document.getElementById('ask-mode-single');
+    var m = document.getElementById('ask-mode-multiple');
+    var active = 'background:var(--accent-color);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.15);';
+    var idle = 'background:transparent;color:var(--text-secondary);';
+    if (s) s.style.cssText = 'border:none;font-size:12.5px;padding:5px 14px;border-radius:8px;cursor:pointer;' + (_askChoiceMode === 'single' ? active : idle);
+    if (m) m.style.cssText = 'border:none;font-size:12.5px;padding:5px 14px;border-radius:8px;cursor:pointer;' + (_askChoiceMode === 'multiple' ? active : idle);
+};
+window.addAskOption = function() {
+    var c = document.getElementById('ask-options-container');
+    if (!c) return;
+    var rows = c.querySelectorAll('.ask-option-row');
+    if (rows.length >= 10) { if (typeof showNotification === 'function') showNotification('选项最多 10 个哦', 'info'); return; }
+    var row = document.createElement('div');
+    row.className = 'ask-option-row';
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '8px';
+    var tag = document.createElement('span');
+    tag.className = 'ask-option-label';
+    tag.textContent = String.fromCharCode(65 + rows.length);
+    tag.style.cssText = 'flex:none;width:20px;height:20px;border-radius:50%;background:var(--accent-color);color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;';
+    var inp = document.createElement('input');
+    inp.type = 'text';
+    inp.className = 'ask-option-input';
+    inp.placeholder = '输入选项内容…';
+    inp.style.cssText = 'flex:1;min-width:0;box-sizing:border-box;padding:9px 12px;border-radius:12px;border:1.5px solid var(--border-color);background:var(--primary-bg);color:var(--text-primary);font-size:13px;outline:none;';
+    var del = document.createElement('button');
+    del.type = 'button';
+    del.title = '删除选项';
+    del.textContent = '✕';
+    del.style.cssText = 'flex:none;width:26px;height:26px;border:none;border-radius:8px;background:transparent;color:var(--text-secondary);font-size:12px;cursor:pointer;';
+    del.onclick = function() {
+        if (c.querySelectorAll('.ask-option-row').length <= 2) { if (typeof showNotification === 'function') showNotification('至少保留 2 个选项哦', 'info'); return; }
+        row.remove();
+        _askRelabelOptions();
+    };
+    row.appendChild(tag);
+    row.appendChild(inp);
+    row.appendChild(del);
+    c.appendChild(row);
+    setTimeout(function () { inp.focus(); }, 0);
+};
 window.openAskModal = function() {
     window.dismissMorePanel();
+    window.setAskMode('single');
+    var c = document.getElementById('ask-options-container');
+    if (c) {
+        c.innerHTML = '';
+        window.addAskOption();
+        window.addAskOption();
+    }
     var modal = document.getElementById('ask-modal');
     if (modal && typeof showModal === 'function') showModal(modal);
     var inp = document.getElementById('ask-question-input');
@@ -3630,16 +3701,82 @@ window.askQuestionSend = function() {
     if (!inp) return;
     var t = inp.value.trim();
     if (!t) { if (typeof showNotification === 'function') showNotification('先输入你想问的问题呀', 'info'); return; }
+    var opts = _askOptionValues();
+    if (opts.length < 2) { if (typeof showNotification === 'function') showNotification('至少设置 2 个选项哦', 'info'); return; }
     if (typeof hideModal === 'function') hideModal(document.getElementById('ask-modal'));
     inp.value = '';
-    var msg = document.getElementById('message-input');
-    if (msg) {
-        msg.value = t;
-        msg.style.height = 'auto';
-        msg.focus();
-        var sendBtn = document.getElementById('send-btn');
-        if (sendBtn) setTimeout(function () { sendBtn.click(); }, 30);
-    }
+    var c = document.getElementById('ask-options-container');
+    if (c) c.innerHTML = '';
+    var partner = (typeof settings === 'object' && settings && settings.partnerName) ? settings.partnerName : '对方';
+    var push = window.addMessage || (typeof addMessage === 'function' ? addMessage : null);
+    if (typeof push !== 'function') { if (typeof showNotification === 'function') showNotification('发送失败', 'error'); return; }
+    push({
+        id: Date.now() + Math.random(),
+        sender: 'user',
+        text: t,
+        question: t,
+        options: opts,
+        choiceMode: _askChoiceMode,
+        answer: null,
+        timestamp: new Date(),
+        status: 'sent',
+        favorited: false,
+        note: null,
+        replyTo: null,
+        type: 'question'
+    });
+    if (typeof showNotification === 'function') showNotification('已发给' + partner + '，TA 正在思考…', 'info');
+    window._scheduleQuestionAnswer({ question: t, options: opts, choiceMode: _askChoiceMode });
+};
+// 梦角作答：10 秒 ~ 1 分钟内随机回复，以卡片消息发回
+window._scheduleQuestionAnswer = function(data) {
+    var opts = (Array.isArray(data.options)) ? data.options.slice() : [];
+    if (opts.length === 0) return;
+    var mode = data.choiceMode === 'multiple' ? 'multiple' : 'single';
+    var delay = 10000 + Math.random() * 50000;
+    setTimeout(function () {
+        var idx = [];
+        for (var i = 0; i < opts.length; i++) idx.push(i);
+        for (var n = idx.length - 1; n > 0; n--) {
+            var r = Math.floor(Math.random() * (n + 1));
+            var tmp = idx[n]; idx[n] = idx[r]; idx[r] = tmp;
+        }
+        var plan;
+        if (mode === 'multiple') {
+            // 多选问题：可回复单选（1 个）或多选（2 个及以上），两者都允许
+            var cnt;
+            if (opts.length <= 1) {
+                cnt = 1;
+            } else if (Math.random() < 0.3) {
+                cnt = 1; // 30% 回复单选
+            } else {
+                cnt = 2 + Math.floor(Math.random() * (opts.length - 1)); // 70% 回复多选：2 ~ opts.length
+            }
+            plan = idx.slice(0, cnt);
+        } else {
+            // 单选问题：只能回复 1 个选项
+            plan = [idx[0]];
+        }
+        var answer = plan.map(function (k) { return opts[k]; });
+        var partner = (typeof settings === 'object' && settings && settings.partnerName) ? settings.partnerName : '对方';
+        var push = window.addMessage || (typeof addMessage === 'function' ? addMessage : null);
+        if (typeof push !== 'function') return;
+        push({
+            id: Date.now() + Math.random(),
+            sender: partner,
+            text: data.question,
+            question: data.question,
+            options: opts,
+            choiceMode: mode,
+            answer: answer,
+            timestamp: new Date(),
+            status: 'received',
+            favorited: false,
+            note: null,
+            replyTo: null,
+            type: 'question'
+        });
+    }, delay);
 };
 
 window.toggleCollapsedExtras = function() {
