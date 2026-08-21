@@ -699,10 +699,11 @@
         schedule2048();
     }
     global._g2dir = function (d) { userSwipe(d); };
-    // 梦角：随机 2s~30s 后，以 25% 均等概率选上/下/左/右
+    // 梦角：随机 2s~6s 后，以 25% 均等概率选上/下/左/右
     function schedule2048() {
         clearAi();
-        var delay = 2000 + Math.floor(Math.random() * 28000);
+        // 梦角操作时间随机 2s ~ 6s
+        var delay = 2000 + Math.floor(Math.random() * 4000);
         aiTimer = setTimeout(function () {
             aiTimer = null;
             if (!state || state.game !== '2048' || state.sessionOver || state.over || state.turn !== 'dream') return;
