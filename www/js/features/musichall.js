@@ -24,8 +24,8 @@
 
     // ── 状态 ──────────────────────────────────────────────
     var songs = lsGet(LS_PLAYLIST, []);
-    var conf = Object.assign({ hbColor: '#ff9f9d', progColor: '#c5a47e', vinylLabel: null }, lsGet(LS_SETTINGS, {}));
-    var cur = -1, playing = false, mode = 'list'; // list | single | shuffle
+    var conf = Object.assign({ hbColor: '#ff9f9d', progColor: '#c5a47e', vinylLabel: null, playMode: 'list', bubbleStyle: 'standard' }, lsGet(LS_SETTINGS, {}));
+    var cur = -1, playing = false, mode = conf.playMode || 'list'; // list(歌单循环) | single(单曲循环) | shuffle(随机播放)
     var messages = [];
     var invite = lsGet(LS_INVITE, { next: 0, missed: 0, active: null });
     var audio = null, _booted = false, _rendered = false;
@@ -128,14 +128,19 @@
         '</div>';
     }
 
+    function bubbleClass() {
+        var bs = conf.bubbleStyle || 'standard';
+        return 'mh-msg-bubble bubble-' + (bs === 'rounded' ? 'rounded' : bs === 'rounded-large' ? 'rounded-large' : bs === 'square' ? 'square' : 'standard');
+    }
+
     function _msgHTML(m) {
         var mine = m.sender === 'user';
         var bubble;
         if (m.image) {
             var isCloud = String(m.image).indexOf('oss://') === 0;
-            bubble = '<div class="mh-msg-bubble mh-msg-img"><img data-mh-cloud="' + (isCloud ? '1' : '0') + '" ' + (isCloud ? '' : 'src="' + esc(m.image) + '"') + ' alt="表情"></div>';
+            bubble = '<div class="' + bubbleClass() + ' mh-msg-img"><img data-mh-cloud="' + (isCloud ? '1' : '0') + '" ' + (isCloud ? '' : 'src="' + esc(m.image) + '"') + ' alt="表情"></div>';
         } else {
-            bubble = '<div class="mh-msg-bubble">' + esc(m.content) + '</div>';
+            bubble = '<div class="' + bubbleClass() + '">' + esc(m.content) + '</div>';
         }
         return '<div class="mh-msg ' + (mine ? 'mh-msg--me' : 'mh-msg--partner') + '">' +
             (mine ? '' : '<div class="mh-msg-av"><i class="fas fa-music"></i></div>') +
@@ -481,11 +486,45 @@
         });
     }
 
-    // ── 设置区：音乐导入 / 自定义唱片 / 线条设置 ────────
+    // ── 设置区：播放模式 / 音乐导入 / 自定义唱片 / 线条设置 ──
     function renderSettings() {
+        renderModeSection();
         renderImportSection();
         renderVinylSection();
         renderLinesSection();
+        renderBubbleSection();
+    }
+
+    // 播放模式：随机播放 / 歌单循环 / 单曲循环（持久化到 conf.playMode）
+    function renderModeSection() {
+        var el = document.getElementById('mh-setting-mode');
+        if (!el) return;
+        var opts = [
+            { v: 'list',    icon: 'fa-sync-alt',           name: '歌单循环', sub: '播完整个歌单' },
+            { v: 'single',  icon: 'fa-redo-alt',           name: '单曲循环', sub: '单曲无限循环' },
+            { v: 'shuffle', icon: 'fa-random',             name: '随机播放', sub: '随机切歌' }
+        ];
+        el.innerHTML =
+            '<div class="mh-set-section">' +
+                '<div class="mh-set-title"><i class="fas fa-play-circle"></i>播放模式</div>' +
+                '<div class="mh-mode-row">' +
+                    opts.map(function (o) {
+                        return '<button class="mh-mode-btn' + (mode === o.v ? ' sel' : '') + '" data-mode="' + o.v + '">' +
+                            '<i class="fas ' + o.icon + '"></i>' + o.name +
+                            '<span class="mh-mode-sub">' + o.sub + '</span>' +
+                        '</button>';
+                    }).join('') +
+                '</div>' +
+            '</div>';
+        el.querySelectorAll('.mh-mode-btn').forEach(function (b) {
+            b.addEventListener('click', function () {
+                mode = b.getAttribute('data-mode');
+                conf.playMode = mode;
+                saveConf();
+                renderModeSection();
+                showNotification('播放模式已切换为「' + (mode === 'list' ? '歌单循环' : mode === 'single' ? '单曲循环' : '随机播放') + '」', 'info');
+            });
+        });
     }
 
     function renderImportSection() {
@@ -650,6 +689,44 @@
         renderLinesSection();
     }
 
+    // 气泡样式：与主设置"气泡样式"一致，持久化到 conf.bubbleStyle
+    function renderBubbleSection() {
+        var el = document.getElementById('mh-setting-bubble');
+        if (!el) return;
+        var opts = [
+            { v: 'standard',     icon: 'fa-comment',        name: '标准尖角' },
+            { v: 'rounded',      icon: 'fa-comment-dots',   name: '圆角' },
+            { v: 'rounded-large',icon: 'fa-circle',         name: '大圆角胶囊' },
+            { v: 'square',       icon: 'fa-square',         name: '方形直角' }
+        ];
+        el.innerHTML =
+            '<div class="mh-set-section">' +
+                '<div class="mh-set-title"><i class="fas fa-comment"></i>气泡样式</div>' +
+                '<div class="mh-bubble-row">' +
+                    opts.map(function (o) {
+                        return '<button class="mh-mode-btn' + (conf.bubbleStyle === o.v ? ' sel' : '') + '" data-bubble="' + o.v + '">' +
+                            '<i class="fas ' + o.icon + '"></i>' + o.name +
+                        '</button>';
+                    }).join('') +
+                '</div>' +
+            '</div>';
+        el.querySelectorAll('[data-bubble]').forEach(function (b) {
+            b.addEventListener('click', function () {
+                conf.bubbleStyle = b.getAttribute('data-bubble') || 'standard';
+                saveConf();
+                renderBubbleSection();
+                // 即时重绘聊天区，让气泡样式生效
+                var area = document.getElementById('mh-chat-area');
+                if (area) {
+                    if (messages.length) area.innerHTML = messages.map(_msgHTML).join('');
+                    area.scrollTop = area.scrollHeight;
+                }
+                var names = { 'standard': '标准', 'rounded': '圆角', 'rounded-large': '大圆角', 'square': '方形' };
+                showNotification('气泡样式已切换为' + (names[conf.bubbleStyle] || '标准'), 'info');
+            });
+        });
+    }
+
     function syncVinylImage() {
         // 自定义唱片图显示在外圈蓝色圆环（.mh-vinyl-art），中间白色圆固定
         var art = document.querySelector('#cs-panel-musichall .mh-vinyl-art');
@@ -673,6 +750,11 @@
             favorited: false,
             note: null
         });
+        // 梦角邀请一起听歌归属"普通消息"：弹普通通知（与电影院邀请一致）
+        if (typeof window._sendPartnerNotification === 'function') {
+            var pn = (typeof partnerName === 'function') ? partnerName() : '对方';
+            window._sendPartnerNotification(pn, '想和你一起听歌' + (inv && inv.songTitle ? '《' + inv.songTitle + '》' : ''));
+        }
     };
 
     // 主聊天里渲染 MUSIC 卡片

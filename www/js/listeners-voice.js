@@ -24,8 +24,26 @@
         _syncFakeVoiceUI();
     };
 
-    document.addEventListener('DOMContentLoaded', _syncFakeVoiceUI);
-    setTimeout(_syncFakeVoiceUI, 500);
+    // ── 语音字卡发送开关（跟随全局 voiceCardEnabled，随会话持久化）──
+    function _isVoiceCardOn() {
+        return typeof voiceCardEnabled !== 'undefined' ? !!voiceCardEnabled : true;
+    }
+    function _syncVoiceCardUI() {
+        const swit = document.getElementById('voice-card-switch');
+        if (swit) swit.classList.toggle('active', _isVoiceCardOn());
+    }
+    window._toggleVoiceCard = function() {
+        if (typeof voiceCardEnabled === 'undefined') return;
+        voiceCardEnabled = !_isVoiceCardOn();
+        if (typeof throttledSaveData === 'function') throttledSaveData();
+        _syncVoiceCardUI();
+        if (typeof showNotification === 'function') {
+            showNotification(voiceCardEnabled ? '已开启语音字卡' : '已关闭语音字卡', 'info');
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => { _syncFakeVoiceUI(); _syncVoiceCardUI(); });
+    setTimeout(() => { _syncFakeVoiceUI(); _syncVoiceCardUI(); }, 500);
 
     // ─────────── 注入动效 CSS ───────────
     (function injectStyles() {
@@ -177,7 +195,7 @@
             const widthPx = Math.round(80 + Math.min(duration, 60) / 60 * 120);
 
             bubble.innerHTML = `
-                <div class="voice-bubble" data-fake="1" data-duration="${duration}" data-msg-id="${msgId}" style="width:${widthPx}px; display:flex; align-items:center; gap:6px;">
+                <div class="voice-bubble" data-fake="1" data-url="${msg.voice.url || ''}" data-duration="${duration}" data-msg-id="${msgId}" style="width:${widthPx}px; display:flex; align-items:center; gap:6px;">
                     <svg class="voice-wifi-icon" viewBox="0 0 22 22" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="6" cy="11" r="1.3" fill="currentColor" stroke="none"/>
                         <path class="voice-arc-mid" d="M10 8 A 3.5 3.5 0 0 1 10 14"/>
@@ -234,6 +252,32 @@
 
             const duration = Number(bubble.dataset.duration) || 3;
             const msgId = bubble.dataset.msgId;
+
+            // ── 语音字卡/真实语音文件：直接播放 data-url ──
+            if (bubble.dataset.url) {
+                currentBubble = bubble;
+                bubble.classList.add('playing');
+                const audio = new Audio(bubble.dataset.url);
+                _currentAudio = audio;
+                audio.onended = () => {
+                    bubble.classList.remove('playing');
+                    if (currentBubble === bubble) currentBubble = null;
+                    if (_currentAudio === audio) _currentAudio = null;
+                };
+                audio.onerror = () => {
+                    bubble.classList.remove('playing');
+                    if (currentBubble === bubble) currentBubble = null;
+                    if (_currentAudio === audio) _currentAudio = null;
+                    if (typeof showNotification === 'function') showNotification('语音播放失败', 'error');
+                };
+                audio.play().catch(() => {
+                    bubble.classList.remove('playing');
+                    if (currentBubble === bubble) currentBubble = null;
+                    if (_currentAudio === audio) _currentAudio = null;
+                    if (typeof showNotification === 'function') showNotification('语音播放失败', 'error');
+                });
+                return;
+            }
 
             // ── 有 TTS 配置：走真实语音 ──
             if (window.voiceTTS && window.voiceTTS.isTtsReady() && msgId) {

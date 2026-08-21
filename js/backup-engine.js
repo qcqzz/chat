@@ -12,7 +12,7 @@
     }
 
     function isDataMediaUrl(s) {
-        return typeof s === 'string' && s.length > MIN_MEDIA_CHARS && /^data:(image|video)\//i.test(s);
+        return typeof s === 'string' && s.length > MIN_MEDIA_CHARS && /^data:(image|video|audio)\//i.test(s);
     }
 
     function isZipArrayBuffer(ab) {
@@ -59,17 +59,6 @@
 
     function binaryToDataUrl(mime, u8) {
         return 'data:' + (mime || 'application/octet-stream') + ';base64,' + uint8ToBase64Chunked(u8);
-    }
-
-    function deepCloneJsonSafe(obj) {
-        try {
-            return JSON.parse(JSON.stringify(obj, function (k, v) {
-                if (v instanceof Date) return v.toISOString();
-                return v;
-            }));
-        } catch (e) {
-            return obj;
-        }
     }
 
     /**
@@ -216,7 +205,9 @@
             try {
                 var rawVal = await localforage.getItem(key);
                 if (rawVal === null || rawVal === undefined) continue;
-                lfData[key] = deepCloneJsonSafe(rawVal);
+                // 直接使用原值：extractMediaTree 会重建新对象，不做整树 JSON 克隆，
+                // 避免超大体量(内联 base64 图片/语音) 出现 数倍内存峰值导致闪退
+                lfData[key] = rawVal;
             } catch (e) { console.warn('[backup] 读取失败', key, e); }
         }
         var lsData = {};
@@ -682,11 +673,11 @@
             try {
                 var lsv = processLocalStorageValueForImport(lsRaw[k], mediaStore);
                 // 不再因“是较长 data URL”而整条丢弃：先尝试写入，仅在实际写失败（如超出配额）时才跳过该项
-                if (typeof lsv === 'string' && lsv.indexOf('data:image/') === 0 && lsv.length > 2000) {
+                if (typeof lsv === 'string' && (/^data:(image|video|audio)\//.test(lsv)) && lsv.length > 2000) {
                     try {
                         localStorage.setItem(targetLsKey, lsv);
                     } catch (qerr) {
-                        console.warn('[backup] localStorage 图片过大，跳过', targetLsKey, qerr);
+                        console.warn('[backup] localStorage 媒体过大，跳过', targetLsKey, qerr);
                     }
                     continue;
                 }

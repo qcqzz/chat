@@ -21,7 +21,7 @@
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/styles.css?v=2">
     <link rel="stylesheet" href="css/companion.css">
     <link rel="stylesheet" href="css/cinema.css">
     <link rel="stylesheet" href="css/musichall.css">
@@ -452,12 +452,28 @@ html[data-theme="dark"] #chat-transition-overlay{
                 </div>
             </div>
         </div>
+        <div class="more-panel" id="more-panel">
+            <div class="more-panel-grid">
+                <button class="more-item" onclick="window.closeMorePanel && window.closeMorePanel();if(window.TransferFeature&&window.TransferFeature.open)window.TransferFeature.open()">
+                    <span class="more-item-ico" style="background:rgba(var(--accent-color-rgb),.16);color:var(--accent-color);"><i class="fas fa-gift"></i></span>
+                    <span class="more-item-label">发红包</span>
+                </button>
+                <button class="more-item" onclick="window.closeMorePanel && window.closeMorePanel();if(window.TransferFeature&&window.TransferFeature.openRecord)window.TransferFeature.openRecord()">
+                    <span class="more-item-ico" style="background:rgba(var(--accent-color-rgb),.16);color:var(--accent-color);"><i class="fas fa-history"></i></span>
+                    <span class="more-item-label">红包记录</span>
+                </button>
+                <button class="more-item" onclick="if(window.openAskModal)window.openAskModal()">
+                    <span class="more-item-ico" style="background:rgba(var(--accent-color-rgb),.16);color:var(--accent-color);"><i class="fas fa-question-circle"></i></span>
+                    <span class="more-item-label">问问你</span>
+                </button>
+            </div>
+        </div>
         <div class="input-area">
+    <!-- 更多按钮（仿微信加号）：点开上抬露出「更多」面板 -->
+    <button id="more-btn" title="更多" class="input-btn more-btn" onclick="window.toggleMorePanel && window.toggleMorePanel()"><i class="fas fa-plus"></i></button>
     <button id="collapse-expand-btn" title="展开更多" style="display:none;width:36px;height:36px;border:none;border-radius:50%;cursor:pointer;background:rgba(var(--accent-color-rgb),0.12);color:var(--accent-color);font-size:14px;transition:all 0.25s;flex-shrink:0;align-items:center;justify-content:center;" onclick="window.toggleCollapsedExtras && window.toggleCollapsedExtras()"><i class="fas fa-chevron-up"></i></button>
     <!-- 视频通话按钮（替代原麦克风位置）-->
     <button class="videocall-btn input-btn" id="videocall-btn" title="视频通话"><i class="fas fa-video"></i></button>
-    <!-- 转账按钮（聊天框左侧，简约红包样式）-->
-    <button class="transfer-btn input-btn" id="transfer-btn" title="转账"><i class="fas fa-gift" style="font-size:17px;"></i></button>
     <button class="attachment-btn input-btn collapse-hideable" id="attachment-btn" title="发送图片"><i class="fas fa-image"></i></button>
     
     <button class="combo-btn input-btn collapse-hideable" id="combo-btn" title="表情 & 拍一拍">
@@ -926,6 +942,7 @@ html[data-theme="dark"] #chat-transition-overlay{
             <div class="cs-pills">
                 <button class="cs-pill cs-pill-on"   id="ent-pill-cinema" onclick="window._entSwitchPill('cinema')" title="电影时光"><i class="fas fa-film"></i></button>
                 <button class="cs-pill"               id="ent-pill-music"  onclick="window._entSwitchPill('music')"  title="音乐厅"><i class="fas fa-music"></i></button>
+                <button class="cs-pill"               id="ent-pill-game"   onclick="window._entSwitchPill('game')"   title="游戏室"><i class="fas fa-gamepad"></i></button>
             </div>
         </div>
     </div>
@@ -939,6 +956,10 @@ html[data-theme="dark"] #chat-transition-overlay{
 
         <div class="cs-panel" id="cs-panel-musichall">
             <!-- 内容由 musichall.js 动态填充 -->
+        </div>
+
+        <div class="cs-panel" id="cs-panel-game">
+            <!-- 内容由 game-room.js 动态填充 -->
         </div>
 
         <!-- 音乐厅歌单页（全屏覆盖，与电影院档案页一致）：顶部 tabs 切换 歌单/设置 -->
@@ -955,9 +976,11 @@ html[data-theme="dark"] #chat-transition-overlay{
             </div>
             <div class="music-playlist-content" id="mh-panel-settings">
                 <div class="mh-settings-scroll">
+                    <div id="mh-setting-mode"></div>
                     <div id="mh-setting-import"></div>
                     <div id="mh-setting-vinyl"></div>
                     <div id="mh-setting-lines"></div>
+                    <div id="mh-setting-bubble"></div>
                 </div>
             </div>
         </div>
@@ -2222,8 +2245,13 @@ html[data-theme="dark"] #chat-transition-overlay{
                         </div>
                         <div class="setting-pill-row" id="fake-voice-toggle" onclick="window._toggleFakeVoice && window._toggleFakeVoice()" style="border-top:1px solid var(--border-color);">
                             <span class="setting-pill-icon"><i class="fas fa-microphone"></i></span>
-                            <span class="setting-pill-label">语音消息 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">开启后梦角有概率发送语音</span></span>
+                            <span class="setting-pill-label">ai语音消息 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">开启后梦角有概率发送ai语音</span></span>
                             <div class="setting-pill-switch" id="fake-voice-switch"><div class="setting-pill-knob"></div></div>
+                        </div>
+                        <div class="setting-pill-row" id="voice-card-toggle" onclick="window._toggleVoiceCard && window._toggleVoiceCard()" style="border-top:1px solid var(--border-color);">
+                            <span class="setting-pill-icon"><i class="fas fa-file-audio"></i></span>
+                            <span class="setting-pill-label">允许发送语音字卡 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">开启后允许梦角发语音字卡</span></span>
+                            <div class="setting-pill-switch" id="voice-card-switch"><div class="setting-pill-knob"></div></div>
                         </div>
                         <div class="setting-pill-row" id="partner-recall-toggle" style="border-top:1px solid var(--border-color);">
                             <span class="setting-pill-icon"><i class="fas fa-undo"></i></span>
@@ -3303,20 +3331,23 @@ html[data-theme="dark"] #chat-transition-overlay{
         </div>
     </div>
 
-    <!-- 发红包入口选择弹窗：点左下角发红包按钮先弹出，发红包 / 红包记录 -->
-    <div class="modal" id="rp-choice-modal" onclick="if(event.target===this)TransferFeature.closeChoice && TransferFeature.closeChoice()">
-        <div class="modal-content" style="width:360px;max-width:92vw;">
-            <div class="modal-title"><i class="fas fa-gift"></i><span>红包</span></div>
-            <div class="rp-choice-grid">
-                <div class="settings-item rp-choice-btn" id="rp-choice-send" role="button">
-                    <i class="fas fa-paper-plane"></i><span>发红包</span>
-                </div>
-                <div class="settings-item rp-choice-btn" id="rp-choice-record" role="button">
-                    <i class="fas fa-history"></i><span>红包记录</span>
+    <!-- 问问你弹窗：收录于「更多」面板 -->
+    <div class="modal" id="ask-modal" onclick="if(event.target===this && typeof hideModal==='function')hideModal(this)">
+        <div class="modal-content" style="width:380px;max-width:92vw;padding:20px 20px 24px;">
+            <div class="modal-title" style="margin-bottom:14px;"><i class="fas fa-question-circle"></i><span>问问你</span></div>
+            <textarea id="ask-question-input" placeholder="输入你想问的问题…" style="width:100%;min-height:68px;box-sizing:border-box;padding:12px 14px;border-radius:14px;border:1.5px solid var(--border-color);background:var(--primary-bg);color:var(--text-primary);font-size:14px;line-height:1.6;resize:none;outline:none;" onfocus="this.style.borderColor='var(--accent-color)'" onblur="this.style.borderColor='var(--border-color)'"></textarea>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin:14px 0 8px;">
+                <span style="font-size:13px;color:var(--text-secondary);font-weight:600;">选项</span>
+                <div style="display:flex;gap:4px;background:var(--secondary-bg);border-radius:10px;padding:3px;">
+                    <button type="button" id="ask-mode-single" class="ask-mode-btn on" onclick="window.setAskMode && window.setAskMode('single')" style="border:none;background:transparent;color:var(--text-secondary);font-size:12.5px;padding:5px 14px;border-radius:8px;cursor:pointer;">单选</button>
+                    <button type="button" id="ask-mode-multiple" class="ask-mode-btn" onclick="window.setAskMode && window.setAskMode('multiple')" style="border:none;background:transparent;color:var(--text-secondary);font-size:12.5px;padding:5px 14px;border-radius:8px;cursor:pointer;">多选</button>
                 </div>
             </div>
-            <div class="modal-buttons" style="justify-content:flex-end;">
-                <button class="modal-btn modal-btn-secondary" id="close-rp-choice">关闭</button>
+            <div id="ask-options-container" style="display:flex;flex-direction:column;gap:8px;"></div>
+            <button type="button" onclick="window.addAskOption && window.addAskOption()" style="width:100%;margin-top:10px;box-sizing:border-box;padding:9px 12px;border:1.5px dashed var(--border-color);border-radius:12px;background:var(--primary-bg);color:var(--text-secondary);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">+ 添加选项</button>
+            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+                <button class="modal-btn modal-btn-secondary" onclick="if(typeof hideModal==='function')hideModal(document.getElementById('ask-modal'));document.getElementById('ask-question-input').value='';var c=document.getElementById('ask-options-container');if(c)c.innerHTML=''">取消</button>
+                <button class="modal-btn modal-btn-primary" onclick="window.askQuestionSend && window.askQuestionSend()">发送问题</button>
             </div>
         </div>
     </div>
@@ -3855,7 +3886,7 @@ html[data-theme="dark"] #chat-transition-overlay{
     <!-- == 核心层 == -->
     <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
-    <script src="js/backup-engine.js"></script>
+    <script src="js/backup-engine.js?v=214"></script>
     <script src="js/state.js"></script>
     <script src="js/core.js"></script>
 
@@ -3877,7 +3908,7 @@ html[data-theme="dark"] #chat-transition-overlay{
     <script src="js/data.js"></script>
     <script src="js/onboarding.js"></script> 
     <script src="js/features/anniversary.js"></script>
-    <script src="js/listeners.js"></script>
+    <script src="js/listeners.js?v=2"></script>
     <script src="js/listeners-step2.js"></script>
     <script src="js/listeners-voice.js"></script>
     <script src="js/listeners-sticker.js"></script>
@@ -3892,7 +3923,9 @@ html[data-theme="dark"] #chat-transition-overlay{
     <script src="js/app.js"></script>
     <script src="js/desktop.js"></script>
     <script src="js/features/cinema.js"></script>
-    <script src="js/features/musichall.js"></script>
+    <script src="js/features/musichall.js?v=1"></script>
+    <script src="js/features/game-room.js"></script>
+    <script src="js/features/games.js?v=214"></script>
     <script src="js/features/transfer.js"></script>
 <!-- 相册图片详情（全屏） -->
 <div id="al-view-detail" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;inset:0;z-index:6000;background:#000;flex-direction:column;">

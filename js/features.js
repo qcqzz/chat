@@ -189,6 +189,9 @@
     var SRC = 'https://img.heliar.top/file/1772885159972_silence.m4a';
     var _audio = null;
     var _unlockBound = false;
+    var _retryTimer = null;
+    var _watchdogTimer = null;
+    var _wakeLock = null;
 
     function _get() { return localStorage.getItem(KEY) === 'true'; }
 
@@ -198,9 +201,53 @@
         _audio.loop   = true;
         _audio.volume = 0.01;
         _audio.preload = 'auto';
+        _audio._createdAt = Date.now();
         _audio.addEventListener('play',  function(){ _setUI(true);  });
         _audio.addEventListener('pause', function(){ _setUI(false); });
+        // 静音音频一旦出错/中断，自动重建重试，避免保活悄悄失效
+        ['error', 'abort', 'stalled', 'emptied'].forEach(function (evt) {
+            _audio.addEventListener(evt, function () {
+                console.warn('[keepalive] 音频事件:', evt);
+                if (_get()) _scheduleRetry();
+            });
+        });
         return _audio;
+    }
+
+    function _scheduleRetry() {
+        if (_retryTimer) clearTimeout(_retryTimer);
+        _retryTimer = setTimeout(function () {
+            _retryTimer = null;
+            if (!_get()) return;
+            // 重建音频元素，丢弃可能已损坏的对象
+            try { if (_audio) { _audio.pause(); _audio = null; } } catch (e) {}
+            _start();
+        }, 1000);
+    }
+
+    function _requestWakeLock() {
+        try {
+            if (!navigator.wakeLock || _wakeLock) return;
+            navigator.wakeLock.request('screen').then(function (lock) {
+                _wakeLock = lock;
+                var rel = function () { _wakeLock = null; };
+                try { lock.addEventListener('release', rel); } catch (e) {}
+            }).catch(function () {});
+        } catch (e) {}
+    }
+
+    function _releaseWakeLock() {
+        try {
+            if (_wakeLock) { _wakeLock.release().catch(function () {}); _wakeLock = null; }
+        } catch (e) {}
+    }
+
+    function _refreshForeground() {
+        try {
+            if (typeof ForegroundBridge !== 'undefined' && ForegroundBridge.isSupported()) {
+                ForegroundBridge.start();
+            }
+        } catch (e) {}
     }
 
     function _setUI(playing) {
@@ -227,31 +274,66 @@
         bars.forEach(function(b){ b.style.animationPlayState = playing ? 'running' : 'paused'; });
     }
 
+    function _bindUnlock() {
+        if (_unlockBound) return;
+        _unlockBound = true;
+        function unlock() {
+            _unlockBound = false;
+            if (_get()) _start();
+        }
+        document.addEventListener('touchstart', unlock, { once:true });
+        document.addEventListener('touchend',   unlock, { once:true });
+        document.addEventListener('click',      unlock, { once:true });
+        document.addEventListener('pointerdown',unlock, { once:true });
+    }
+
     function _start() {
         var a = _createAudio();
+        // 元素已损坏则重建，避免一直复用坏对象
+        if (a.error && Date.now() - a._createdAt > 3000) {
+            try { a.pause(); } catch (e) {}
+            _audio = null;
+            a = _createAudio();
+        }
         var p = a.play();
         if (p && p.then) {
-            p.catch(function(){
+            p.catch(function () {
                 _setUI(false);
-                if (!_unlockBound) {
-                    _unlockBound = true;
-                    function unlock(){ if(_get()) a.play().catch(function(){}); _unlockBound=false; }
-                    document.addEventListener('touchstart', unlock, { once:true });
-                    document.addEventListener('click',      unlock, { once:true });
-                }
+                _bindUnlock();
+                if (a.error) _scheduleRetry();
             });
+        } else {
+            _setUI(true);
         }
+        _requestWakeLock();
+        _refreshForeground();
     }
 
     function _stop() {
         if (_audio) { _audio.pause(); _audio.currentTime = 0; }
+        _releaseWakeLock();
         _setUI(false);
+    }
+
+    function _startWatchdog() {
+        if (_watchdogTimer) return;
+        // 每 15 秒巡检：发现静音音频意外停止就自动拉起，并顺带刷新原生前台服务，
+        // 确保持久运行，后台/息屏也能持续接收并弹出消息
+        _watchdogTimer = setInterval(function () {
+            if (!_get()) return;
+            if (!_audio || _audio.paused || _audio.ended || _audio.error) {
+                try { if (_audio && _audio.error) _audio = null; } catch (e) {}
+                _start();
+            }
+            _refreshForeground();
+        }, 15000);
     }
 
     window._toggleKeepaliveAudio = function() {
         var next = !_get();
         localStorage.setItem(KEY, String(next));
         if (next) {
+            _startWatchdog();
             _start();
             if (typeof showNotification === 'function') showNotification('保活音频已开启 🎵', 'success', 2000);
             // 立即更新开关颜色，不等待异步 play() 返回
@@ -264,18 +346,21 @@
     };
 
     document.addEventListener('visibilitychange', function(){
-        if (_get() && document.visibilityState === 'visible' && _audio && _audio.paused) {
-            _audio.play().catch(function(){});
+        if (_get() && document.visibilityState === 'visible') {
+            _requestWakeLock();
+            if (!_audio || _audio.paused) { _start(); }
+        } else if (document.visibilityState === 'hidden' && _get()) {
+            _refreshForeground();
         }
     });
 
     document.addEventListener('DOMContentLoaded', function(){
         _setUI(false);
-        if (_get()) _start();
+        if (_get()) { _startWatchdog(); _start(); }
     });
     setTimeout(function(){
         _setUI(_get() && !!_audio && !_audio.paused);
-        if (_get() && (!_audio || _audio.paused)) _start();
+        if (_get()) { _startWatchdog(); if (!_audio || _audio.paused) _start(); }
     }, 1800);
 })();
 

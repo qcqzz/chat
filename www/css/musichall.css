@@ -320,6 +320,10 @@
     word-break: break-word;
     white-space: pre-wrap;
 }
+/* 气泡样式（与主聊天气泡一致：标准尖角 / 圆角 / 大圆角胶囊 / 方形直角） */
+.mh-msg-bubble.bubble-rounded { border-radius: var(--radius); }
+.mh-msg-bubble.bubble-rounded-large { border-radius: 28px; box-shadow: 0 3px 12px rgba(0,0,0,.1); }
+.mh-msg-bubble.bubble-square { border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
 .mh-msg--me .mh-msg-bubble {
     background: var(--bubble-outgoing-bg, var(--accent-color));
     color: #fff;
@@ -341,6 +345,7 @@
     border-radius: 20px;
     padding: 8px 12px;
     font-size: 13px;
+    font-family: var(--font-family);
     background: var(--bg-color, #fff);
     color: var(--text-primary);
     outline: none;
@@ -789,4 +794,41 @@
     color: #8a8168;
     font-size: 12px;
     padding: 0 14px 14px;
+}
+/* 播放模式选择（设置页） */
+.mh-mode-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+.mh-bubble-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 4px;
+}
+.mh-mode-btn {
+    flex: 1;
+    padding: 9px 6px;
+    border-radius: 12px;
+    border: 1.5px solid var(--border-color, #e8e2dd);
+    background: var(--card-bg, #fff);
+    color: var(--text-secondary, #8a8168);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: all .15s;
+    box-shadow: 0 2px 6px rgba(0,0,0,.04);
+}
+.mh-mode-btn i { font-size: 15px; }
+.mh-mode-btn .mh-mode-sub { font-size: 10px; opacity: .75; font-weight: 500; }
+.mh-mode-btn.sel {
+    border-color: var(--accent-color, #d98092);
+    background: linear-gradient(135deg, var(--accent-color, #d98092), rgba(217,128,146,.75));
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(217,128,146,.35);
 }

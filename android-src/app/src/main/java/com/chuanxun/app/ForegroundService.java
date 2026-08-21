@@ -171,18 +171,32 @@ public class ForegroundService extends Service {
             try { wakeLock.release(); } catch (Exception e) {}
             wakeLock = null;
         }
+        // 服务被系统杀死后，重排定时唤醒，保证保活机制不被中断
+        try {
+            KeepAliveReceiver.scheduleNext(this);
+            Log.i("ForegroundService", "服务销毁，已重排定时唤醒");
+        } catch (Exception e) {
+            Log.w("ForegroundService", "重排唤醒失败: " + e.getMessage());
+        }
         super.onDestroy();
     }
 
     /**
-     * 用户从最近任务中划掉 App 时，重新调度定时唤醒，防止保活机制丢失
+     * 用户从最近任务中划掉 App 时，立即重启前台服务并重新调度定时唤醒，防止保活机制丢失
      */
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         super.onTaskRemoved(rootIntent);
         try {
             KeepAliveReceiver.scheduleNext(this);
-            Log.i("ForegroundService", "任务被划掉，已重新调度定时唤醒");
+            // 立即尝试重新拉起前台服务，降低被划掉后被系统回收的概率
+            Intent restart = new Intent(this, ForegroundService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(restart);
+            } else {
+                startService(restart);
+            }
+            Log.i("ForegroundService", "任务被划掉，已重启服务并重排定时唤醒");
         } catch (Exception e) {
             Log.w("ForegroundService", "重新调度失败: " + e.getMessage());
         }

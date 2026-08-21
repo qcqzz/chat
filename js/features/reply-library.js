@@ -25,6 +25,48 @@ function _tabHasGroups(tab) {
     return tab === 'custom' || tab === 'pokes' || tab === 'statuses';
 }
 
+// ── 语音字卡：稳定 id / 分组 / 屏蔽 ──────────────────────────────
+if (typeof window.customVoiceGroups === 'undefined') window.customVoiceGroups = [];
+
+function _vcId(vc) {
+    if (vc && typeof vc === 'object' && vc.id) return vc.id;
+    if (vc && typeof vc === 'object') {
+        vc.id = 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        return vc.id;
+    }
+    return '';
+}
+
+function _getVoiceGroupCtx() {
+    if (!window.customVoiceGroups) window.customVoiceGroups = [];
+    return { groups: window.customVoiceGroups, items: voiceCards || [], itemLabel: '语音字卡' };
+}
+
+function _getVoiceGroupOfId(id) {
+    return (window.customVoiceGroups || []).find(g => g.items && g.items.includes(id)) || null;
+}
+
+function _getDisabledVoiceSet() {
+    try {
+        const raw = localStorage.getItem('disabledVoiceCards');
+        return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+}
+
+function _saveDisabledVoiceSet(set) {
+    localStorage.setItem('disabledVoiceCards', JSON.stringify([...set]));
+}
+
+function _toggleVoiceDisable(vc) {
+    if (!vc) return;
+    const id = _vcId(vc);
+    const set = _getDisabledVoiceSet();
+    if (set.has(id)) { set.delete(id); showNotification('已启用', 'success'); }
+    else { set.add(id); showNotification('已屏蔽（不会出现在自动随机语音中）', 'info'); }
+    _saveDisabledVoiceSet(set);
+    renderReplyLibrary();
+}
+
 let _batchSelectedIndices = new Set();
 let _batchModeActive = false;
 let _batchModeTarget = 'custom'; // 'custom' or 'stickers' (depends on currentSubTab when batch mode enabled)
@@ -147,6 +189,9 @@ function _renderListContentOnly() {
         } else if (currentSubTab === 'stickers') {
             itemsToRender = stickerLibrary;
             renderType = 'image';
+        } else if (currentSubTab === 'voices') {
+            itemsToRender = voiceCards;
+            renderType = 'voice';
         }
     } else if (currentMajorTab === 'atmosphere') {
         if (currentSubTab === 'pokes') itemsToRender = customPokes;
@@ -157,6 +202,18 @@ function _renderListContentOnly() {
 
     if (renderType === 'emoji') { _renderEmojiTab(list, itemsToRender); return; }
     if (renderType === 'image') { _renderStickerTab(list, itemsToRender); return; }
+    if (renderType === 'voice') {
+        const vq = _searchQuery.toLowerCase().trim();
+        const vfiltered = vq ? itemsToRender.filter(v => ((v && v.text) || '').toLowerCase().includes(vq)) : itemsToRender;
+        if (vfiltered.length === 0) {
+            const empty = document.createElement('div');
+            empty.innerHTML = renderEmptyState(vq ? `未找到 "${vq}"` : '暂无语音字卡');
+            list.appendChild(empty.firstElementChild || empty);
+            return;
+        }
+        _renderVoiceCardList(list, vfiltered);
+        return;
+    }
 
     const q = _searchQuery.toLowerCase().trim();
     const filtered = q ? itemsToRender.filter(item => item.toLowerCase().includes(q)) : itemsToRender;
@@ -236,6 +293,9 @@ function renderReplyLibrary() {
         } else if (currentSubTab === 'stickers') {
             itemsToRender = stickerLibrary;
             renderType = 'image';
+        } else if (currentSubTab === 'voices') {
+            itemsToRender = voiceCards;
+            renderType = 'voice';
         }
     } else if (currentMajorTab === 'atmosphere') {
         if (currentSubTab === 'pokes') itemsToRender = customPokes;
@@ -246,6 +306,18 @@ function renderReplyLibrary() {
 
     if (renderType === 'emoji') { _renderEmojiTab(list, itemsToRender); list.scrollTop = savedScrollTop; return; }
     if (renderType === 'image') { _renderStickerTab(list, itemsToRender); list.scrollTop = savedScrollTop; requestAnimationFrame(() => { list.scrollTop = savedScrollTop; }); return; }
+    if (renderType === 'voice') {
+        const vq = _searchQuery.toLowerCase().trim();
+        const vfiltered = vq ? itemsToRender.filter(v => ((v && v.text) || '').toLowerCase().includes(vq)) : itemsToRender;
+        if (!vfiltered.length) {
+            list.innerHTML = renderEmptyState(vq ? `未找到"${vq}"` : '暂无语音字卡，点下方「添加」导入语音文件');
+            list.scrollTop = savedScrollTop; return;
+        }
+        _renderVoiceCardList(list, vfiltered);
+        list.scrollTop = savedScrollTop;
+        requestAnimationFrame(() => { list.scrollTop = savedScrollTop; });
+        return;
+    }
 
     const q = _searchQuery.toLowerCase().trim();
     let filtered = q ? itemsToRender.filter(item => item.toLowerCase().includes(q)) : itemsToRender;
@@ -269,8 +341,9 @@ function _renderModernToolbar() {
     let toolbar = document.getElementById('batch-ops-toolbar');
     const isMainCustom = currentMajorTab === 'reply' && currentSubTab === 'custom';
     const isStickersTab = currentMajorTab === 'reply' && currentSubTab === 'stickers';
+    const isVoicesTab = currentMajorTab === 'reply' && currentSubTab === 'voices';
     const hasGroupSupport = _tabHasGroups();
-    const canBatch = isMainCustom || isStickersTab;
+    const canBatch = isMainCustom || isStickersTab || isVoicesTab;
 
     if (!toolbar) {
         toolbar = document.createElement('div');
@@ -282,7 +355,7 @@ function _renderModernToolbar() {
 
     const disabledSet = _getDisabledItemsSet();
     const ctx = _getGroupCtx();
-    const totalItems = isMainCustom ? customReplies.length : (isStickersTab ? stickerLibrary.length : 0);
+    const totalItems = isMainCustom ? customReplies.length : (isStickersTab ? stickerLibrary.length : (isVoicesTab ? (voiceCards || []).length : 0));
     const selectedCount = _batchSelectedIndices.size;
 
     const addBtnLabel = (() => {
@@ -419,6 +492,10 @@ function _renderModernToolbar() {
             <button class="toolbar-icon-btn ${_batchModeActive ? 'active' : ''}" id="tb-batch-btn" title="${_batchModeActive ? '退出批量' : '批量管理'}">
                 ${ICONS.batch}
             </button>` : ''}
+            ${isVoicesTab ? `
+            <button class="toolbar-icon-btn" id="tb-add-voice-btn" title="添加语音字卡" style="color:var(--accent-color);border-color:rgba(var(--accent-color-rgb,180,140,100),0.5);">
+                ${ICONS.plus}
+            </button>` : ''}
             <button class="toolbar-icon-btn" id="tb-import-btn" title="导入">
                 ${ICONS.import}
             </button>
@@ -480,7 +557,7 @@ function _renderModernToolbar() {
         tbBatch.onclick = () => {
             if (!canBatch) return;
             _batchModeActive = !_batchModeActive;
-            _batchModeTarget = isStickersTab ? 'stickers' : 'custom';
+            _batchModeTarget = isStickersTab ? 'stickers' : (isVoicesTab ? 'voices' : 'custom');
             _batchSelectedIndices.clear();
             renderReplyLibrary();
         };
@@ -489,6 +566,7 @@ function _renderModernToolbar() {
     toolbar.querySelector('#tb-dedup-btn')?.addEventListener('click', _runDedup);
     toolbar.querySelector('#tb-import-btn')?.addEventListener('click', () => document.getElementById('import-replies-input')?.click());
     toolbar.querySelector('#tb-export-btn')?.addEventListener('click', _showExportUI);
+    toolbar.querySelector('#tb-add-voice-btn')?.addEventListener('click', () => _openVoiceImportWizard());
 
     toolbar.querySelectorAll('.gfp-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -502,7 +580,7 @@ function _renderModernToolbar() {
         toolbar.querySelector('#batch-select-all-btn')?.addEventListener('click', () => {
             if (_batchSelectedIndices.size === totalItems) _batchSelectedIndices.clear();
             else {
-                const pool = isMainCustom ? customReplies : stickerLibrary;
+                const pool = isMainCustom ? customReplies : (isStickersTab ? stickerLibrary : (isVoicesTab ? (voiceCards || []) : []));
                 pool.forEach((_, i) => _batchSelectedIndices.add(i));
             }
             renderReplyLibrary();
@@ -514,6 +592,7 @@ function _renderModernToolbar() {
         });
         toolbar.querySelector('#batch-disable-btn')?.addEventListener('click', () => {
             if (_batchSelectedIndices.size === 0) return;
+            if (isVoicesTab) return; // 语音字卡不支持批量屏蔽
             if (isStickersTab) _batchToggleDisableStickers();
             else _batchToggleDisable();
         });
@@ -521,6 +600,14 @@ function _renderModernToolbar() {
             if (_batchSelectedIndices.size === 0) return;
             if (!confirm(`确定删除选中的 ${_batchSelectedIndices.size} 条？`)) return;
             const indices = [..._batchSelectedIndices].sort((a, b) => b - a);
+            if (isVoicesTab) {
+                indices.forEach(i => voiceCards.splice(i, 1));
+                _batchSelectedIndices.clear();
+                throttledSaveData();
+                renderReplyLibrary();
+                showNotification(`已删除 ${indices.length} 条语音字卡`, 'success');
+                return;
+            }
             if (isStickersTab) {
                 const deleted = indices.map(i => stickerLibrary[i]).filter(Boolean);
                 // 阶段三B：云端引用先删云端（并行删除，失败不阻塞）
@@ -944,6 +1031,446 @@ function _renderStickerTab(list, itemsToRender) {
         list.appendChild(div);
     });
 }
+/* ─────────────────────────── 语音字卡板块 ─────────────────────────── */
+let _vcCurrentAudio = null;
+let _vcCurrentBubble = null;
+
+function _stopVcAudio() {
+    if (_vcCurrentAudio) { _vcCurrentAudio.pause(); _vcCurrentAudio = null; }
+    if (_vcCurrentBubble) { _vcCurrentBubble.classList.remove('playing'); _vcCurrentBubble = null; }
+}
+
+function _vcEscape(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+// 语音字卡气泡播放动效样式
+(function injectVcStyles() {
+    const s = document.createElement('style');
+    s.textContent = `
+        .vc-bubble.playing .voice-arc-mid { animation: vcArc 1.2s ease-in-out infinite; }
+        .vc-bubble.playing .voice-arc-out { animation: vcArc 1.2s ease-in-out infinite 0.15s; }
+        @keyframes vcArc {
+            0%, 100% { opacity: 0.25; transform: scale(0.9); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+    `;
+    document.head.appendChild(s);
+})();
+
+function _vcBubbleHTML(duration) {
+    const d = Number(duration) || 0;
+    const widthPx = Math.round(80 + Math.min(d, 60) / 60 * 120);
+    return `
+        <div class="vc-bubble" data-duration="${d}" style="
+            width:${widthPx}px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;color:var(--text-primary);
+        ">
+            <svg class="voice-wifi-icon" viewBox="0 0 22 22" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="6" cy="11" r="1.3" fill="currentColor" stroke="none"/>
+                <path class="voice-arc-mid" d="M10 8 A 3.5 3.5 0 0 1 10 14"/>
+                <path class="voice-arc-out" d="M13 5 A 7 7 0 0 1 13 17"/>
+            </svg>
+            <span style="font-variant-numeric:tabular-nums;">${d}"</span>
+        </div>`;
+}
+
+function _renderVoiceCardList(list, items) {
+    const frag = document.createDocumentFragment();
+    items.forEach((vc, index) => frag.appendChild(_createVoiceCard(vc, index)));
+    list.appendChild(frag);
+}
+
+function _createVoiceCard(vc, index) {
+    const duration = Number((vc && typeof vc === 'object' && vc.duration) || 0);
+    const text = (vc && typeof vc === 'object' && vc.text) || '';
+    const audio = (vc && typeof vc === 'object' && vc.audio) || '';
+    const vcId = _vcId(vc); // 保证稳定 id（分组 / 屏蔽的标识）
+    const isDisabled = _getDisabledVoiceSet().has(vcId);
+    const isSelected = _batchModeActive && _batchSelectedIndices.has(index);
+    const div = document.createElement('div');
+    div.className = 'rl-card vc-card' + (isSelected ? ' rl-selected' : '');
+
+    if (_batchModeActive) {
+        div.style.cssText = 'cursor:pointer;align-items:flex-start;';
+        div.innerHTML = `
+            <div class="rl-batch-check" style="
+                border:1.5px solid ${isSelected ? 'var(--accent-color)' : 'var(--border-color)'};
+                background:${isSelected ? 'var(--accent-color)' : 'transparent'};
+            ">
+                ${isSelected ? `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>` : ''}
+            </div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;pointer-events:none;">
+                ${_vcBubbleHTML(duration)}
+                ${text ? `<div style="font-size:12px;color:var(--text-secondary);word-break:break-word;">${_vcEscape(text)}</div>` : ''}
+            </div>
+        `;
+        div.addEventListener('click', () => {
+            const wasSelected = _batchSelectedIndices.has(index);
+            if (wasSelected) _batchSelectedIndices.delete(index);
+            else _batchSelectedIndices.add(index);
+            const isSel = !wasSelected;
+            div.classList.toggle('rl-selected', isSel);
+            const checkEl = div.querySelector('.rl-batch-check');
+            if (checkEl) {
+                checkEl.style.border = `1.5px solid ${isSel ? 'var(--accent-color)' : 'var(--border-color)'}`;
+                checkEl.style.background = isSel ? 'var(--accent-color)' : 'transparent';
+                checkEl.innerHTML = isSel ? `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>` : '';
+            }
+            _renderModernToolbar();
+        });
+        return div;
+    }
+
+    const vGroup = _getVoiceGroupOfId(vcId);
+    const groupBadge = vGroup ? `<span style="
+            display:inline-flex;align-items:center;gap:3px;
+            padding:1px 7px 1px 4px;border-radius:10px;font-size:10px;
+            background:${vGroup.color}18;color:${vGroup.color};border:1px solid ${vGroup.color}30;
+            margin-top:5px;width:fit-content;flex-shrink:0;
+        "><span style="width:5px;height:5px;border-radius:50%;background:${vGroup.color};flex-shrink:0;"></span>${vGroup.name}</span>`
+        : '';
+
+    div.innerHTML = `
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;${isDisabled ? 'opacity:0.4;' : ''}">
+            ${_vcBubbleHTML(duration)}
+            ${text ? `<div style="font-size:12px;color:var(--text-secondary);word-break:break-word;line-height:1.5;${isDisabled ? 'text-decoration:line-through;' : ''}">${_vcEscape(text)}</div>` : ''}
+            ${groupBadge}
+        </div>
+        <div class="rl-card-actions">
+            <button class="rl-act-btn ${isDisabled ? 'active' : ''}" data-action="disable" title="${isDisabled ? '启用' : '屏蔽'}">
+                ${isDisabled ? ICONS.eye : ICONS.eyeOff}
+            </button>
+            <button class="rl-act-btn" data-action="tag" title="分组">
+                ${ICONS.tag}
+            </button>
+            <button class="rl-act-btn" data-action="edit" title="编辑">
+                ${ICONS.edit}
+            </button>
+            <button class="rl-act-btn danger" data-action="delete" title="删除">
+                ${ICONS.trash}
+            </button>
+        </div>
+    `;
+
+    div.querySelector('[data-action="delete"]').onclick = (e) => { e.stopPropagation(); _deleteVoiceCard(index); };
+    div.querySelector('[data-action="edit"]').onclick = (e) => { e.stopPropagation(); _openVoiceEditor(index); };
+    div.querySelector('[data-action="disable"]').onclick = (e) => { e.stopPropagation(); _toggleVoiceDisable(vc); };
+    div.querySelector('[data-action="tag"]').onclick = (e) => { e.stopPropagation(); _showSingleItemGroupPicker(vcId, _getVoiceGroupCtx()); };
+    const playEl = div.querySelector('.vc-bubble');
+    playEl.addEventListener('click', (e) => { e.stopPropagation(); _playVcCard(playEl, audio); });
+    return div;
+}
+
+function _playVcCard(bubble, audio) {
+    if (!audio) return;
+    if (_vcCurrentBubble === bubble && _vcCurrentAudio) { _stopVcAudio(); return; }
+    _stopVcAudio();
+    const audioObj = new Audio(audio);
+    bubble.classList.add('playing');
+    _vcCurrentAudio = audioObj;
+    _vcCurrentBubble = bubble;
+    audioObj.onended = () => { bubble.classList.remove('playing'); if (_vcCurrentBubble === bubble) _vcCurrentBubble = null; if (_vcCurrentAudio === audioObj) _vcCurrentAudio = null; };
+    audioObj.onerror = () => {
+        bubble.classList.remove('playing');
+        if (_vcCurrentBubble === bubble) _vcCurrentBubble = null;
+        if (_vcCurrentAudio === audioObj) _vcCurrentAudio = null;
+        if (typeof showNotification === 'function') showNotification('语音播放失败', 'error');
+    };
+    audioObj.play().catch(() => {
+        bubble.classList.remove('playing');
+        if (_vcCurrentBubble === bubble) _vcCurrentBubble = null;
+        if (_vcCurrentAudio === audioObj) _vcCurrentAudio = null;
+    });
+}
+
+function _deleteVoiceCard(index) {
+    if (!confirm('确定删除此语音字卡吗？')) return;
+    voiceCards.splice(index, 1);
+    _batchSelectedIndices.clear();
+    throttledSaveData();
+    renderReplyLibrary();
+}
+
+function _openVoiceEditor(index) {
+    _stopVcAudio();
+    const isEdit = index >= 0 && Array.isArray(voiceCards) && voiceCards[index];
+    const existing = isEdit ? voiceCards[index] : null;
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.55);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease;';
+
+    let pendingAudio = isEdit ? (existing.audio || '') : '';
+    let pendingDuration = isEdit ? (existing.duration || 0) : 0;
+
+    overlay.innerHTML = `
+        <div style="
+            width:min(540px,92vw);background:var(--primary-bg);border-radius:18px;overflow:hidden;
+            box-shadow:0 20px 60px rgba(0,0,0,0.4);display:flex;flex-direction:column;
+        ">
+            <div style="padding:18px 22px 8px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+                <div style="font-size:16px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">
+                    <i class="fas fa-file-audio" style="color:var(--accent-color);"></i>
+                    ${isEdit ? '编辑语音字卡' : '添加语音字卡'}
+                </div>
+                <button data-close style="background:var(--secondary-bg);border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);">${ICONS.close}</button>
+            </div>
+            <div style="padding:12px 22px 4px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
+                <div>
+                    <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:7px;">语音文件</label>
+                    <input type="file" accept="audio/*" style="display:none;" data-audio-input>
+                    <div data-audio-area style="
+                        border:1.5px dashed var(--border-color);border-radius:12px;padding:16px;text-align:center;cursor:pointer;
+                        display:flex;flex-direction:column;align-items:center;gap:8px;transition:border-color 0.15s;
+                    ">
+                        <div style="color:var(--accent-color);">${ICONS.plus}</div>
+                        <div style="font-size:12px;color:var(--text-primary);" data-audio-hint>点击选择语音文件（支持 mp3/m4a/wav 等）</div>
+                    </div>
+                    <div data-audio-preview style="display:none;align-items:center;gap:10px;margin-top:8px;">
+                        <div id="vc-preview-holder" style="min-width:0;"></div>
+                        <div style="flex:1;"></div>
+                        <button data-replace-audio type="button" style="padding:6px 12px;border-radius:18px;border:1.5px solid var(--border-color);background:var(--primary-bg);color:var(--text-secondary);font-size:12px;cursor:pointer;font-family:var(--font-family);">更换</button>
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:7px;">语音文字内容</label>
+                    <textarea data-text rows="3" placeholder="输入这段语音对应的文字内容…" style="
+                        width:100%;padding:11px 13px;border:1.5px solid var(--border-color);border-radius:12px;
+                        background:var(--secondary-bg);color:var(--text-primary);font-size:13px;line-height:1.5;
+                        font-family:var(--font-family);outline:none;resize:vertical;box-sizing:border-box;
+                    ">${_vcEscape(isEdit ? (existing.text || '') : '')}</textarea>
+                </div>
+            </div>
+            <div style="padding:12px 22px 20px;display:flex;gap:10px;flex-shrink:0;">
+                <button data-cancel style="flex:1;padding:12px;border:1.5px solid var(--border-color);border-radius:13px;background:var(--primary-bg);color:var(--text-secondary);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font-family);">取消</button>
+                <button data-save style="flex:2;padding:12px;border:none;border-radius:13px;background:var(--accent-color);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font-family);">保存</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const audioInput = overlay.querySelector('[data-audio-input]');
+    const audioArea = overlay.querySelector('[data-audio-area]');
+    const previewWrap = overlay.querySelector('[data-audio-preview]');
+    const previewHolder = overlay.querySelector('#vc-preview-holder');
+    const textArea = overlay.querySelector('[data-text]');
+    const saveBtn = overlay.querySelector('[data-save]');
+
+    function refreshAudioUI() {
+        if (pendingAudio) {
+            audioArea.style.display = 'none';
+            previewWrap.style.display = 'flex';
+            previewHolder.innerHTML = _vcBubbleHTML(pendingDuration);
+            previewHolder.querySelector('.vc-bubble').addEventListener('click', (e) => { e.stopPropagation(); _playVcCard(previewHolder.querySelector('.vc-bubble'), pendingAudio); });
+        } else {
+            audioArea.style.display = 'flex';
+            previewWrap.style.display = 'none';
+        }
+    }
+    refreshAudioUI();
+
+    function readFile(file) {
+        if (!file) return;
+        if (!file.type.startsWith('audio/')) { showNotification('请选择音频文件', 'error'); return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+            pendingAudio = reader.result;
+            // 读取时长
+            const tmp = new Audio();
+            tmp.preload = 'metadata';
+            tmp.onloadedmetadata = () => { pendingDuration = Math.max(1, Math.round(tmp.duration || 0)); refreshAudioUI(); };
+            tmp.onerror = () => { pendingDuration = 5; refreshAudioUI(); };
+            tmp.src = pendingAudio;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    audioArea.addEventListener('click', () => audioInput.click());
+    audioInput.addEventListener('change', () => {
+        const f = audioInput.files && audioInput.files[0];
+        if (f) readFile(f);
+        audioInput.value = '';
+    });
+    overlay.querySelector('[data-replace-audio]').addEventListener('click', (e) => { e.stopPropagation(); audioInput.click(); });
+
+    saveBtn.addEventListener('click', () => {
+        if (!pendingAudio) { showNotification('请先选择语音文件', 'error'); return; }
+        const text = (textArea.value || '').trim();
+        const card = { id: (isEdit && existing && existing.id) ? existing.id : _vcId(existing || {}), text: text, audio: pendingAudio, duration: pendingDuration || 5 };
+        if (!Array.isArray(voiceCards)) voiceCards = [];
+        if (isEdit && voiceCards[index]) voiceCards[index] = card;
+        else voiceCards.push(card);
+        _batchSelectedIndices.clear();
+        throttledSaveData();
+        renderReplyLibrary();
+        overlay.remove();
+        showNotification(isEdit ? '语音字卡已更新' : '语音字卡已添加', 'success');
+    });
+
+    overlay.querySelector('[data-close]').addEventListener('click', () => { _stopVcAudio(); overlay.remove(); });
+    overlay.querySelector('[data-cancel]').addEventListener('click', () => { _stopVcAudio(); overlay.remove(); });
+    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) { _stopVcAudio(); overlay.remove(); } });
+}
+
+/**
+ * 「新增」入口：直接拉起系统文件管理器多选语音文件，
+ * 选中返回后依次烟个编辑文字信息（无文字则留空），最后统一「确定」导入。
+ */
+function _openVoiceImportWizard() {
+    _stopVcAudio();
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*';
+    input.multiple = true;
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.addEventListener('change', async () => {
+        const files = Array.from(input.files || []);
+        input.remove();
+        if (files.length === 0) return;
+
+        if (files.length > 1 && typeof showNotification === 'function') {
+            showNotification(`正在读取 ${files.length} 个语音文件…`, 'info');
+        }
+
+        const items = [];
+        const readFile = (file) => new Promise((resolve) => {
+            if (!file) return resolve(null);
+            try {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const dataUrl = reader.result;
+                    let settled = false;
+                    const done = (dur) => {
+                        if (settled) return;
+                        settled = true;
+                        resolve({ name: file.name || '', audio: dataUrl, duration: Math.max(1, Math.round(dur || 0)) || 5, text: '' });
+                    };
+                    const tmp = new Audio();
+                    tmp.preload = 'metadata';
+                    tmp.onloadedmetadata = () => done(tmp.duration || 5);
+                    tmp.onerror = () => done(5);
+                    tmp.src = dataUrl;
+                };
+                reader.onerror = () => resolve(null);
+                reader.readAsDataURL(file);
+            } catch (e) { resolve(null); }
+        });
+
+        for (const f of files) {
+            const it = await readFile(f);
+            if (it && it.audio) items.push(it);
+        }
+        if (items.length === 0) {
+            if (typeof showNotification === 'function') showNotification('未读取到有效的语音文件', 'error');
+            return;
+        }
+        _openVoiceBatchEditor(items);
+    });
+    input.click();
+}
+
+function _openVoiceBatchEditor(batch) {
+    if (!Array.isArray(batch) || batch.length === 0) return;
+    _stopVcAudio();
+    let cur = 0;
+    const total = batch.length;
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.55);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease;';
+
+    overlay.innerHTML = `
+        <div style="
+            width:min(540px,92vw);background:var(--primary-bg);border-radius:18px;overflow:hidden;
+            box-shadow:0 20px 60px rgba(0,0,0,0.4);display:flex;flex-direction:column;
+        ">
+            <div style="padding:18px 22px 8px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+                <div style="font-size:16px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">
+                    <i class="fas fa-file-audio" style="color:var(--accent-color);"></i>
+                    编辑语音文字
+                </div>
+                <button data-close style="background:var(--secondary-bg);border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);">${ICONS.close}</button>
+            </div>
+            <div style="padding:12px 22px 8px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
+                <div>
+                    <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;">
+                        <span>语音文件</span>
+                        <span data-count style="color:var(--text-secondary);font-weight:700;">1/${total}</span>
+                    </label>
+                    <div data-filename style="
+                        padding:13px 14px;border:1.5px solid var(--border-color);border-radius:12px;
+                        background:var(--secondary-bg);color:var(--text-primary);font-size:13px;
+                        word-break:break-all;line-height:1.4;display:flex;align-items:center;gap:8px;
+                    ">
+                        <span style="color:var(--accent-color);flex-shrink:0;">${ICONS.plus}</span>
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:7px;">语音文字内容</label>
+                    <textarea data-text rows="3" placeholder="输入这段语音对应的文字内容…（留空则导入为无文字）" style="
+                        width:100%;padding:11px 13px;border:1.5px solid var(--border-color);border-radius:12px;
+                        background:var(--secondary-bg);color:var(--text-primary);font-size:13px;line-height:1.5;
+                        font-family:var(--font-family);outline:none;resize:vertical;box-sizing:border-box;
+                    "></textarea>
+                </div>
+            </div>
+            <div style="padding:12px 22px 20px;display:flex;gap:10px;flex-shrink:0;">
+                <button data-prev style="flex:1;padding:12px;border:1.5px solid var(--border-color);border-radius:13px;background:var(--primary-bg);color:var(--text-secondary);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font-family);">上一个</button>
+                <button data-next style="flex:1;padding:12px;border:1.5px solid var(--border-color);border-radius:13px;background:var(--primary-bg);color:var(--text-secondary);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font-family);">下一个</button>
+                <button data-save style="flex:1.6;padding:12px;border:none;border-radius:13px;background:var(--accent-color);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font-family);">确定</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const filenameEl = overlay.querySelector('[data-filename]');
+    const countEl = overlay.querySelector('[data-count]');
+    const textEl = overlay.querySelector('[data-text]');
+    const prevBtn = overlay.querySelector('[data-prev]');
+    const nextBtn = overlay.querySelector('[data-next]');
+    const saveBtn = overlay.querySelector('[data-save]');
+
+    function render() {
+        const it = batch[cur] || {};
+        filenameEl.innerHTML = `<i class="fas fa-file-audio" style="color:var(--accent-color);flex-shrink:0;font-size:14px;"></i><span>${_vcEscape(it.name || ('语音 ' + (cur + 1)))}</span>`;
+        textEl.value = it.text || '';
+        prevBtn.disabled = cur === 0;
+        nextBtn.disabled = cur === total - 1;
+        countEl.textContent = `${cur + 1}/${total}`;
+    }
+    function commit() {
+        if (batch[cur]) batch[cur].text = (textEl.value || '').trim();
+    }
+
+    prevBtn.addEventListener('click', () => { commit(); if (cur > 0) { cur--; render(); } });
+    nextBtn.addEventListener('click', () => { commit(); if (cur < total - 1) { cur++; render(); } });
+
+    saveBtn.addEventListener('click', () => {
+        commit();
+        if (!Array.isArray(voiceCards)) voiceCards = [];
+        batch.forEach(it => {
+            voiceCards.push({
+                id: (it && it.id) || _vcId(it),
+                text: (it && it.text) || '',
+                audio: it.audio,
+                duration: (it && it.duration) || 5
+            });
+        });
+        _batchSelectedIndices.clear();
+        throttledSaveData();
+        overlay.remove();
+        renderReplyLibrary();
+        if (typeof showNotification === 'function') showNotification(`已导入 ${total} 条语音字卡`, 'success');
+    });
+
+    overlay.querySelector('[data-close]').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) overlay.remove(); });
+    render();
+}
+
 function _getDisabledItemsSet() {
     try {
         const raw = localStorage.getItem('disabledReplyItems');

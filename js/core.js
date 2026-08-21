@@ -492,6 +492,18 @@ const loadData = async () => {
         const savedPokeGroups = getVal(19);
         const savedStatusGroups = getVal(20);
 
+        // 语音字卡数据 + 发送开关（独立键，避免改动上面 Promise 下标）
+        const savedVoiceCards = await localforage.getItem(getStorageKey('customVoiceCards'));
+        const savedVoiceCardEnabled = await localforage.getItem(getStorageKey('voiceCardEnabled'));
+        if (Array.isArray(savedVoiceCards)) voiceCards = savedVoiceCards;
+        if (savedVoiceCardEnabled !== null) voiceCardEnabled = !!savedVoiceCardEnabled;
+        window._voiceCards = voiceCards;
+
+        // 语音字卡分组（自定义 key，独立于上方 Promise 下标）
+        const savedVoiceGroups = await localforage.getItem(getStorageKey('customVoiceGroups'));
+        if (Array.isArray(savedVoiceGroups)) window.customVoiceGroups = savedVoiceGroups;
+        if (!window.customVoiceGroups) window.customVoiceGroups = [];
+
         if (savedPartnerPersonas) partnerPersonas = savedPartnerPersonas;
 
         if (savedSettings) Object.assign(settings, savedSettings);
@@ -649,6 +661,7 @@ const LIBRARY_CONFIG = {
         title: "回复库管理",
         tabs: [
             { id: 'custom', name: '主字卡', mode: 'list' },
+            { id: 'voices', name: '语音字卡', mode: 'list' },
             { id: 'emojis', name: 'Emoji', mode: 'grid' },
             { id: 'stickers', name: '表情库', mode: 'grid' }
         ]
@@ -777,6 +790,9 @@ const saveData = async () => {
         { key: 'customStatuses',         val: () => localforage.setItem(getStorageKey('customStatuses'), customStatuses) },
         { key: 'customMottos',           val: () => localforage.setItem(getStorageKey('customMottos'), customMottos) },
         { key: 'customIntros',           val: () => localforage.setItem(getStorageKey('customIntros'), customIntros) },
+        { key: 'customVoiceCards',       val: () => localforage.setItem(getStorageKey('customVoiceCards'), voiceCards) },
+        { key: 'customVoiceGroups',      val: () => localforage.setItem(getStorageKey('customVoiceGroups'), window.customVoiceGroups || []) },
+        { key: 'voiceCardEnabled',       val: () => localforage.setItem(getStorageKey('voiceCardEnabled'), voiceCardEnabled) },
         { key: 'stickerLibrary',         val: () => localforage.setItem(getStorageKey('stickerLibrary'), stickerLibrary) },
         { key: 'myStickerLibrary',       val: () => localforage.setItem(getStorageKey('myStickerLibrary'), myStickerLibrary) },
         { key: 'customThemes',           val: () => localforage.setItem(`${APP_PREFIX}customThemes`, customThemes) },
@@ -1181,6 +1197,39 @@ function _redpacketCardHTML(msg) {
         + '</div>';
 }
 
+// 「问问你」问题/回答卡片：韩系简约花边 + 虚线分隔，跟随系统主题
+function _questionCardHTML(msg) {
+    const q = _escapeHtml(msg.question || msg.text || '');
+    const opts = Array.isArray(msg.options) ? msg.options : [];
+    const answered = Array.isArray(msg.answer) && msg.answer.length > 0;
+    const modeTag = (msg.choiceMode === 'multiple')
+        ? '<span class="question-mode-tag">多选</span>'
+        : '<span class="question-mode-tag">单选</span>';
+    const icon = answered ? '💌' : '🌸';
+    const marks = ['A','B','C','D','E','F','G','H','I','J'];
+    let optsHtml = '';
+    for (let i = 0; i < opts.length; i++) {
+        const label = marks[i] || (i + 1);
+        const v = _escapeHtml(opts[i]);
+        let cls = 'question-option';
+        let check = '';
+        if (answered && msg.answer.indexOf(opts[i]) > -1) { cls += ' chosen'; check = '<span class="question-opt-check">✓</span>'; }
+        optsHtml += '<div class="' + cls + '"><span class="question-opt-tag">' + label + '</span><span class="question-opt-text">' + v + '</span>' + check + '</div>';
+    }
+    let answerLine = '';
+    if (answered) {
+        const shown = msg.answer.map(function (a) { return _escapeHtml(String(a)); }).join('、');
+        answerLine = '<div class="question-answer-line"><span class="question-answer-label">TA 的选择</span><span class="question-answer-val">' + shown + '</span></div>';
+    }
+    const mid = String(msg.id).replace(/['"`\\]/g, '');
+    return '<div class="question-card' + (answered ? ' question-card-answer' : '') + '" data-mid="' + _escapeHtml(mid) + '">'
+        + '<div class="question-card-q"><span class="question-card-icon">' + icon + '</span><span class="question-card-text">' + q + '</span>' + modeTag + '</div>'
+        + '<div class="question-card-sep"></div>'
+        + '<div class="question-card-options">' + optsHtml + '</div>'
+        + answerLine
+        + '</div>';
+}
+
 function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
     const fragment = new DocumentFragment();
     const messageDate = new Date(msg.timestamp).toDateString();
@@ -1331,10 +1380,13 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
     }
 
     const isRedpacket = msg.type === 'redpacket';
+    const isQuestion = msg.type === 'question';
     const isImageOnly = !msg.text && !!msg.image;
     let content = '';
     if (isRedpacket) {
         content = _redpacketCardHTML(msg);
+    } else if (isQuestion) {
+        content = _questionCardHTML(msg);
     } else {
         content = msg.text ? '<div>' + _escapeHtml(msg.text).replace(/\n/g, '<br>') + '</div>' : '';
     }
@@ -1361,6 +1413,8 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
     const messageDiv = document.createElement('div');
     if (isRedpacket) {
         messageDiv.className = `message message-${msg.sender === 'user' ? 'sent' : 'received'} message-redpacket-bubble`;
+    } else if (isQuestion) {
+        messageDiv.className = `message message-${msg.sender === 'user' ? 'sent' : 'received'} message-question-bubble`;
     } else if (isImageOnly) {
         messageDiv.className = `message message-${msg.sender === 'user' ? 'sent' : 'received'} message-image-bubble-none`;
     } else {
@@ -2301,6 +2355,15 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                     const enabledStickerPool = (stickerLibrary || []).filter(s => !disabledStickerItems.has(s));
                     const shouldSendSticker = enabledStickerPool.length > 0 && Math.random() < 0.2;
 
+                    const vcEnabled = (typeof voiceCardEnabled !== 'undefined') ? !!voiceCardEnabled : true;
+                    let disabledVoiceIds = new Set();
+                    try {
+                        const raw = localStorage.getItem('disabledVoiceCards');
+                        if (raw) disabledVoiceIds = new Set(JSON.parse(raw));
+                    } catch (e) {}
+                    const enabledVoicePool = vcEnabled ? (voiceCards || []).filter(v => v && v.audio && !disabledVoiceIds.has(v.id)) : [];
+                    const shouldSendVoiceCard = enabledVoicePool.length > 0 && Math.random() < 0.2;
+
                     let finalText = replyText;
                     let separateEmoji = null;
                     if (customEmojis && customEmojis.length > 0 && Math.random() < 0.2) {
@@ -2367,7 +2430,37 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                                 type: 'normal'
                             });
                             playSound('message');
+                            if (typeof window._sendPartnerNotification === 'function') {
+                                window._sendPartnerNotification(settings.partnerName || '对方', separateEmoji);
+                            }
                         }, 300 + Math.random() * 400);
+                    }
+
+                    // 语音字卡：开启时按概率发送（与主字卡同样走 addMessage，渲染成语音条+下方文字）
+                    if (shouldSendVoiceCard) {
+                        const vc = enabledVoicePool[Math.floor(Math.random() * enabledVoicePool.length)];
+                        setTimeout(() => {
+                            addMessage({
+                                id: Date.now() + i + 3000,
+                                sender: settings.partnerName || '对方',
+                                text: '',
+                                timestamp: new Date(),
+                                voice: {
+                                    url: vc.audio || '',
+                                    duration: Number(vc.duration || 0) || Math.max(1, Math.round((vc.text || '').length / 3)),
+                                    fakeText: vc.text || '',
+                                    transcript: ''
+                                },
+                                status: 'received',
+                                favorited: false,
+                                note: null,
+                                type: 'normal'
+                            });
+                            playSound('message');
+                            if (typeof window._sendPartnerNotification === 'function') {
+                                window._sendPartnerNotification(settings.partnerName || '对方', vc.text ? `[语音]${vc.text}` : '[语音]');
+                            }
+                        }, 500 + Math.random() * 700);
                     }
 
                     if (i === replyCount - 1) {

@@ -16,11 +16,12 @@ import android.util.Log;
 public class KeepAliveReceiver extends BroadcastReceiver {
     private static final String TAG = "KeepAliveReceiver";
     private static final String ACTION_KEEP_ALIVE = "com.chuanxun.app.KEEP_ALIVE";
+    private static final String ACTION_KEEP_ALIVE_BACKUP = "com.chuanxun.app.KEEP_ALIVE_BACKUP";
     private static final long INTERVAL_MS = 5 * 60 * 1000; // 5 分钟
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        Log.i(TAG, "定时唤醒触发");
+        Log.i(TAG, "定时唤醒触发: " + (intent != null ? intent.getAction() : "null"));
 
         // 获取短暂 WakeLock 确保 CPU 不立即休眠
         PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
@@ -39,7 +40,7 @@ public class KeepAliveReceiver extends BroadcastReceiver {
                 context.startService(serviceIntent);
             }
 
-            // 重新调度下一次唤醒
+            // 重新调度下一次唤醒（主 + 后备）
             scheduleNext(context);
         } catch (Exception e) {
             Log.e(TAG, "唤醒处理失败: " + e.getMessage());
@@ -51,49 +52,87 @@ public class KeepAliveReceiver extends BroadcastReceiver {
     }
 
     /**
-     * 调度下一次定时唤醒（使用 setExactAndAllowWhileIdle 确保 Doze 模式下也能唤醒）
+     * 调度下一次定时唤醒。
+     * 主闹钟：精确可用则用 setExactAndAllowWhileIdle，被拒则自动回退非精确；
+     * 后备闹钟：错开 60 秒走非精确（无需权限），抵御厂商/Doze 下精确闹钟被丢弃。
+     * 两个闹钟任何一个触发都会重新调度双方，形成自愈闭环。
      */
     public static void scheduleNext(Context context) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarmManager == null) return;
 
-        Intent intent = new Intent(context, KeepAliveReceiver.class);
-        intent.setAction(ACTION_KEEP_ALIVE);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                context, 0, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-
         long triggerAt = System.currentTimeMillis() + INTERVAL_MS;
+        // 主闹钟
+        scheduleOne(context, alarmManager, ACTION_KEEP_ALIVE, 0, triggerAt);
+        // 后备闹钟（错开 60 秒）
+        scheduleOne(context, alarmManager, ACTION_KEEP_ALIVE_BACKUP, 1, triggerAt + 60 * 1000L);
+        Log.i(TAG, "保活闹钟已调度(主+60s后备): " + triggerAt);
+    }
+
+    private static void scheduleOne(Context context, AlarmManager alarmManager,
+                                    String action, int requestCode, long triggerAt) {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent
-                );
+            Intent intent = new Intent(context, KeepAliveReceiver.class);
+            intent.setAction(action);
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                    context, requestCode, intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
+
+            // Android 12+ 精确闹钟需要权限，未授权时使用非精确仍然能唤醒
+            boolean canExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+                    || alarmManager.canScheduleExactAlarms();
+            if (canExact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
                 alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
             } else {
                 alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
             }
-            Log.i(TAG, "下次唤醒已调度: " + triggerAt);
+        } catch (SecurityException e) {
+            // 精确闹钟权限被拒：回退到非精确，保活不中断
+            try {
+                Intent intent = new Intent(context, KeepAliveReceiver.class);
+                intent.setAction(action);
+                PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                        context, requestCode, intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+                );
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
+                Log.w(TAG, "精确闹钟受限，已回退非精确: " + action);
+            } catch (Exception e2) {
+                Log.e(TAG, "调度" + action + "失败: " + e2.getMessage());
+            }
         } catch (Exception e) {
-            Log.e(TAG, "调度唤醒失败: " + e.getMessage());
+            Log.e(TAG, "调度" + action + "失败: " + e.getMessage());
         }
     }
 
     /**
-     * 取消所有定时唤醒
+     * 取消所有定时唤醒（主 + 后备）
      */
     public static void cancel(Context context) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarmManager == null) return;
-        Intent intent = new Intent(context, KeepAliveReceiver.class);
-        intent.setAction(ACTION_KEEP_ALIVE);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                context, 0, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-        alarmManager.cancel(pendingIntent);
+        cancelOne(context, alarmManager, ACTION_KEEP_ALIVE, 0);
+        cancelOne(context, alarmManager, ACTION_KEEP_ALIVE_BACKUP, 1);
         Log.i(TAG, "定时唤醒已取消");
+    }
+
+    private static void cancelOne(Context context, AlarmManager alarmManager,
+                                  String action, int requestCode) {
+        try {
+            Intent intent = new Intent(context, KeepAliveReceiver.class);
+            intent.setAction(action);
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                    context, requestCode, intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
+            alarmManager.cancel(pendingIntent);
+        } catch (Exception e) {
+            Log.e(TAG, "取消失败: " + e.getMessage());
+        }
     }
 }

@@ -38,6 +38,8 @@
         let customStatusGroups = [];
         let customMottos = [];
         let customIntros = []; 
+        let voiceCards = [];        // 语音字卡：{ text, audio(dataURL), duration }
+        let voiceCardEnabled = true; // 允许梦角发送语音字卡 
         let currentMajorTab = 'reply'; 
         let currentSubTab = 'custom';  
         let currentReplyTab = 'custom';

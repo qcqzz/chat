@@ -336,7 +336,7 @@ async function renderDailyFortune(todayKey) {
                             <div class="tarot-face tarot-front"><div class="tarot-pattern" style="font-size:18px;"><i class="fas fa-star-and-crescent"></i></div></div>
                             <div class="tarot-face tarot-back" style="background:linear-gradient(135deg,var(--secondary-bg),rgba(var(--accent-color-rgb),0.07));border:1.5px solid rgba(var(--accent-color-rgb),0.3);padding:0;overflow:hidden;">
                                 <div class="tarot-visual ${card.isUpright ? '' : 'reversed'}" style="height:100%;width:100%;margin:0;padding:0;">
-                                    ${card.img ? `<img src="${card.img}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><div style="display:none;height:100%;align-items:center;justify-content:center;"><i class="fas ${card.icon}" style="font-size:28px;color:var(--accent-color);"></i></div>` : `<div style="height:100%;display:flex;align-items:center;justify-content:center;"><i class="fas ${card.icon}" style="font-size:28px;color:var(--accent-color);"></i></div>`}
+                                    ${card.img ? `<div style="position:relative;width:100%;height:100%;"><img src="${card.img}" alt="${card.name}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><div style="display:none;height:100%;flex-direction:column;align-items:center;justify-content:center;"><i class="fas ${card.icon}" style="font-size:26px;color:var(--accent-color);margin-bottom:6px;"></i><div style="font-size:11px;font-weight:bold;color:var(--text-primary);text-align:center;padding:0 4px;">${card.name}</div></div></div>` : `<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;"><i class="fas ${card.icon}" style="font-size:26px;color:var(--accent-color);margin-bottom:6px;"></i><div style="font-size:11px;font-weight:bold;color:var(--text-primary);text-align:center;padding:0 4px;">${card.name}</div></div>`}
                                 </div>
                             </div>
                         </div>
@@ -658,7 +658,13 @@ function cardHTML(card, position, labelOverride) {
         drawnCards.push({ name: card.name, keyword: card.keyword, position: posLabel, isReversed, meaning });
 
         const frontContent = card.img 
-            ? `<img src="${card.img}" style="width: 100%; height: 100%; object-fit: cover; ${isReversed ? 'transform: rotate(180deg);' : ''}">`
+            ? `<div style="position:relative;width:100%;height:100%;">
+                 <img src="${card.img}" alt="${card.name}" style="width:100%;height:100%;object-fit:cover;${isReversed ? 'transform:rotate(180deg);' : ''}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                 <div style="display:none;flex-direction:column;align-items:center;justify-content:center;height:100%;background:var(--primary-bg);color:var(--text-secondary);">
+                   <i class="fas fa-star-and-crescent" style="font-size:40px;margin-bottom:10px;color:var(--accent-color);${isReversed ? 'transform:rotate(180deg);' : ''}"></i>
+                   <div style="font-size:14px;font-weight:bold;color:var(--text-primary);">${card.name}</div>
+                 </div>
+               </div>`
             : `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; background:var(--primary-bg); color:var(--text-secondary);">
                  <i class="fas ${card.icon}" style="font-size:40px; margin-bottom:10px; ${isReversed ? 'transform: rotate(180deg);' : ''}"></i>
                  <div style="font-size:14px; font-weight:bold;">${card.name}</div>

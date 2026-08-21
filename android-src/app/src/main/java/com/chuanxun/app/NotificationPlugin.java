@@ -1,10 +1,12 @@
 package com.chuanxun.app;
 
+import android.Manifest;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -19,6 +21,8 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -27,7 +31,12 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-@CapacitorPlugin(name = "NotificationPlugin")
+@CapacitorPlugin(
+    name = "NotificationPlugin",
+    permissions = {
+        @Permission(alias = "notification", strings = {Manifest.permission.POST_NOTIFICATIONS})
+    }
+)
 public class NotificationPlugin extends Plugin {
 
     private static final String CHANNEL_ID = "partner-messages";
@@ -134,17 +143,28 @@ public class NotificationPlugin extends Plugin {
     @PluginMethod
     public void requestPermission(PluginCall call) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+ needs POST_NOTIFICATIONS permission
-            if (getContext().checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
-                == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            // Android 13+ 需要 POST_NOTIFICATIONS 运行时权限
+            if (getContext().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED) {
                 call.resolve(new JSObject().put("granted", true));
             } else {
-                // Request at runtime — but Capacitor handles this, we just report
-                call.resolve(new JSObject().put("granted", false).put("reason", "Permission not granted"));
+                // 真正弹出系统授权框，而不是只检查
+                requestPermissionForAlias("notification", call, "notificationPermissionCallback");
             }
         } else {
             call.resolve(new JSObject().put("granted", true));
         }
+    }
+
+    /**
+     * 系统授权框返回后回调
+     */
+    @PermissionCallback
+    private void notificationPermissionCallback(PluginCall call) {
+        boolean granted = getContext().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED;
+        Log.i(TAG, "通知权限回调 granted=" + granted);
+        call.resolve(new JSObject().put("granted", granted));
     }
 
     @PluginMethod

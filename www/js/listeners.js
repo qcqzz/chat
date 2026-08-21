@@ -3601,6 +3601,47 @@ window._toggleBottomCollapse = function() {
         showNotification(isOn ? '底部栏已收纳 — 点击 ⌃ 展开更多' : '已退出收纳模式', 'success', 2000);
 };
 
+// ── 更多面板（仿微信加号）：点开上抬露出「更多」UI ──
+window.toggleMorePanel = function(open) {
+    var panel = document.getElementById('more-panel');
+    var btn = document.getElementById('more-btn');
+    if (!panel) return;
+    var willOpen = (open !== undefined) ? !!open : !panel.classList.contains('open');
+    panel.classList.toggle('open', willOpen);
+    if (btn) btn.classList.toggle('open', willOpen);
+};
+window.closeMorePanel = function() { window.toggleMorePanel(false); };
+// 关闭「更多」面板的通用助手：供其它打开面板/点击输入时收起
+window.dismissMorePanel = function() {
+    var panel = document.getElementById('more-panel');
+    var btn = document.getElementById('more-btn');
+    if (panel && panel.classList.contains('open')) { panel.classList.remove('open'); if (btn) btn.classList.remove('open'); }
+};
+// 「问问你」：输入问题并发送给梦角
+window.openAskModal = function() {
+    window.dismissMorePanel();
+    var modal = document.getElementById('ask-modal');
+    if (modal && typeof showModal === 'function') showModal(modal);
+    var inp = document.getElementById('ask-question-input');
+    setTimeout(function () { if (inp) inp.focus(); }, 80);
+};
+window.askQuestionSend = function() {
+    var inp = document.getElementById('ask-question-input');
+    if (!inp) return;
+    var t = inp.value.trim();
+    if (!t) { if (typeof showNotification === 'function') showNotification('先输入你想问的问题呀', 'info'); return; }
+    if (typeof hideModal === 'function') hideModal(document.getElementById('ask-modal'));
+    inp.value = '';
+    var msg = document.getElementById('message-input');
+    if (msg) {
+        msg.value = t;
+        msg.style.height = 'auto';
+        msg.focus();
+        var sendBtn = document.getElementById('send-btn');
+        if (sendBtn) setTimeout(function () { sendBtn.click(); }, 30);
+    }
+};
+
 window.toggleCollapsedExtras = function() {
     const panel = document.getElementById('collapsed-extras-panel');
     const btn = document.getElementById('collapse-expand-btn');
