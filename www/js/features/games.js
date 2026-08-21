@@ -449,7 +449,7 @@
         var dW = r.winner === 'dream' ? '梦角'
             : (typeof global.settings !== 'undefined' && global.settings.partnerName) || '梦角';
         var uW = r.winner === 'user' ? '你' : '';
-        var who = r.winner === 'user' ? '你 获胜' : dW + ' 获胜';
+        var who = r.winner === 'user' ? esc(myName()) + ' 获胜' : dW + ' 获胜';
         return '<div class="gs-rec">'
             + '<span class="gs-recd">' + esc(r.d) + '</span>'
             + '<span class="gs-rec-who">' + esc(who) + '</span>'
@@ -856,11 +856,12 @@
     // 每轮在 1~n 中暗定一个数字，双方交替猜测；反馈太小/太大，猜中者赢下本轮，输方碎一颗心。
     function renderScreenGuessNum(panel) {
         var m = GAME_META[state.game], dream = partnerName();
+        var you = myName();
         var fb, inputRow;
         // 阶段一：未选择难度 -> 显示难易选择；其余阶段正常进入猜数字界面
         var diffStage = !state.started && !state.sessionOver && !state.gnDiffPicked;
         if (state.sessionOver) {
-            fb = (state.result && state.result.winner === 'user' ? '你' : esc(dream)) + ' 获胜，本局结束！';
+            fb = (state.result && state.result.winner === 'user' ? esc(you) : esc(dream)) + ' 获胜，本局结束！';
             inputRow = false;
         } else if (!state.started) {
             fb = '点击「开始」开局';
@@ -908,7 +909,7 @@
                 +     '<button class="gn-submit" onclick="window._gnGuess()">猜</button>'
                 +   '</div>'
                 + '</div>'
-                + heartsHTML(dream, '你')
+                + heartsHTML(dream, esc(you))
                 + resultHTML();
         }
         panel.innerHTML =
@@ -1036,9 +1037,9 @@
             state.over = true;
             state.result = { winner: whoLostAll === 'dream' ? 'user' : 'dream', dBroken: brokenCount(state.dreamHearts), uBroken: brokenCount(state.userHearts) };
             recordGame(state.game, state.result);
-            notify((state.result.winner === 'user' ? '你' : partnerName()) + ' 获胜，本局结束！', 'success');
+            notify((state.result.winner === 'user' ? esc(myName()) : partnerName()) + ' 获胜，本局结束！', 'success');
         } else {
-            if (userWon !== undefined) notify((userWon ? '你' : partnerName()) + ' 赢了这一局', 'info');
+            if (userWon !== undefined) notify((userWon ? esc(myName()) : partnerName()) + ' 赢了这一局', 'info');
             // 非终局：自动开启下一轮，且上一轮输家先手（本局已碎一颗心）
             beginRound(userWon ? 'dream' : 'user');
         }
