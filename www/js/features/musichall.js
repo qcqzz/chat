@@ -29,6 +29,13 @@
     var messages = [];
     var invite = lsGet(LS_INVITE, { next: 0, missed: 0, active: null });
     var audio = null, _booted = false, _rendered = false;
+    // 音乐厅本地引发、待梦角回复的计数：只把音乐厅里的对话镜像进来，聊天页引发的对话不混入
+    var mhReplyPending = 0, _mhPendingTimer = null;
+    function mhMarkReplyPending() {
+        mhReplyPending++;
+        if (_mhPendingTimer) clearTimeout(_mhPendingTimer);
+        _mhPendingTimer = setTimeout(function () { mhReplyPending = 0; _mhPendingTimer = null; }, 15000);
+    }
 
     function saveSongs() { lsSet(LS_PLAYLIST, songs); }
     function saveConf() { lsSet(LS_SETTINGS, conf); }
@@ -143,10 +150,16 @@
             bubble = '<div class="' + bubbleClass() + '">' + esc(m.content) + '</div>';
         }
         return '<div class="mh-msg ' + (mine ? 'mh-msg--me' : 'mh-msg--partner') + '">' +
-            (mine ? '' : '<div class="mh-msg-av"><i class="fas fa-music"></i></div>') +
+            (mine ? '' : '<div class="mh-msg-av">' + mhAvatarHTML(true) + '</div>') +
             bubble +
-            (mine ? '<div class="mh-msg-av"><i class="fas fa-user"></i></div>' : '') +
+            (mine ? '<div class="mh-msg-av">' + mhAvatarHTML(false) + '</div>' : '') +
         '</div>';
+    }
+
+    // 音乐厅消息头像：跟随系统设置的真实头像（无头像时兜底为图标）
+    function mhAvatarHTML(isPartner) {
+        if (typeof _avEl === 'function') return _avEl(isPartner, 28);
+        return isPartner ? '<i class="fas fa-music"></i>' : '<i class="fas fa-user"></i>';
     }
 
     // ── 播放控制 ──────────────────────────────────────────
@@ -261,6 +274,7 @@
                 }
                 // 与陪伴页消息规则一致：真实用户消息后触发梦角回复
                 mhTriggerReply();
+                mhMarkReplyPending();
             }
         if (send) send.addEventListener('click', doSend);
         if (input) input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); doSend(); } });
@@ -325,6 +339,7 @@
         var panel = document.getElementById('mh-emoji-panel');
         if (panel) panel.classList.remove('open');
         mhTriggerReply();
+        mhMarkReplyPending();
     }
     function buildEmojiPanel(panel) {
         panel.innerHTML = '';
@@ -399,6 +414,9 @@
                 if (!m || m.type !== 'normal') return;
                 if (m.sender === 'user') return;
                 if (!m.text && !m.image) return;
+                // 只镜像音乐厅本地引发、等待中的梦角回复；聊天页引发的对话不混入音乐厅
+                if (mhReplyPending <= 0) return;
+                mhReplyPending--;
                 messages.push({ sender: 'partner', content: m.text || '', image: m.image || null, ts: Date.now() });
                 appendMsg(messages[messages.length - 1]);
             } catch (e) { console.warn('[musichall] mirror partner msg failed', e); }
