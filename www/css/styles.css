@@ -14546,3 +14546,28 @@ html[data-theme="dark"] .app-icon{box-shadow:0 6px 18px rgba(0,0,0,.4);}
     background: var(--primary-bg);
     padding-top: calc(env(safe-area-inset-top, 0px) + 6px);
 }
+
+/* ══ 移动端 WebView 性能优化：大面积毛玻璃降成本（视觉几乎不变） ══
+   高半径 blur + saturate 在 WebView 里是持续合成层开销（滚动/动画时每帧重采样）。
+   把常驻或大面积的毛玻璃半径统一压到 10px、去掉 saturate，观感基本不变但渲染成本大降。
+   仅作用于非低配机：低配机由 JS 注入的 html[data-lite] 规则整体关闭毛玻璃。 */
+html:not([data-lite]) .header,
+html:not([data-lite]) .app-grid,
+html:not([data-lite]) .dt-app-grid,
+html:not([data-lite]) .splash-card,
+html:not([data-lite]) .welcome-content-wrapper,
+html:not([data-lite]) #daily-greeting-modal,
+html:not([data-lite]) .coin-toss-overlay,
+html:not([data-lite]) .player-container,
+html:not([data-lite]) #ti-settings-modal,
+html:not([data-lite]) .typing-indicator,
+html:not([data-lite]) #custom-replies-modal .modal-buttons,
+html:not([data-lite]) .modal-main-view .modal-buttons {
+    -webkit-backdrop-filter: blur(10px) !important;
+    backdrop-filter: blur(10px) !important;
+}
+html:not([data-lite]) #daily-greeting-modal,
+html:not([data-lite]) .welcome-content-wrapper {
+    -webkit-backdrop-filter: blur(12px) !important;
+    backdrop-filter: blur(12px) !important;
+}

@@ -17,6 +17,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ForegroundPlugin.class);
         registerPlugin(NotificationPlugin.class);
         registerPlugin(VoiceRecorderPlugin.class);
+        registerPlugin(ExportPlugin.class);
         super.onCreate(savedInstanceState);
 
         // 覆盖 WebChromeClient，直接放行 WebView 的麦克风/摄像头权限请求。

@@ -91,6 +91,11 @@ function deduplicateContentArray(arr, baseSystemArray = []) {
         }
 
         function downloadFileFallback(blob, fileName) {
+            // 优先：直接保存到手机「下载」目录（无需分享面板选位置）
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ExportPlugin) {
+                _exportViaExportPlugin(blob, fileName);
+                return;
+            }
             // Capacitor 环境：使用原生分享
             if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
                 _capacitorShareFile(blob, fileName);
@@ -153,6 +158,31 @@ function deduplicateContentArray(arr, baseSystemArray = []) {
                         showNotification('无法下载文件，请尝试在浏览器中打开', 'warning', 3000);
                     }
                 }
+            };
+            reader.readAsDataURL(blob);
+        }
+
+        // 直接保存到手机「下载」目录（ExportPlugin）
+        function _exportViaExportPlugin(blob, fileName) {
+            var reader = new FileReader();
+            reader.onload = function () {
+                var base64Data = reader.result.split(',')[1];
+                var mimeType = blob.type || 'application/octet-stream';
+                window.Capacitor.Plugins.ExportPlugin.saveBase64({
+                    data: base64Data,
+                    fileName: fileName,
+                    mimeType: mimeType
+                }).then(function () {
+                    if (typeof showNotification === 'function') {
+                        showNotification('备份已保存到手机「下载/ChuanXun」目录', 'success', 4000);
+                    }
+                }).catch(function (error) {
+                    console.warn('[utils] ExportPlugin 保存失败，回退分享:', error);
+                    _capacitorShareFile(blob, fileName);
+                });
+            };
+            reader.onerror = function () {
+                _capacitorShareFile(blob, fileName);
             };
             reader.readAsDataURL(blob);
         }

@@ -103,6 +103,10 @@ jobs:
           # VoiceRecorderPlugin.java — 原生语音录音插件
           cp android-src/app/src/main/java/com/chuanxun/app/VoiceRecorderPlugin.java \
              android/app/src/main/java/com/chuanxun/app/
+
+          # ExportPlugin.java — 导出备份直接保存到手机「下载」目录
+          cp android-src/app/src/main/java/com/chuanxun/app/ExportPlugin.java \
+             android/app/src/main/java/com/chuanxun/app/
           
           # AndroidManifest.xml — 注册服务 + 权限
           cp android-src/app/src/main/AndroidManifest.xml \

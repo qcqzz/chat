@@ -10,5 +10,9 @@
 	{
 		"pkg": "@capacitor/share",
 		"classpath": "com.capacitorjs.plugins.share.SharePlugin"
+	},
+	{
+		"pkg": "com.chuanxun.app.ExportPlugin",
+		"classpath": "com.chuanxun.app.ExportPlugin"
 	}
 ]

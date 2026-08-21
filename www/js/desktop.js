@@ -306,6 +306,9 @@
     // ── 纪念日方块：收集所有重要日（相遇 + 各纪念日），点击循环切换 ──
     var _annEntries = [];
     var _annIndex = 0;
+    // 渲染去抖：3s 轮询只在实际内容变化时才写 DOM，避免每 3s 无条件重建 innerHTML 造成持续卡顿。
+    // 天数只在"跨天"时变化，同一会话内用 _annSig 记录已渲染内容，内容未变直接跳过全部 DOM 写入。
+    var _annSig = '';
 
     function collectAnniversaries() {
         var arr = [];
@@ -335,18 +338,25 @@
         return arr;
     }
 
-    function renderAnniversary() {
+    function renderAnniversary(force) {
         var dm = $('dt-ann-days'), meta = $('dt-ann-meta'), badge = $('dt-ann-badge');
         if (!dm) return;
         _annEntries = collectAnniversaries();
         if (_annIndex >= _annEntries.length) _annIndex = 0;
         if (!_annEntries.length) {
+            var emptySig = '—|纪念日|';
+            if (!force && _annSig === emptySig) return;   // 内容未变：跳过 DOM 写入
+            _annSig = emptySig;
             dm.textContent = '—';
             if (meta) meta.textContent = '纪念日';
             if (badge) badge.textContent = '';
             return;
         }
         var e = _annEntries[_annIndex];
+        var badgeTxt = _annEntries.length > 1 ? (_annIndex + 1) + '/' + _annEntries.length : '';
+        var sig = e.days + '|' + e.verb + '|' + e.name + '|' + badgeTxt;
+        if (!force && _annSig === sig) return;            // 内容未变：跳过全部 DOM 写入
+        _annSig = sig;
         dm.textContent = e.days;
         // 「还有 X 天」与纪念日名字分成两排
         if (meta) {
@@ -360,7 +370,7 @@
             meta.appendChild(l1);
             meta.appendChild(l2);
         }
-        if (badge) badge.textContent = _annEntries.length > 1 ? (_annIndex + 1) + '/' + _annEntries.length : '';
+        if (badge) badge.textContent = badgeTxt;
     }
 
     var _annCycling = false; // 防连点：短窗口内忽略重复点击，避免快速连点叠加渲染

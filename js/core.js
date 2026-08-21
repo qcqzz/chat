@@ -156,6 +156,105 @@ function _appendNewerMessages(startIdx, endIdxExclusive) {
     container.appendChild(fragment);
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// 虚拟滚动：把"历史浏览窗口"里落在视野远端的消息从 DOM 里回收掉
+// 之前窗口模式卡顿的根源，是翻页时只往一个方向加、从不往回收，DOM 里的消息越攒越多。
+// 下面这组函数负责对称回收，让渲染量始终恒定，不管聊天记录有多长。
+// ═══════════════════════════════════════════════════════════════════
+
+// 虚拟滚动窗口大小：按当前视口高度估算"一屏大概几条消息"，上下再各留约一屏缓冲。
+// 用这个值控制窗口渲染量，保证 DOM 里的消息条数近似恒定。
+function _getVirtualWindowSize() {
+    const container = DOMElements && DOMElements.chatContainer;
+    if (!container || !container.clientHeight) return 80;
+    const visiblePerScreen = Math.max(8, Math.ceil(container.clientHeight / 72));
+    return Math.min(160, Math.max(56, visiblePerScreen * 3));
+}
+
+// 从当前 DOM 里实际渲染的第一条/最后一条消息，反推出窗口边界，
+// 保证 msgWinStart/msgWinEnd 跟 DOM 状态一致（避免系统消息等特殊节点导致计数对不上）。
+function _syncWindowFromDOM() {
+    const container = DOMElements && DOMElements.chatContainer;
+    if (!container) return;
+    const els = container.querySelectorAll('.message-wrapper[data-msg-id]');
+    if (!els.length) return;
+    const firstId = String(els[0].getAttribute('data-msg-id'));
+    const lastId = String(els[els.length - 1].getAttribute('data-msg-id'));
+    for (let i = 0; i < messages.length; i++) {
+        const id = String(messages[i].id);
+        if (id === firstId) msgWinStart = i;
+        if (id === lastId) msgWinEnd = i + 1;
+    }
+}
+
+// 往更早的历史翻（窗口往上扩）时，把窗口最下面（较新的）一部分消息从 DOM 里摘掉。
+// 摘的是视野下方的内容，对用户当前看到的画面没有影响，所以不用补偿滚动条。
+function _trimWindowBottom() {
+    const container = DOMElements && DOMElements.chatContainer;
+    if (!container) return;
+    const maxLen = _getVirtualWindowSize();
+    const wrappers = container.querySelectorAll('.message-wrapper');
+    const removeCount = wrappers.length - maxLen;
+    if (removeCount <= 0) return;
+    for (let i = 0; i < removeCount; i++) {
+        const w = wrappers[wrappers.length - 1 - i];
+        if (w && w.parentNode) w.parentNode.removeChild(w);
+    }
+    _syncWindowFromDOM();
+}
+
+// 对称地：往更晚的消息翻（窗口往下扩）时，把窗口最上面（较旧的）消息从 DOM 里摘掉。
+// 删掉的是视野上方的内容，内容变矮会让滚动条往下塌，必须同步减 scrollTop 才能保持画面不动。
+function _trimWindowTop() {
+    const container = DOMElements && DOMElements.chatContainer;
+    if (!container) return;
+    const maxLen = _getVirtualWindowSize();
+    const wrappers = container.querySelectorAll('.message-wrapper');
+    const removeCount = wrappers.length - maxLen;
+    if (removeCount <= 0) return;
+    let removedHeight = 0;
+    for (let i = 0; i < removeCount; i++) {
+        const w = wrappers[i];
+        if (!w || !w.parentNode) break;
+        removedHeight += w.offsetHeight;
+        w.parentNode.removeChild(w);
+    }
+    _syncWindowFromDOM();
+    if (removedHeight > 0) {
+        const prevBehavior = container.style.scrollBehavior;
+        container.style.scrollBehavior = 'auto';
+        container.scrollTop = Math.max(0, container.scrollTop - removedHeight);
+        container.style.scrollBehavior = prevBehavior || '';
+    }
+}
+
+// latest（正常）模式下往上翻历史时，同样只回收"已经滚过去"的旧消息，让 DOM 数量也有上限。
+// 只有当前视口已经离开渲染区最顶部时才能回收——如果用户还贴在顶部继续往上翻，
+// 说明他正在看最旧的部分，这时候回收会闪到他眼前的内容，必须跳过。
+function _trimLatestModeTop() {
+    const container = DOMElements && DOMElements.chatContainer;
+    if (!container) return;
+    const maxLen = _getVirtualWindowSize();
+    const wrappers = container.querySelectorAll('.message-wrapper');
+    if (wrappers.length <= maxLen) return;
+    if (container.scrollTop < 30) return; // 视口还在最顶上，不能回收
+    const removeCount = wrappers.length - maxLen;
+    let removedHeight = 0;
+    for (let i = 0; i < removeCount; i++) {
+        const w = wrappers[i];
+        if (!w || !w.parentNode) break;
+        removedHeight += w.offsetHeight;
+        w.parentNode.removeChild(w);
+    }
+    displayedMessageCount = Math.max(HISTORY_BATCH_SIZE, displayedMessageCount - removeCount);
+    if (removedHeight > 0) {
+        const prevBehavior = container.style.scrollBehavior;
+        container.style.scrollBehavior = 'auto';
+        container.scrollTop = Math.max(0, container.scrollTop - removedHeight);
+        container.style.scrollBehavior = prevBehavior || '';
+    }
+}
+
 function loadMoreHistory() {
     const historyLoader = document.getElementById('history-loader');
     const container = DOMElements && DOMElements.chatContainer;
@@ -186,6 +285,12 @@ function loadMoreHistory() {
         }
 
         _prependOlderMessages(newStart, oldStart);
+
+        // 虚拟滚动：窗口往上扩了一截，就把最下面（较新的）一部分从 DOM 里摘掉，
+        // 保证窗口模式的渲染量恒定，不会因为一直翻历史就越攒越多、越来越卡
+        // （latest 模式的回收放在滚动事件里做：用户刚加载完还贴在顶部，此时不能回收，
+        //   等视口离开顶部后再由 _trimLatestModeTop 处理）
+        if (msgViewMode === 'window') _trimWindowBottom();
 
         const stillHasMore = msgViewMode === 'window' ? msgWinStart > 0 : (messages.length > displayedMessageCount);
         if (historyLoader) {
@@ -225,6 +330,10 @@ function loadMoreFuture() {
         }
 
         _appendNewerMessages(oldEnd, msgWinEnd);
+
+        // 虚拟滚动：窗口往下扩了一截，就把最上面（较旧的）一部分从 DOM 里摘掉，
+        // 渲染量保持恒定，长记录历史也能顺滑地一直往下翻
+        if (msgViewMode === 'window') _trimWindowTop();
 
         if (futureLoader) {
             futureLoader.style.display = (msgWinEnd < messages.length) ? 'flex' : 'none';
@@ -1747,7 +1856,7 @@ window._jumpToMessage = function(id) {
     const container = DOMElements && DOMElements.chatContainer;
     if (!container) return false;
 
-    const HALF = 50; // 目标消息前后各带50条上下文，数量固定，不会因为消息在哪个位置而变化
+    const HALF = Math.max(10, Math.floor(_getVirtualWindowSize() / 2)); // 目标消息前后各带半屏上下文，渲染量恒定，不会因为消息在哪个位置而变化
     msgViewMode = 'window';
     msgWinStart = Math.max(0, idx - HALF);
     msgWinEnd = Math.min(messages.length, idx + HALF + 1);
@@ -3035,12 +3144,46 @@ function showModal(modalElement, focusElement = null) {
                         const themes = parseVal(allKv[appPfx + 'customThemes'] !== undefined ? allKv[appPfx + 'customThemes'] : (ls[appPfx + 'customThemes'] || null));
                         if (themes) { converted.customThemes = themes; converted.exportModules.push('themes'); }
 
+                        // 其余字卡/贴纸/语音字卡键：全量备份转标准格式时一并提取，
+                        // 否则走本入口导入时 customPokes / customStatuses / 分组 / 贴纸 / 语音字卡 会被静默丢弃
+                        const pokes = parseVal(getVal('customPokes'));
+                        if (Array.isArray(pokes)) converted.customPokes = pokes;
+                        const statuses = parseVal(getVal('customStatuses'));
+                        if (Array.isArray(statuses)) converted.customStatuses = statuses;
+                        const mottos = parseVal(getVal('customMottos'));
+                        if (Array.isArray(mottos)) converted.customMottos = mottos;
+                        const intros = parseVal(getVal('customIntros'));
+                        if (Array.isArray(intros)) converted.customIntros = intros;
+                        const replyGroups = parseVal(getVal('customReplyGroups'));
+                        if (replyGroups) converted.customReplyGroups = replyGroups;
+                        const pokeGroups = parseVal(getVal('customPokeGroups'));
+                        if (pokeGroups) converted.customPokeGroups = pokeGroups;
+                        const statusGroups = parseVal(getVal('customStatusGroups'));
+                        if (statusGroups) converted.customStatusGroups = statusGroups;
+                        const stickerLib = parseVal(getVal('stickerLibrary'));
+                        if (Array.isArray(stickerLib)) converted.stickerLibrary = stickerLib;
+                        const myStickers = parseVal(getVal('myStickerLibrary'));
+                        if (Array.isArray(myStickers)) converted.myStickerLibrary = myStickers;
+                        const voiceCards = parseVal(getVal('customVoiceCards'));
+                        if (Array.isArray(voiceCards)) converted.customVoiceCards = voiceCards;
+                        const voiceGroups = parseVal(getVal('customVoiceGroups'));
+                        if (voiceGroups) converted.customVoiceGroups = voiceGroups;
+                        const voiceEnabled = parseVal(getVal('voiceCardEnabled'));
+                        if (voiceEnabled !== null) converted.voiceCardEnabled = voiceEnabled;
+
                         importedData = converted;
                     }
 
                     const hasMessages  = importedData.messages && Array.isArray(importedData.messages);
                     const hasSettings  = !!importedData.settings;
-                    const hasReplies   = importedData.customReplies && Array.isArray(importedData.customReplies);
+                    const hasReplies   = (importedData.customReplies && Array.isArray(importedData.customReplies)) ||
+                                         (importedData.customPokes && Array.isArray(importedData.customPokes)) ||
+                                         (importedData.customStatuses && Array.isArray(importedData.customStatuses)) ||
+                                         (importedData.customMottos && Array.isArray(importedData.customMottos)) ||
+                                         (importedData.customIntros && Array.isArray(importedData.customIntros)) ||
+                                         (importedData.customEmojis && Array.isArray(importedData.customEmojis)) ||
+                                         !!importedData.customReplyGroups || !!importedData.customPokeGroups || !!importedData.customStatusGroups ||
+                                         !!importedData.customVoiceCards || !!importedData.customVoiceGroups;
                     const hasAnn       = importedData.anniversaries && Array.isArray(importedData.anniversaries);
                     const hasThemes    = !!importedData.customThemes || !!importedData.stickerLibrary;
                     const hasDiary     = importedData.companionDiary && Array.isArray(importedData.companionDiary);
@@ -3137,9 +3280,16 @@ function showModal(modalElement, focusElement = null) {
                         if (doReplies  && importedData.customReplyGroups) window.customReplyGroups = importedData.customReplyGroups;
                         if (doReplies  && importedData.customPokeGroups) window.customPokeGroups = importedData.customPokeGroups;
                         if (doReplies  && importedData.customStatusGroups) window.customStatusGroups = importedData.customStatusGroups;
+                        if (doReplies  && importedData.customVoiceCards && Array.isArray(importedData.customVoiceCards)) {
+                            voiceCards = importedData.customVoiceCards;
+                            window._voiceCards = voiceCards;
+                        }
+                        if (doReplies  && importedData.customVoiceGroups) window.customVoiceGroups = importedData.customVoiceGroups;
+                        if (doReplies  && importedData.voiceCardEnabled !== undefined) voiceCardEnabled = !!importedData.voiceCardEnabled;
                         if (doAnn      && importedData.anniversaries)   anniversaries  = importedData.anniversaries;
                         if (doThemes   && importedData.customThemes)    customThemes   = importedData.customThemes;
                         if (doThemes   && importedData.stickerLibrary)  stickerLibrary = importedData.stickerLibrary;
+                        if (doThemes   && importedData.myStickerLibrary && Array.isArray(importedData.myStickerLibrary)) myStickerLibrary = importedData.myStickerLibrary;
                         if (doDiary    && importedData.companionDiary && typeof window._setCompanionDiaryEntries === 'function') {
                             window._setCompanionDiaryEntries(importedData.companionDiary);
                         }

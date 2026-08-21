@@ -3263,6 +3263,24 @@ playlist.style.top = (rect.top + (player.classList.contains('collapsed') ? 65 : 
                     if (container.scrollTop < 50 && !isLoadingHistory && messages.length > displayedMessageCount) {
                         if (typeof loadMoreHistory === 'function') loadMoreHistory();
                     }
+                    // 虚拟滚动：窗口模式下滚到当前渲染窗口的底部附近，就自动往前（更新方向）翻一页，
+                    // 不用像以前那样必须去点"加载更新的消息"按钮；配合 _trimWindowTop 回收顶部旧消息，
+                    // DOM 渲染量始终恒定，长记录历史也能顺滑地一直往下翻
+                    if (msgViewMode === 'window' && !isLoadingFuture) {
+                        const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+                        if (distanceToBottom < 60) {
+                            if (typeof loadMoreFuture === 'function') loadMoreFuture();
+                        }
+                    }
+                    // 虚拟滚动：latest 模式视口离开顶部后，回收已经滚过去的旧消息，控制 DOM 总量。
+                    // 加了节流，避免每次滚动都扫一遍 DOM。
+                    if (msgViewMode !== 'window' && !isLoadingHistory && container.scrollTop >= 30) {
+                        const now = Date.now();
+                        if (now - (window._virtualLastTrimAt || 0) > 400 && typeof _trimLatestModeTop === 'function') {
+                            window._virtualLastTrimAt = now;
+                            _trimLatestModeTop();
+                        }
+                    }
                 });
             }
 

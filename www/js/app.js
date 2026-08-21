@@ -8,7 +8,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const androidVer = m ? parseFloat(m[1]) : 0;
         const mem = (nav.deviceMemory || 0) * 1024 * 1024 * 1024;   // 字节；Chrome/Chromium 提供
         const cores = nav.hardwareConcurrency || 0;
-        const isLite = (
+        // 部分 WebView 不暴露 deviceMemory/hardwareConcurrency（读到 0）：
+        // 无法证明是高配机时按低配处理，直接关闭全站毛玻璃，避免"测不到就全开"导致中端机依然卡顿
+        const noStats = (mem <= 0 || cores <= 0);
+        const isLite = noStats || (
             (mem > 0 && mem <= 6 * 1024 * 1024 * 1024) ||          // ≤6GB 内存（覆盖主流中端机）
             (cores > 0 && cores <= 6) ||                            // ≤6 核
             (androidVer >= 5 && androidVer < 11)                    // 老/中端安卓(5-10)

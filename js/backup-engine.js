@@ -249,6 +249,13 @@
     }
 
     function downloadBlob(blob, fileName) {
+        // 优先：全量备份直接保存到手机「下载」目录（无需分享面板选位置）
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ExportPlugin) {
+            _saveViaExportPlugin(blob, fileName, function (ok) {
+                if (!ok && typeof downloadFileFallback === 'function') downloadFileFallback(blob, fileName);
+            });
+            return;
+        }
         if (typeof downloadFileFallback === 'function') {
             downloadFileFallback(blob, fileName);
             return;
@@ -283,6 +290,31 @@
         a.click();
         document.body.removeChild(a);
         setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    }
+
+    function _saveViaExportPlugin(blob, fileName, onDone) {
+        var reader = new FileReader();
+        reader.onload = function () {
+            var base64Data = reader.result.split(',')[1];
+            var mimeType = blob.type || 'application/octet-stream';
+            window.Capacitor.Plugins.ExportPlugin.saveBase64({
+                data: base64Data,
+                fileName: fileName,
+                mimeType: mimeType
+            }).then(function (result) {
+                if (typeof showNotification === 'function') {
+                    showNotification('备份已保存到手机「下载/ChuanXun」目录', 'success', 4000);
+                }
+                if (onDone) onDone(true);
+            }).catch(function (error) {
+                console.warn('[backup] ExportPlugin 保存失败，回退分享面板:', error);
+                if (onDone) onDone(false);
+            });
+        };
+        reader.onerror = function () {
+            if (onDone) onDone(false);
+        };
+        reader.readAsDataURL(blob);
     }
 
     function _capacitorSaveAndShare(blob, fileName) {
@@ -443,12 +475,17 @@
                     console.warn('[backup] ZIP 缺少媒体文件', path);
                     continue;
                 }
-                var mimeMeta = (meta && meta.mime) ? meta.mime : 'application/octet-stream';
-                if (mimeMeta === 'text/plain+dataurl') {
-                    built[id] = await zf.async('string');
-                } else {
-                    var ab = await zf.async('arraybuffer');
-                    built[id] = binaryToDataUrl(mimeMeta, new Uint8Array(ab));
+                try {
+                    var mimeMeta = (meta && meta.mime) ? meta.mime : 'application/octet-stream';
+                    if (mimeMeta === 'text/plain+dataurl') {
+                        built[id] = await zf.async('string');
+                    } else {
+                        var ab = await zf.async('arraybuffer');
+                        built[id] = binaryToDataUrl(mimeMeta, new Uint8Array(ab));
+                    }
+                } catch (e) {
+                    // 单个媒体文件损坏/读取失败时跳过该文件，不中断整包导入（文字数据照常恢复）
+                    console.warn('[backup] ZIP 媒体文件读取失败，跳过', path, e);
                 }
             }
             var ms = data.mediaStore || {};
@@ -519,12 +556,9 @@
                     compression: 'DEFLATE',
                     compressionOptions: { level: 6 }
                 });
-                // Capacitor 环境优先使用原生分享
+                // Capacitor 环境：直接保存到手机「下载/ChuanXun」目录
                 if (_isCapacitorEnv()) {
                     downloadBlob(zipBlob, fileNameZip);
-                    if (typeof showNotification === 'function') {
-                        showNotification('已导出 ZIP：主 JSON 不含大图，导入更不易失败', 'success', 3500);
-                    }
                     return;
                 }
                 if (navigator.share && /Mobile|Android|iPhone|iPad/.test(navigator.userAgent)) {
@@ -559,10 +593,9 @@
         var str = serializeBackupV4(payload);
         var blob = new Blob([str], { type: 'application/json;charset=utf-8' });
         var fileName = 'chatapp-backup-' + dateStr + '.json';
-        // Capacitor 环境优先使用原生分享
+        // Capacitor 环境：直接保存到手机「下载/ChuanXun」目录
         if (_isCapacitorEnv()) {
             downloadBlob(blob, fileName);
-            if (typeof showNotification === 'function') showNotification('备份导出成功（JSON）', 'success');
             return;
         }
         if (navigator.share && /Mobile|Android|iPhone|iPad/.test(navigator.userAgent)) {
