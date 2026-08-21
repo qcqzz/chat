@@ -466,6 +466,10 @@ html[data-theme="dark"] #chat-transition-overlay{
                     <span class="more-item-ico" style="background:rgba(var(--accent-color-rgb),.16);color:var(--accent-color);"><i class="fas fa-question-circle"></i></span>
                     <span class="more-item-label">问问你</span>
                 </button>
+                <button class="more-item" onclick="window.closeMorePanel && window.closeMorePanel();document.getElementById('attachment-btn').click()">
+                    <span class="more-item-ico" style="background:rgba(var(--accent-color-rgb),.16);color:var(--accent-color);"><i class="fas fa-image"></i></span>
+                    <span class="more-item-label">发送图片</span>
+                </button>
             </div>
         </div>
         <div class="input-area">
@@ -481,8 +485,15 @@ html[data-theme="dark"] #chat-transition-overlay{
     </button>
 
     <textarea class="message-input" id="message-input" placeholder="" rows="1"></textarea>
+
+    <!-- 语音模式：点麦克风后显示，按住说话发送语音 -->
+    <div class="voice-hold-wrap" id="voice-hold-wrap" style="display:none;">
+        <button type="button" id="voice-hold-btn" class="voice-hold-btn"><i class="fas fa-microphone"></i><span id="voice-hold-label">按住 说话</span></button>
+        <div class="voice-rec-hint" id="voice-rec-hint">松开 发送，上滑 取消</div>
+    </div>
     
     <div class="input-buttons">
+    <button class="mic-btn input-btn collapse-hideable toggle-voice-btn" id="voice-mic-btn" title="语音消息"><i class="fas fa-microphone"></i></button>
     <button class="continue-btn input-btn" id="continue-btn" title="让对方继续说"><i class="fas fa-ellipsis-h"></i></button>
         <button class="batch-btn input-btn collapse-hideable" id="batch-btn" title="批量发送模式"><i class="fas fa-layer-group"></i></button>
         <button class="send-btn input-btn" id="send-btn" title="发送消息"><i class="fas fa-paper-plane"></i></button>
@@ -3910,6 +3921,7 @@ html[data-theme="dark"] #chat-transition-overlay{
     <script src="js/listeners.js?v=2"></script>
     <script src="js/listeners-step2.js"></script>
     <script src="js/listeners-voice.js"></script>
+    <script src="js/features/voice-recorder.js"></script>
     <script src="js/listeners-sticker.js"></script>
     <script src="js/features/companion.js"></script>
     <script src="js/features/companion-diary.js"></script>

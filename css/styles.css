@@ -1254,6 +1254,10 @@
         .attachment-btn:hover, .continue-btn:hover, .batch-btn:hover, .coin-btn:hover, .poke-btn:hover, .combo-btn:hover {
             color: var(--text-primary);
         }
+        /* 发送图片入口已移入左侧「更多」面板，隐藏原右侧图片图标（保留元素以复用其功能绑定） */
+        #attachment-btn {
+            display: none !important;
+        }
         /* 转账快捷金额 */
         .transfer-preset {
             padding: 6px 14px;
@@ -11034,6 +11038,66 @@ body.bottom-collapse-mode #collapse-expand-btn {
     40%, 60%  { transform: translateX(4px)  rotate(5deg);  }
 }
 
+
+/* ────────── 语音消息：麦克风切换 + 按住说话（跟随主题） ──────── */
+#voice-mic-btn.active {
+    color: var(--accent-color, #e07a7a);
+    background: rgba(var(--accent-color-rgb), 0.16) !important;
+}
+.voice-hold-wrap {
+    order: 2;   /* 顶替被隐藏的输入框位置 */
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+.voice-hold-btn {
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 23px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--secondary-bg, #f2f2f2);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.2s, color 0.2s;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
+}
+.voice-hold-wrap.recording .voice-hold-btn {
+    background: rgba(var(--accent-color-rgb), 0.16);
+    color: var(--accent-color, #e07a7a);
+}
+.voice-hold-wrap.cancelling .voice-hold-btn {
+    background: rgba(255, 80, 80, 0.2);
+    color: #ff5050;
+}
+.voice-rec-hint {
+    position: absolute;
+    top: -36px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.72);
+    color: #fff;
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 14px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 20;
+}
 
 /* ──────── 语音气泡（仿微信，简洁版：声波弧 + 时长） ──────── */
 /* 给消息加 user-select:none，防止 iOS 长按选中文本/弹系统菜单 */

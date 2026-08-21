@@ -2235,6 +2235,11 @@
             _uiState = 'waiting';
             _apptSave();
             _cinemaSendInviteCard('accepted', _negoState.movieTitle, _negoState.dateStr, _negoState.timeStr, _negoState.negoId);
+            // 梦角同意观影回执卡：弹系统通知
+            if (typeof window._sendPartnerNotification === 'function') {
+                var _csA = (globalSettings && globalSettings.partnerName) || '对方';
+                window._sendPartnerNotification(_csA, '同意了你的观影邀请《' + _negoState.movieTitle + '》（' + _negoState.dateStr + ' ' + _negoState.timeStr + '）');
+            }
             _negoClear();
             _scheduleShowtimeReminder();
             if (_getPanel()) _cinemaRender();
@@ -2248,6 +2253,11 @@
             // 下一次梦角回复时 replyIndex 才 +1（见 reschedule 按钮的处理）
             _negoSave();
             _cinemaSendInviteCard('countered', _negoState.movieTitle, _negoState.dateStr, _negoState.timeStr, _negoState.negoId);
+            // 梦角回复换个时间回执卡：弹系统通知
+            if (typeof window._sendPartnerNotification === 'function') {
+                var _csC = (globalSettings && globalSettings.partnerName) || '对方';
+                window._sendPartnerNotification(_csC, '想换个时间看《' + _negoState.movieTitle + '》（' + _negoState.dateStr + ' ' + _negoState.timeStr + '），看看新的提议');
+            }
             _negoScheduleReminderCycle();
             _negoUpdateBadges();
         }

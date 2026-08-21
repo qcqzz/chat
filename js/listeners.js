@@ -3776,6 +3776,10 @@ window._scheduleQuestionAnswer = function(data) {
             replyTo: null,
             type: 'question'
         });
+        // 梦角作答回答卡片：弹系统通知
+        if (typeof window._sendPartnerNotification === 'function') {
+            window._sendPartnerNotification(partner, '回答了你《' + (data.question || '') + '》：' + answer.join('、'));
+        }
     }, delay);
 };
 
