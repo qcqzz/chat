@@ -444,6 +444,9 @@ const loadData = async () => {
     try {
         settings = getDefaultSettings();
 
+        _cardsReady = false;
+        _restoredCards = false;
+
         
         const results = await Promise.allSettled([
             localforage.getItem(getStorageKey('chatSettings')),
@@ -579,28 +582,38 @@ const loadData = async () => {
         if (savedThemeSchemes) themeSchemes = savedThemeSchemes;
         try { const ce = await localforage.getItem(getStorageKey('customEmojis')); if (ce && Array.isArray(ce)) customEmojis = ce; } catch(e) {}
 
-        // 字卡数据兜底恢复：当 IndexedDB(localforage) 里对应的键缺失（null，通常发生在更新/重装后
-        // WebView 存储被清理时）才从本地紧急备份恢复。注意只在"键不存在"时恢复，
-        // 用户主动清空（空数组 []）属正常状态，不会误覆盖。与上方聊天消息的备份恢复逻辑一致。
-        if (!savedCustomReplies || !savedReplyGroups || !savedVoiceCards || !savedVoiceGroups || savedVoiceCardEnabled === null) {
+        // 字卡数据兜底恢复：当 IndexedDB(localforage) 里对应的键缺失（null）或为空数组 [] 时，
+        // 从本地紧急备份恢复（更新/重装后 WebView 存储被清理、或某次早退落盘误写了空数组，都会表现为 "空"）。
+        // 只在"缺失或空"且本地备份确实有非空字卡时才恢复；用户主动清空会让备份同步变空，因此不会误覆盖。
+        // _cardMissing：null 或空数组即视为缺失（[] 为 truthy，原判断只认 null，挡不住空覆盖）
+        const _cardMissing = (v) => !v || (Array.isArray(v) && v.length === 0);
+        if (_cardMissing(savedCustomReplies) || _cardMissing(savedReplyGroups) || _cardMissing(savedVoiceCards) || _cardMissing(savedVoiceGroups) || savedVoiceCardEnabled === null) {
             try {
                 const _cardBackup = _tryRecoverFromBackup();
-                if (_cardBackup) {
-                    if (!savedCustomReplies && Array.isArray(_cardBackup.customReplies) && _cardBackup.customReplies.length) {
-                        customReplies = _cardBackup.customReplies;
+                // 语音字卡音频本体只完整保存在 IndexedDB 全量紧急备份里（localStorage 配额装不下），
+                // 读取该完整备份作为恢复源；不可用（如从未保存过）时才退回 localStorage 纯文本备份。
+                let _lfCardBackup = null;
+                try {
+                    const _lb = await localforage.getItem(_EMERGENCY_LF_KEY);
+                    if (_lb && typeof _lb === 'object' && _lb.ts) _lfCardBackup = _lb;
+                } catch (e) {}
+                const _src = (_lfCardBackup && _lfCardBackup.ts) ? _lfCardBackup : _cardBackup;
+                if (_src) {
+                    if (_cardMissing(savedCustomReplies) && Array.isArray(_src.customReplies) && _src.customReplies.length) {
+                        customReplies = _src.customReplies; _restoredCards = true;
                     }
-                    if (!savedReplyGroups && Array.isArray(_cardBackup.customReplyGroups) && _cardBackup.customReplyGroups.length) {
-                        window.customReplyGroups = _cardBackup.customReplyGroups;
+                    if (_cardMissing(savedReplyGroups) && Array.isArray(_src.customReplyGroups) && _src.customReplyGroups.length) {
+                        window.customReplyGroups = _src.customReplyGroups; _restoredCards = true;
                     }
-                    if (!savedVoiceCards && Array.isArray(_cardBackup.customVoiceCards) && _cardBackup.customVoiceCards.length) {
-                        voiceCards = _cardBackup.customVoiceCards;
-                        window._voiceCards = voiceCards;
+                    if (_cardMissing(savedVoiceCards)) {
+                        const _vc = Array.isArray(_src.customVoiceCards) && _src.customVoiceCards.length ? _src.customVoiceCards : null;
+                        if (_vc) { voiceCards = _vc; window._voiceCards = voiceCards; _restoredCards = true; }
                     }
-                    if (!savedVoiceGroups && Array.isArray(_cardBackup.customVoiceGroups) && _cardBackup.customVoiceGroups.length) {
-                        window.customVoiceGroups = _cardBackup.customVoiceGroups;
+                    if (_cardMissing(savedVoiceGroups) && Array.isArray(_src.customVoiceGroups) && _src.customVoiceGroups.length) {
+                        window.customVoiceGroups = _src.customVoiceGroups; _restoredCards = true;
                     }
-                    if (savedVoiceCardEnabled === null && _cardBackup.voiceCardEnabled !== undefined) {
-                        voiceCardEnabled = !!_cardBackup.voiceCardEnabled;
+                    if (savedVoiceCardEnabled === null && _src.voiceCardEnabled !== undefined) {
+                        voiceCardEnabled = !!_src.voiceCardEnabled;
                     }
                     // 恢复了语音字卡相关数据后，重刷设置面板里的语音字卡开关状态
                     try {
@@ -608,8 +621,15 @@ const loadData = async () => {
                     } catch (e) {}
                 }
             } catch (e) {
-                console.warn('[loadData] 从本地备份恢复字卡失败:', e);
+                console.warn('[loadData] 从备份恢复字卡失败:', e);
             }
+        }
+
+        // 字卡加载完成，允许后续 saveData/备份落写字卡
+        _cardsReady = true;
+        if (_restoredCards) {
+            // 恢复出的字卡立即回写 IndexedDB，避免每次启动都依赖备份、或空数组继续残留在主库
+            setTimeout(() => { try { saveData(); } catch (e) { console.warn('[loadData] 回写字卡失败:', e); } }, 800);
         }
 
         window._customReplies = customReplies;
@@ -690,6 +710,8 @@ const loadData = async () => {
         console.error("LoadData 内部致命错误:", e);
         settings = getDefaultSettings();
         messages = [];
+        // 即便加载出错，也解除闩锁，保证后续 saveData/备份仍能正常落写字卡，避免永远无法保存
+        _cardsReady = true;
         updateUI();
     }
 };
@@ -760,62 +782,119 @@ window.deleteAnniversaryItem = function(id) {
 };
 
 const _BACKUP_PREFIX = 'BACKUP_V1_';
+// IndexedDB 全量紧急备份键：含语音字卡等本体内存，配合 localStorage 纯文本备份作为"更新/存储异常"时的完整恢复源。
+const _EMERGENCY_LF_KEY = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_') + '_emergencyBackup';
 // 备份节流时间戳：避免拿全部消息在主线程做同步 JSON.stringify 写 localStorage，导致聊天时反复卡顿。
 // 每次 saveData() 都会走到这里（每条消息 + 500ms 节流都会触发），这里把真正落盘限制为每 10 秒最多一次，
 // 页面隐藏/关闭时会通过 flush() 强制落盘，保证退出前数据不丢。
 let _lastBackupTs = 0;
 const _BACKUP_THROTTLE_MS = 10000;
+// 数据"版本"标记：任何消息内容发生变更(追加/撤回/已读/清空)时 +1，saveData 与备份据此跳过未改动的重复重写。
+// 防止每条消息/每个已读回执都触发一次全量 `chatMessages`(可能含 base64 图片)的 structuredClone 与整库重写。
+let _saveRev = 0;
+let _lastSavedSaveRev = -1;
+let _lastSavedMsgLen = -1;
+let _lastBackupRev = -1;
+window._markChatDataChanged = function () { _saveRev++; };
+// 字卡"就绪"闩锁：loadData 把字卡读回内存之前为 false，期间 saveData 与紧急备份都不落写字卡，
+// 防止更新/重载窗口内过早落盘把内存中仍是空数组的 [] 写进 IndexedDB、并污染本地备份镜像。
+// 加载完成后置 true。_restoredCards 标记本次是否从备份恢复了字卡，用于加载后立即回写持久化。
+let _cardsReady = false;
+let _restoredCards = false;
 function _backupCriticalData(force) {
     if (window._skipBackup) return;
-    const now = Date.now();
-    if (!force && _lastBackupTs && (now - _lastBackupTs) < _BACKUP_THROTTLE_MS) return;
-    _lastBackupTs = now;
-    try {
+    // 落盘整体延后到当前事件(输入/渲染)处理完再执行：真正写 localStorage 是一次同步 JSON.stringify+setItem，
+    // 直接在消息推送/已读回执的主流程里同步跑会拖住主线程导致可见卡顿。force(页面隐藏/退出)时仍即时执行。
+    const doBackup = () => {
+        const now = Date.now();
+        if (!force && _lastBackupTs && (now - _lastBackupTs) < _BACKUP_THROTTLE_MS) return;
+        // 消息未发生变更且非强制时跳过：避免在 10 秒节流窗口内反复对同一份数据做同步 stringify
+        if (!force && _saveRev === _lastBackupRev && _lastBackupTs) return;
+        _lastBackupTs = now;
+        _lastBackupRev = _saveRev;
+        try {
+        // 低内存（旧版安卓）兜底：备份只保留最近若干条消息，且只含纯文本字卡，
+        // 让 JSON.stringify 始终产出有界的小字符串——避免反复序列化全部消息（可能含 base64 图片）
+        // 先构造超大临时字符串再截断，从而在低内存机型上触发原生 OOM 闪退。
+        const BACKUP_MSGS = 150;
+        const isTruncated = Array.isArray(messages) && messages.length > BACKUP_MSGS;
+        const msgTail = isTruncated ? messages.slice(-BACKUP_MSGS) : messages;
+
         const backupPayload = {
             ts: now,
-            messages: messages,
+            messages: msgTail,
             settings: settings,
             sessionId: SESSION_ID,
             anniversaries: anniversaries,
-            // 字卡数据一并纳入本地紧急备份：与消息一致，在 IndexedDB 数据异常/更新安装后被清理时，
-            // 可以通过同一份备份恢复，避免"更新安装后字卡丢失、只有聊天记录还在"。
-            customReplies: customReplies || [],
-            customReplyGroups: (window.customReplyGroups) || [],
-            customVoiceCards: voiceCards || [],
-            customVoiceGroups: (window.customVoiceGroups) || [],
-            voiceCardEnabled: !!voiceCardEnabled
+            _truncated: isTruncated
         };
-
-        let payloadToStore = backupPayload;
-        const msgSizeEstimate = messages.length * 500; 
-        if (msgSizeEstimate > 3 * 1024 * 1024) {
-            payloadToStore = {
-                ...backupPayload,
-                messages: messages.slice(-200),
-                _truncated: true
-            };
+        // 字卡数据仅在"已就绪"时纳入备份：就绪前不写入，避免把内存中尚未加载的空数组覆盖掉旧的备份字卡。
+        // 注意：customVoiceCards（语音字卡）含超大 base64 音频，绝不能进 localStorage JSON——
+        // 一次 stringify 会产生超大临时字符串导致原生 OOM 闪退，且 localStorage 配额也装不下。
+        // 语音字卡音频本体始终保存在 IndexedDB 主存储，这里只备份纯文本字卡与分组等轻量数据。
+        if (_cardsReady) {
+            backupPayload.customReplies = customReplies || [];
+            backupPayload.customReplyGroups = (window.customReplyGroups) || [];
+            backupPayload.customVoiceGroups = (window.customVoiceGroups) || [];
+            backupPayload.voiceCardEnabled = !!voiceCardEnabled;
         }
 
-        const json = JSON.stringify(payloadToStore);
-
-        if (json.length > 4.5 * 1024 * 1024) {
-            // 太大：先只保留消息（牺牲字卡备份，字卡通常是纯文本在此场景很少触发）
-            const smallerPayload = {
+        let json;
+        try {
+            json = JSON.stringify(backupPayload);
+        } catch (e) {
+            // 个别字段无法序列化时降级为极简备份，保证 stringify 不拖垮启动
+            json = JSON.stringify({
                 ts: now,
-                messages: messages.slice(-50),
+                messages: Array.isArray(msgTail) ? msgTail.slice(-30) : [],
                 settings: settings,
                 sessionId: SESSION_ID,
                 anniversaries: anniversaries,
                 _truncated: true
-            };
-            const smallerJson = JSON.stringify(smallerPayload);
-            localStorage.setItem(_BACKUP_PREFIX + 'critical', smallerJson);
-        } else {
-            localStorage.setItem(_BACKUP_PREFIX + 'critical', json);
+            });
         }
+        // 二次兜底：极少数情况下单条消息内包含超大数据仍会导致字符串过大，此时放弃本备份，绝不写坏
+        if (json.length > 4.5 * 1024 * 1024) {
+            json = JSON.stringify({
+                ts: now,
+                messages: [],
+                settings: settings,
+                sessionId: SESSION_ID,
+                anniversaries: anniversaries,
+                _truncated: true
+            });
+        }
+        localStorage.setItem(_BACKUP_PREFIX + 'critical', json);
         localStorage.setItem(_BACKUP_PREFIX + 'timestamp', String(now));
+
+        // 全量紧急备份（含语音字卡音频）写入 IndexedDB：localStorage 配额小、且 stringify 大体积会 OOM，
+        // 而 IndexedDB 走结构化克隆、不产生超长单字符串，低内存机型也安全，因此把完整备份(含 voiceCards)存这里，
+        // 使"更新/异常后可恢复出包含语音字卡在内的全部数据"。仅字卡就绪后才写，避免内存中尚未加载的空数组覆盖。
+        if (_cardsReady) {
+            try {
+                localforage.setItem(_EMERGENCY_LF_KEY, {
+                    ts: now,
+                    messages: msgTail,
+                    settings: settings,
+                    sessionId: SESSION_ID,
+                    anniversaries: anniversaries,
+                    _truncated: isTruncated,
+                    customReplies: customReplies || [],
+                    customReplyGroups: (window.customReplyGroups) || [],
+                    customVoiceGroups: (window.customVoiceGroups) || [],
+                    customVoiceCards: voiceCards || [],
+                    voiceCardEnabled: !!voiceCardEnabled
+                }).catch(function (e) { console.warn('IndexedDB 全量紧急备份写入失败:', e); });
+            } catch (e) { console.warn('IndexedDB 全量紧急备份写入异常:', e); }
+        }
     } catch (e) {
         console.warn('localStorage 备份写入失败（可能存储已满）:', e);
+    }
+    };
+    if (force) {
+        try { doBackup(); } catch (e) { console.warn('强制备份失败:', e); }
+    } else {
+        try { setTimeout(doBackup, 0); } catch (e) { console.warn('调度备份失败:', e); }
     }
 }
 // 页面隐藏/关闭时强制落盘（绕过节流），保证退出前最新数据已备份。
@@ -841,8 +920,8 @@ const saveData = async () => {
 
     const promises = [
         { key: 'chatSettings',           val: () => localforage.setItem(getStorageKey('chatSettings'), settings) },
-        { key: 'customReplies',          val: () => localforage.setItem(getStorageKey('customReplies'), customReplies) },
-        { key: 'customReplyGroups',      val: () => localforage.setItem(getStorageKey('customReplyGroups'), window.customReplyGroups || []) },
+        { key: 'customReplies',          val: () => _cardsReady ? localforage.setItem(getStorageKey('customReplies'), customReplies) : Promise.resolve() },
+        { key: 'customReplyGroups',      val: () => _cardsReady ? localforage.setItem(getStorageKey('customReplyGroups'), window.customReplyGroups || []) : Promise.resolve() },
         { key: 'customPokeGroups',        val: () => localforage.setItem(getStorageKey('customPokeGroups'), window.customPokeGroups || []) },
         { key: 'customStatusGroups',      val: () => localforage.setItem(getStorageKey('customStatusGroups'), window.customStatusGroups || []) },
         { key: 'customEmojis',           val: () => localforage.setItem(getStorageKey('customEmojis'), customEmojis) },
@@ -851,14 +930,24 @@ const saveData = async () => {
         { key: 'customStatuses',         val: () => localforage.setItem(getStorageKey('customStatuses'), customStatuses) },
         { key: 'customMottos',           val: () => localforage.setItem(getStorageKey('customMottos'), customMottos) },
         { key: 'customIntros',           val: () => localforage.setItem(getStorageKey('customIntros'), customIntros) },
-        { key: 'customVoiceCards',       val: () => localforage.setItem(getStorageKey('customVoiceCards'), voiceCards) },
-        { key: 'customVoiceGroups',      val: () => localforage.setItem(getStorageKey('customVoiceGroups'), window.customVoiceGroups || []) },
-        { key: 'voiceCardEnabled',       val: () => localforage.setItem(getStorageKey('voiceCardEnabled'), voiceCardEnabled) },
+        { key: 'customVoiceCards',       val: () => _cardsReady ? localforage.setItem(getStorageKey('customVoiceCards'), voiceCards) : Promise.resolve() },
+        { key: 'customVoiceGroups',      val: () => _cardsReady ? localforage.setItem(getStorageKey('customVoiceGroups'), window.customVoiceGroups || []) : Promise.resolve() },
+        { key: 'voiceCardEnabled',       val: () => _cardsReady ? localforage.setItem(getStorageKey('voiceCardEnabled'), voiceCardEnabled) : Promise.resolve() },
         { key: 'stickerLibrary',         val: () => localforage.setItem(getStorageKey('stickerLibrary'), stickerLibrary) },
         { key: 'myStickerLibrary',       val: () => localforage.setItem(getStorageKey('myStickerLibrary'), myStickerLibrary) },
         { key: 'customThemes',           val: () => localforage.setItem(`${APP_PREFIX}customThemes`, customThemes) },
         { key: 'themeSchemes',           val: () => localforage.setItem(`${APP_PREFIX}themeSchemes`, themeSchemes) },
-        { key: 'chatMessages',           val: () => localforage.setItem(getStorageKey('chatMessages'), messages) },
+        { key: 'chatMessages',           val: () => {
+            const msgLen = Array.isArray(messages) ? messages.length : 0;
+            // 消息未发生变更(长度未变 且 无追加/撤回/已读等变更标记)时跳过重写，避免每条消息都重拷整份含 base64 的数组
+            if (_saveRev !== _lastSavedSaveRev || msgLen !== _lastSavedMsgLen) {
+                return localforage.setItem(getStorageKey('chatMessages'), messages).then(() => {
+                    _lastSavedSaveRev = _saveRev;
+                    _lastSavedMsgLen = msgLen;
+                });
+            }
+            return Promise.resolve();
+        } },
     ];
 
     // 头像从内存缓存读（不从 DOM 读，DOM 的 img.src 不可靠：可能是 blob URL、绝对路径或空字符串）
@@ -1732,6 +1821,7 @@ const addMessage = (message) => {
     // 追没追上底部，要在"往数组里塞新消息、改动滚动高度"之前就先判断好，不然滚动高度已经变了，判断就不准了
     const wasCaughtUp = _isCaughtUpToLatest();
     messages.push(message);
+    window._markChatDataChanged();
     
     if (wasEmpty) {
         DOMElements.emptyState.style.display = 'none';
@@ -1997,6 +2087,7 @@ const addMessage = (message) => {
                 if (!candidates.length) return;
                 var target = candidates[Math.floor(Math.random() * candidates.length)];
                 target.recalled = true;
+                window._markChatDataChanged();
                 if (typeof throttledSaveData === 'function') throttledSaveData();
                 if (typeof renderMessages === 'function') renderMessages(true);
             } catch (e) {}
@@ -2309,7 +2400,7 @@ if (!isBatchMode && type === 'normal') {
                 }
             });
             if (changed) {
-                _updateReadReceiptsDOM(); throttledSaveData();
+                window._markChatDataChanged(); _updateReadReceiptsDOM(); throttledSaveData();
             }
 
 if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {

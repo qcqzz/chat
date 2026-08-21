@@ -1110,6 +1110,11 @@
             bottom: 0;
             left: 0;
             right: 0;
+            /* 兼容部分安卓 WebView 对「left:0;right:0」固定定位的渲染偏差：
+               右边缘不到屏幕右沿导致整条输入区内容被挤向左、右侧留白。
+               用 width:100% + box-sizing:border-box 显式撑满宽度，safe-area 内边距并入盒内。 */
+            width: 100%;
+            box-sizing: border-box;
             z-index: 50;
             padding-bottom: env(safe-area-inset-bottom, 0px);
             padding-left: env(safe-area-inset-left, 0px);
@@ -1121,6 +1126,8 @@
             bottom: 0;
             left: 0;
             right: 0;
+            width: 100%;
+            box-sizing: border-box;
         }
         body.immersive-mode .main-chat-area {
             padding-bottom: 80px;
@@ -1186,6 +1193,10 @@
         .more-btn.open i { transform: rotate(45deg); }
         .message-input {
             flex: 1;
+            /* 兼容部分 WebView：flex 子项默认 min-width:auto 可能因内容/默认 cols 宽度被撑大，
+               使输入框在有固定尺寸按钮的行内无法伸展/收缩，表现成挤压。min-width:0 让输入框始终填满剩余宽度。 */
+            min-width: 0;
+            width: auto;
             border: 1px solid transparent;
             border-radius: 28px;
             padding: 12px 18px;

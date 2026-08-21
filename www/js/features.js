@@ -265,9 +265,9 @@
             dot.className = 'keepalive-dot' + (playing ? ' alive' : '');
         }
         if (desc) {
-            if (!_get())      desc.textContent = '保持后台运行，不错过ta的消息';
+            if (!_get())  desc.textContent = '保持后台运行，不错过ta的消息';
             else if (playing) desc.textContent = '运行中 · 页面已保活';
-            else              desc.textContent = '等待交互后启动…';
+            else         desc.textContent = '已开启 · 首次点击/回前台后自动激活';
         }
         if (row)  row.style.display = _get() ? 'flex' : 'none';
         var bars = document.querySelectorAll('.keepalive-wave-bar');
@@ -315,18 +315,33 @@
         _setUI(false);
     }
 
+    // 是否"真在播放"：音频对象存在且未暂停/未结束/未出错才算保活生效
+    function _isReallyPlaying() {
+        return !!_audio && !_audio.paused && !_audio.ended && !_audio.error;
+    }
+
+    // 自愈入口：只要开启了保活就尽量让音频真正跑起来。
+    // play() 在首次用户手势前会被自动播放策略拒绝，这里高频重试，
+    // 一旦用户点过一次（首次交互/回前台），无需再手动切换即可自动拉起到"运行中"。
+    function _ensureRunning() {
+        if (!_get()) return;
+        if (!_isReallyPlaying()) {
+            try { if (_audio && _audio.error) _audio = null; } catch (e) {}
+            _start();
+        } else {
+            _requestWakeLock();
+            _refreshForeground();
+        }
+    }
+
     function _startWatchdog() {
         if (_watchdogTimer) return;
-        // 每 15 秒巡检：发现静音音频意外停止就自动拉起，并顺带刷新原生前台服务，
-        // 确保持久运行，后台/息屏也能持续接收并弹出消息
+        // 高频巡检（3 秒）：发现静音音频没在播就自动重试拉起，并顺带刷新原生前台服务，
+        // 确保持久运行，后台/息屏也能持续接收并弹出消息；无需依赖一次性 unlock 监听。
         _watchdogTimer = setInterval(function () {
             if (!_get()) return;
-            if (!_audio || _audio.paused || _audio.ended || _audio.error) {
-                try { if (_audio && _audio.error) _audio = null; } catch (e) {}
-                _start();
-            }
-            _refreshForeground();
-        }, 15000);
+            _ensureRunning();
+        }, 3000);
     }
 
     window._toggleKeepaliveAudio = function() {
@@ -347,8 +362,8 @@
 
     document.addEventListener('visibilitychange', function(){
         if (_get() && document.visibilityState === 'visible') {
-            _requestWakeLock();
-            if (!_audio || _audio.paused) { _start(); }
+            // 回到前台：立刻自愈拉起，不等下一次巡检
+            _ensureRunning();
         } else if (document.visibilityState === 'hidden' && _get()) {
             _refreshForeground();
         }
