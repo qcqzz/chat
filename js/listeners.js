@@ -1267,9 +1267,8 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
                     if (prop === 'emojiMixEnabled' && settings[prop] === undefined) settings[prop] = true;
                     settings[prop] = !settings[prop];
                     throttledSaveData();
-                    updateUI();
+                    updateUI();   // updateUI 内部已调用 renderMessages()，避免此处再全量重建消息 DOM
                     element.classList.toggle('active', !!settings[prop]);
-                    if (prop !== 'soundEnabled') renderMessages(true);
                     showNotification(`${name}已${settings[prop] ? '开启': '关闭'}`, 'success');
                 });
             }

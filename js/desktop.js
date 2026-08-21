@@ -532,8 +532,11 @@
             document.body.classList.add('dt-view');
         }, 6000);
 
-        // 头像/昵称等可能异步加载，周期性同步一次
-        setInterval(function () { syncTopbarUsers(); renderAnniversary(); }, 1500);
+        // 头像/昵称等可能异步加载，周期性同步一次。
+        // 所有设备统一降到 3s 一轮（1.5s 对异步加载同步来说过密，属明显可省的高频渲染）；
+        // 低端机(data-lite)进一步降到 10s，减少持续渲染开销，避免与快速点击叠加后卡顿
+        var dtLite = document.documentElement && document.documentElement.getAttribute('data-lite') === '1';
+        setInterval(function () { syncTopbarUsers(); renderAnniversary(); }, dtLite ? 10000 : 3000);
     }
 
     if (document.readyState === 'loading') {

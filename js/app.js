@@ -1,4 +1,38 @@
 document.addEventListener('DOMContentLoaded', async () => {
+    // ── 低端设备自动降级：检测低内存/老安卓/低核心数，关闭全站毛玻璃与重型动画，缓解持续卡顿 ──
+    // backdrop-filter 在低端 WebView 上是持续的合成层开销（全站约 70 处），是"聊天/桌面/启动都卡"的头号渲染源。
+    try {
+        const nav = navigator;
+        const ua = nav.userAgent || '';
+        const m = ua.match(/Android\s+(\d+(?:\.\d+)?)/);
+        const androidVer = m ? parseFloat(m[1]) : 0;
+        const mem = (nav.deviceMemory || 0) * 1024 * 1024 * 1024;   // 字节；Chrome/Chromium 提供
+        const cores = nav.hardwareConcurrency || 0;
+        const isLite = (
+            (mem > 0 && mem <= 5 * 1024 * 1024 * 1024) ||          // ≤5GB 内存（覆盖主流中端机）
+            (cores > 0 && cores <= 3) ||                            // ≤3 核
+            (androidVer >= 5 && androidVer < 10)                    // 老/中端安卓(5-9)
+        );
+        if (isLite) {
+            document.documentElement.setAttribute('data-lite', '1');
+            const st = document.createElement('style');
+            st.id = 'lite-degrade-style';
+            st.textContent = [
+                'html[data-lite] *,html[data-lite] *::before,html[data-lite] *::after{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}',
+                'html[data-lite] .star,html[data-lite] .wp,html[data-lite] .meteor,html[data-lite] .sparkle{display:none!important;}',
+                'html[data-lite] .dt-polaroid-card{transition:none!important;}',
+                'html[data-lite] .message-input,html[data-lite] textarea{transition:none!important;}',
+                'html[data-lite] .input-area-wrapper{transition:background-color .1s ease!important;}',
+                'html[data-lite] .dt-app-grid,html[data-lite] .app-grid{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(255,255,255,.6)!important;}',
+                'html[data-lite] .dt-heartbeat .hb-run{animation:none!important;stroke-dashoffset:0!important;}',
+                'html[data-lite] .dt-avatar,html[data-lite] .dt-name,html[data-lite] .dt-sig{transition:none!important;}'
+            ].join('\n');
+            document.head.appendChild(st);
+        }
+    } catch (e) {
+        // 降级失败不影响启动
+    }
+
     const loaderBar = document.getElementById('loader-tech-bar');
     const welcomeSubtitle = document.querySelector('.welcome-subtitle-scramble');
     const welcomeScreen = document.getElementById('welcome-animation');

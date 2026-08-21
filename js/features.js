@@ -714,6 +714,13 @@ function showPokeTab() {
 
             DOMElements.attachmentBtn.addEventListener('click', () => {
 
+                // 防堆叠：若上一次发图弹窗尚未关闭(淡出中/未移除)，先同步移除旧弹窗，
+                // 避免快速连点 attachment-btn 在 body 里叠出多个全屏 modal(含 backdrop-filter)导致卡死
+                const oldModals = document.querySelectorAll('.image-upload-modal');
+                for (let i = 0; i < oldModals.length; i++) {
+                    if (oldModals[i].parentNode) oldModals[i].parentNode.removeChild(oldModals[i]);
+                }
+
                 const modal = document.createElement('div');
                 modal.className = 'modal image-upload-modal';
                 modal.style.cssText = `
@@ -950,16 +957,9 @@ function showPokeTab() {
 
 
                 function closeModal() {
-                    modal.style.opacity = '0';
-                    const content = modal.querySelector('.modal-content');
-                    content.style.opacity = '0';
-                    content.style.transform = 'translateY(20px)';
-                    setTimeout(() => {
-                        if (modal.parentNode) {
-                            modal.parentNode.removeChild(modal);
-                        }
-                    },
-                        300);
+                    // 立即移除节点（不依赖 300ms 淡出后的定时移除），
+                    // 防止淡出期间用户再点 attachment-btn 时旧弹窗仍占位、与新弹窗叠加
+                    if (modal.parentNode) modal.parentNode.removeChild(modal);
                 }
 
 
