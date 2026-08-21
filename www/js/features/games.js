@@ -88,10 +88,10 @@
         });
     }
     function partnerName() {
-        return (typeof global.settings !== 'undefined' && global.settings.partnerName) || '梦角';
+        return (typeof settings !== 'undefined' && settings.partnerName) || '梦角';
     }
     function myName() {
-        return (typeof global.settings !== 'undefined' && global.settings.myName) || '你';
+        return (typeof settings !== 'undefined' && settings.myName) || '你';
     }
     function avHTML(isPartner, size) {
         var s = size || 34;
@@ -446,8 +446,7 @@
     }
     function recordHTML(r) {
         if (state.game === '2048') return recordHTML2048(r);
-        var dW = r.winner === 'dream' ? '梦角'
-            : (typeof global.settings !== 'undefined' && global.settings.partnerName) || '梦角';
+        var dW = partnerName();
         var uW = r.winner === 'user' ? '你' : '';
         var who = r.winner === 'user' ? esc(myName()) + ' 获胜' : dW + ' 获胜';
         return '<div class="gs-rec">'
