@@ -302,7 +302,18 @@
         }
         var e = _annEntries[_annIndex];
         dm.textContent = e.days;
-        if (meta) meta.textContent = e.verb + e.days + ' 天 · ' + e.name;
+        // 「还有 X 天」与纪念日名字分成两排
+        if (meta) {
+            meta.innerHTML = '';
+            var l1 = document.createElement('div');
+            l1.className = 'dt-ann-days-text';
+            l1.textContent = e.verb + e.days + ' 天';
+            var l2 = document.createElement('div');
+            l2.className = 'dt-ann-name';
+            l2.textContent = e.name;
+            meta.appendChild(l1);
+            meta.appendChild(l2);
+        }
         if (badge) badge.textContent = _annEntries.length > 1 ? (_annIndex + 1) + '/' + _annEntries.length : '';
     }
 
