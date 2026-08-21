@@ -155,14 +155,47 @@
     var _plFronts = ['pl-1', 'pl-2', 'pl-3'];
     var POLAROID_DEFAULT = 'desktop-pl/default.jpg';   // 默认灰底图
     var PL_KEYS = ['tiDesktopPl1', 'tiDesktopPl2', 'tiDesktopPl3'];
+    // 拍立得图片改走 IndexedDB（localforage），容量远大于 localStorage，
+    // 避免设备 localStorage 配额被应急备份/背景图库占满后第 3 张静默存不上。
+    // localStorage(this PL_KEYS) 仅作兼容镜像，供旧版本读取，配额不足时自动忽略。
+    var PL_LF_KEYS = ['POLAROID_LF_1', 'POLAROID_LF_2', 'POLAROID_LF_3'];
+    var _plCache = ['', '', ''];
     // 未设置拍立得 / 图片缺失时，照片区显示的灰色占位图片
     var _plPlaceholder = 'data:image/svg+xml;utf8,' + encodeURIComponent(
         '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">' +
         '<rect width="200" height="200" fill="#e6e2da"/>' +
         '</svg>'
     );
-    function getPl(i) { try { return localStorage.getItem(PL_KEYS[i]) || ''; } catch (e) { return ''; } }
-    function setPl(i, v) { try { localStorage.setItem(PL_KEYS[i], v || ''); } catch (e) {} }
+    function getPl(i) { return _plCache[i] || ''; }
+    function setPl(i, v) {
+        v = v || '';
+        _plCache[i] = v;                                     // 先同步更新内存缓存，界面立即生效
+        if (typeof localforage !== 'undefined') {
+            localforage.setItem(PL_LF_KEYS[i], v).catch(function (e) {
+                console.warn('[Polaroid] IndexedDB 写入失败:', e);
+            });
+        }
+        // 尽力镜像一份到 localStorage（兼容旧版本/外部读取；配额满时自动忽略，不再静默阻断保存）
+        try { localStorage.setItem(PL_KEYS[i], v || ''); } catch (e) {}
+    }
+    // 启动时把存量数据读入缓存：IndexedDB 为源，localStorage 兼容镜像兜底（老版本迁移）
+    function plLoadAll() {
+        _plCache = ['', '', ''];
+        for (var i = 0; i < 3; i++) {
+            try { var v = localStorage.getItem(PL_KEYS[i]); if (v) _plCache[i] = v; } catch (e) {}
+        }
+        if (typeof localforage !== 'undefined') {
+            Promise.all([PL_LF_KEYS[0], PL_LF_KEYS[1], PL_LF_KEYS[2]].map(function (k) {
+                return localforage.getItem(k);
+            })).then(function (vals) {
+                var changed = false;
+                for (var j = 0; j < 3; j++) {
+                    if (vals[j] && _plCache[j] !== vals[j]) { changed = true; _plCache[j] = vals[j]; }
+                }
+                if (changed) { renderPolaroidGallery(); renderPolaroid(); }
+            }).catch(function () {});
+        }
+    }
 
     function renderPolaroid() {
         var cards = document.querySelectorAll('#dt-polaroid .dt-polaroid-card');
@@ -480,6 +513,7 @@
         applyTopbarBg(getActive());
         renderDesktopBgGallery();
         applyDesktopBg(getDkActive());
+        plLoadAll();
         renderPolaroid();
         renderPolaroidGallery();
         renderAnniversary();
