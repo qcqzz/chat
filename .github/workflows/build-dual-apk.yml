@@ -1,0 +1,129 @@
+name: Build Dual APK
+
+# 仅供手动触发，构建“22”与“25”两个可同时安装的 APK。
+# 关键点：不同 applicationId（避免互相覆盖）+ 不同软件名 + 不同版本号。不修改仓库业务数据、不覆盖 v2.0.0 release。
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - { key: 22, appName: 22, appId: com.chuanxun.app22, versionCode: 202, versionName: "0.2.2" }
+          - { key: 25, appName: 25, appId: com.chuanxun.app25, versionCode: 205, versionName: "0.2.5" }
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 设置 Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: 安装 Android SDK
+        run: |
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          cd $HOME/android-sdk/cmdline-tools
+          curl -sL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o cmdline-tools.zip
+          unzip -q cmdline-tools.zip
+          mv cmdline-tools latest
+          rm cmdline-tools.zip
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" 2>&1
+
+      - name: 安装 npm 依赖
+        run: npm ci
+
+      - name: 同步 Capacitor（含平台生成）
+        run: |
+          if [ -d android ]; then
+            echo "Android 平台已存在，跳过 cap add"
+          else
+            ./node_modules/.bin/cap add android
+          fi
+          ./node_modules/.bin/cap sync
+
+      - name: 覆盖 applicationId / 版本号 / 软件名
+        run: |
+          # 唯一 applicationId：两个 APK 可同时安装互不覆盖
+          sed -i "s/applicationId \"[^\"]*\"/applicationId \"${{ matrix.appId }}\"/" android/app/build.gradle
+          sed -i "s/versionCode [0-9]*/versionCode ${{ matrix.versionCode }}/" android/app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"${{ matrix.versionName }}\"/" android/app/build.gradle
+          # 软件名（桌面图标下的名称）
+          sed -i "s|<string name=\"app_name\">.*</string>|<string name=\"app_name\">${{ matrix.appName }}</string>|" android/app/src/main/res/values/strings.xml
+          sed -i "s|<string name=\"title_activity_main\">.*</string>|<string name=\"title_activity_main\">${{ matrix.appName }}</string>|" android/app/src/main/res/values/strings.xml
+
+      - name: 注入前台服务保活代码
+        run: |
+          mkdir -p android/app/src/main/assets
+          mkdir -p android/app/src/main/java/com/chuanxun/app/
+          mkdir -p android/app/src/main/res/xml/
+          cp android-src/app/src/main/res/xml/file_paths.xml android/app/src/main/res/xml/
+          cp android-src/app/src/main/java/com/chuanxun/app/ForegroundService.java android/app/src/main/java/com/chuanxun/app/
+          cp android-src/app/src/main/java/com/chuanxun/app/ForegroundPlugin.java android/app/src/main/java/com/chuanxun/app/
+          cp android-src/app/src/main/java/com/chuanxun/app/NotificationPlugin.java android/app/src/main/java/com/chuanxun/app/
+          cp android-src/app/src/main/java/com/chuanxun/app/KeepAliveReceiver.java android/app/src/main/java/com/chuanxun/app/
+          cp android-src/app/src/main/java/com/chuanxun/app/BootReceiver.java android/app/src/main/java/com/chuanxun/app/
+          cp android-src/app/src/main/java/com/chuanxun/app/MainActivity.java android/app/src/main/java/com/chuanxun/app/
+          cp android-src/app/src/main/java/com/chuanxun/app/VoiceRecorderPlugin.java android/app/src/main/java/com/chuanxun/app/
+          cp android-src/app/src/main/AndroidManifest.xml android/app/src/main/
+          cp android-src/app/src/main/assets/capacitor.plugins.json android/app/src/main/assets/
+          echo "前台服务代码已注入"
+
+      - name: 替换应用图标
+        run: |
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p android/app/src/main/res/mipmap-$density
+            cp resources/mipmap-$density/ic_launcher.png android/app/src/main/res/mipmap-$density/
+            cp resources/mipmap-$density/ic_launcher_round.png android/app/src/main/res/mipmap-$density/
+            cp resources/mipmap-$density/ic_launcher_foreground.png android/app/src/main/res/mipmap-$density/
+          done
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p android/app/src/main/res/drawable-$density
+            cp resources/mipmap-$density/ic_launcher.png android/app/src/main/res/drawable-$density/ic_stat_notification.png
+          done
+          mkdir -p android/app/src/main/res/drawable
+          cp resources/mipmap-hdpi/ic_launcher.png android/app/src/main/res/drawable/ic_stat_notification.png
+
+      - name: 构建 APK
+        run: |
+          cd android
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: 签名 APK (v1+v2+v3)
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+          $ANDROID_HOME/build-tools/36.0.0/apksigner sign \
+            --ks release.keystore \
+            --ks-pass pass:"${{ secrets.KEYSTORE_PASSWORD }}" \
+            --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
+            --key-pass pass:"${{ secrets.KEY_PASSWORD }}" \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out android/app/build/outputs/apk/release/app-${{ matrix.key }}.apk \
+            android/app/build/outputs/apk/release/app-release-unsigned.apk
+          rm release.keystore
+
+      - name: 上传 APK 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ matrix.key }}
+          path: android/app/build/outputs/apk/release/app-${{ matrix.key }}.apk
