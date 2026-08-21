@@ -303,9 +303,9 @@ if (exportAllBtn) {
                             <span>娱乐（影院 / 音乐厅 / 观影记录）</span>
                         </label>
                         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border:1px solid var(--border-color);border-radius:12px;background:var(--primary-bg);font-size:13px;color:var(--text-primary);">
-                            <input type="checkbox" id="_bk_stickers" style="accent-color:var(--accent-color);width:15px;height:15px;">
+                            <input type="checkbox" id="_bk_stickers" checked style="accent-color:var(--accent-color);width:15px;height:15px;">
                             <i class="fas fa-sticky-note" style="color:var(--accent-color);width:16px;text-align:center;"></i>
-                            <span>表情库 <span style="font-size:11px;color:var(--text-secondary);">(默认关，勾选后去重打包)</span></span>
+                            <span>表情库 <span style="font-size:11px;color:var(--text-secondary);">(默认勾选，勾选后去重打包)</span></span>
                         </label>
                     </div>
                     <div style="display:flex;gap:10px;">

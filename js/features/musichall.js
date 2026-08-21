@@ -12,6 +12,7 @@
     var LS_PLAYLIST = 'CHAT_APP_V3__mhSongs';
     var LS_SETTINGS = 'CHAT_APP_V3__mhSettings';
     var LS_INVITE   = 'CHAT_APP_V3__mhInvite';
+    var LS_MSGS     = 'CHAT_APP_V3__mhMessages';
 
     function lsGet(k, fb) {
         try { var s = localStorage.getItem(k); return s ? JSON.parse(s) : fb; } catch (e) { return fb; }
@@ -26,7 +27,7 @@
     var songs = lsGet(LS_PLAYLIST, []);
     var conf = Object.assign({ hbColor: '#ff9f9d', progColor: '#c5a47e', vinylLabel: null, playMode: 'list', bubbleStyle: 'standard', mhCss: '' }, lsGet(LS_SETTINGS, {}));
     var cur = -1, playing = false, mode = conf.playMode || 'list'; // list(歌单循环) | single(单曲循环) | shuffle(随机播放)
-    var messages = [];
+    var messages = lsGet(LS_MSGS, []); // 音乐厅聊天记录：落盘保留，重启不丢
     var invite = lsGet(LS_INVITE, { next: 0, missed: 0, active: null });
     var audio = null, _booted = false, _rendered = false;
     // 音乐厅本地引发、待梦角回复的计数：只把音乐厅里的对话镜像进来，聊天页引发的对话不混入
@@ -40,6 +41,9 @@
     function saveSongs() { lsSet(LS_PLAYLIST, songs); }
     function saveConf() { lsSet(LS_SETTINGS, conf); }
     function saveInvite() { lsSet(LS_INVITE, invite); }
+    function saveMessages() {
+        lsSet(LS_MSGS, messages);
+    }
 
     // 找到播放中的歌曲（供邀请卡"现在听"按名字定位）
     function findSongByTitle(t) {
@@ -260,6 +264,7 @@
             if (!text) return;
             messages.push({ sender: 'user', content: text, ts: Date.now() });
             appendMsg(messages[messages.length - 1]);
+            saveMessages();
             input.value = '';
             if (emojiPanel) emojiPanel.classList.remove('open');
             if (typeof addMessage === 'function') {
@@ -334,6 +339,7 @@
         if (!s) return;
         messages.push({ sender: 'user', content: '', image: s, ts: Date.now() });
         appendMsg(messages[messages.length - 1]);
+        saveMessages();
         if (typeof addMessage === 'function') {
             addMessage({ id: Date.now() + Math.random(), sender: 'user', text: '', image: s, timestamp: new Date(), status: 'sent', type: 'normal', favorited: false, note: null });
         }
@@ -421,6 +427,7 @@
                 mhReplyPending--;
                 messages.push({ sender: 'partner', content: m.text || '', image: m.image || null, ts: Date.now() });
                 appendMsg(messages[messages.length - 1]);
+                saveMessages();
             } catch (e) { console.warn('[musichall] mirror partner msg failed', e); }
         });
     }
