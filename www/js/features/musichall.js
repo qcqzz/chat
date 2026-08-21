@@ -25,7 +25,7 @@
 
     // ── 状态 ──────────────────────────────────────────────
     var songs = lsGet(LS_PLAYLIST, []);
-    var conf = Object.assign({ hbColor: '#ff9f9d', progColor: '#c5a47e', vinylLabel: null, playMode: 'list', bubbleStyle: 'standard', mhCss: '' }, lsGet(LS_SETTINGS, {}));
+    var conf = Object.assign({ hbColor: '#ff9f9d', progColor: '#c5a47e', ctrlColor: '#7a9cc6', vinylLabel: null, playMode: 'list', bubbleStyle: 'standard', mhCss: '' }, lsGet(LS_SETTINGS, {}));
     var cur = -1, playing = false, mode = conf.playMode || 'list'; // list(歌单循环) | single(单曲循环) | shuffle(随机播放)
     var messages = lsGet(LS_MSGS, []); // 音乐厅聊天记录：落盘保留，重启不丢
     var invite = lsGet(LS_INVITE, { next: 0, missed: 0, active: null });
@@ -60,6 +60,7 @@
         // 注入线条颜色
         panel.style.setProperty('--mh-hb-c', conf.hbColor);
         panel.style.setProperty('--mh-prog-c', conf.progColor);
+        panel.style.setProperty('--mh-ctrl-c', conf.ctrlColor);
 
         var btn = panel.querySelector('#mh-playlist-btn');
         if (btn) btn.addEventListener('click', function () { window._mhOpenPlaylistPage(); });
@@ -519,6 +520,7 @@
         renderImportSection();
         renderVinylSection();
         renderLinesSection();
+        renderCtrlSection();
         renderBubbleSection();
     }
 
@@ -649,6 +651,10 @@
     }
     window._mhRefreshPanel = function () { renderPanel(); };
 
+    // 心跳线 / 播放进度线 / 控制按钮 颜色设置：色轮字段 与 CSS 变量 的映射
+    var lineConfMap = { 'hb': 'hbColor', 'prog': 'progColor', 'ctrl': 'ctrlColor' };
+    var lineVarMap = { 'hb': '--mh-hb-c', 'prog': '--mh-prog-c', 'ctrl': '--mh-ctrl-c' };
+
     // 心跳线 / 播放进度线 颜色预设（九个初始颜色 + 第十个自定义）
     var presetColors = [
         '#ff9f9d', '#ffb36b', '#a8e6cf', '#7fc8f8', '#c5b8e6',
@@ -696,7 +702,7 @@
             sw.addEventListener('click', function () {
                 var c = sw.getAttribute('data-color');
                 if (sw.getAttribute('data-custom') === '1') {
-                    if (wheel) { wheel.value = conf[key === 'hb' ? 'hbColor' : 'progColor'] || '#ffffff'; wheel.click(); }
+                    if (wheel) { wheel.value = conf[lineConfMap[key] || 'hbColor'] || '#ffffff'; wheel.click(); }
                     return;
                 }
                 applyLineColor(key, c);
@@ -706,14 +712,31 @@
     }
 
     function applyLineColor(key, color) {
-        if (key === 'hb') conf.hbColor = color; else conf.progColor = color;
+        var cf = lineConfMap[key] || 'hbColor';
+        var cssVar = lineVarMap[key] || '--mh-hb-c';
+        conf[cf] = color;
         saveConf();
         var panel = document.getElementById('cs-panel-musichall');
-        if (panel) {
-            panel.style.setProperty('--mh-hb-c', conf.hbColor);
-            panel.style.setProperty('--mh-prog-c', conf.progColor);
-        }
-        renderLinesSection();
+        if (panel) panel.style.setProperty(cssVar, color);
+        if (key === 'ctrl') renderCtrlSection();
+        else renderLinesSection();
+    }
+
+    // 控制按钮颜色（上一首 / 下一首 / 暂停·播放），复用色轮选择器
+    function renderCtrlSection() {
+        var el = document.getElementById('mh-setting-ctrl');
+        if (!el) return;
+        el.innerHTML =
+            '<div class="mh-set-section">' +
+                '<div class="mh-set-title"><i class="fas fa-forward"></i>控制按钮颜色</div>' +
+                _lineGroup('上一首 / 下一首 / 暂停·播放', 'ctrl', conf.ctrlColor) +
+                '<div class="mh-ctrl-demo" style="color:' + (conf.ctrlColor || '#7a9cc6') + '">' +
+                    '<span class="mh-ctrl-demo-item"><i class="fas fa-step-backward"></i></span>' +
+                    '<span class="mh-ctrl-demo-item mh-ctrl-demo-star" style="background:' + (conf.ctrlColor || '#7a9cc6') + '"><i class="fas fa-pause"></i></span>' +
+                    '<span class="mh-ctrl-demo-item"><i class="fas fa-step-forward"></i></span>' +
+                '</div>' +
+            '</div>';
+        bindLinePicker(el, 'ctrl');
     }
 
     // 气泡样式：与主设置"气泡样式"一致，持久化到 conf.bubbleStyle

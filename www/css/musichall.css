@@ -204,7 +204,7 @@
 .mh-ctrl {
     background: none;
     border: none;
-    color: #7a9cc6;
+    color: var(--mh-ctrl-c, #7a9cc6);
     cursor: pointer;
     font-size: 17px;
     padding: 4px;
@@ -215,13 +215,32 @@
     width: 46px;
     height: 46px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #7ab4ef, #4a8ad0);
+    background: var(--mh-ctrl-c, linear-gradient(135deg, #7ab4ef, #4a8ad0));
     color: #fff;
     font-size: 15px;
     display: flex;
     align-items: center;
     justify-content: center;
     box-shadow: 0 8px 20px rgba(74,138,208,.42);
+}
+/* 设置页「控制按钮颜色」预览 */
+.mh-ctrl-demo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    margin-top: 14px;
+}
+.mh-ctrl-demo-item { font-size: 20px; }
+.mh-ctrl-demo-star {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .mh-progress-row {
     display: flex;
