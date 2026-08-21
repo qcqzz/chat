@@ -325,7 +325,8 @@
             passes: 0,
             userPassed: false,   // 围棋：玩家是否让手
             dreamPassed: false,  // 围棋：梦角是否让手
-            result: null         // 整局结果 {winner, dBroken, uBroken}
+            result: null,         // 整局结果 {winner, dBroken, uBroken}
+            dreamMercy: (game === 'gomoku' || game === 'go') && Math.random() < 0.15  // 棋类：本盘 15% 概率梦角让着用户，整体下弱
         };
     }
 
@@ -1172,8 +1173,14 @@
                 cand.push({ v: v, r: r, c: c });
             }
         }
-        var mv = cand[best];
-        var nb = cloneBoard(state.board); nb[mv.r][mv.c] = DREAM;
+        var mv, nb;
+        if (state.dreamMercy && Math.random() < 0.6) {
+            // 让着用户：随机落子，不刻意赌/堵，整体变弱
+            mv = cand[Math.floor(Math.random() * cand.length)];
+        } else {
+            mv = cand[best];
+        }
+        nb = cloneBoard(state.board); nb[mv.r][mv.c] = DREAM;
         return { board: nb, r: mv.r, c: mv.c };
     }
 
@@ -1252,7 +1259,12 @@
         }
         if (!legal.length) return 'pass';
         legal.sort(function (a, b) { return b.s - a.s; });
-        return { board: legal[0].sim.board, prisoners: legal[0].sim.prisoners, r: legal[0].r, c: legal[0].c };
+        var pick = legal[0];
+        if (state.dreamMercy && legal.length > 1 && Math.random() < 0.6) {
+            // 让着用户：随机选一个合法点，弱化占位/吃子，整体变弱
+            pick = legal[Math.floor(Math.random() * legal.length)];
+        }
+        return { board: pick.sim.board, prisoners: pick.sim.prisoners, r: pick.r, c: pick.c };
     }
     function scoreGo() {
         state.over = true;
