@@ -832,6 +832,10 @@ async function importAllData(file) {
             categories
         });
 
+        // 导入守卫：内存里还是旧数据，写盘后、reload 前禁止 saveData/紧急备份回写，
+        // 否则 beforeunload/pagehide 会把内存旧数据覆盖回 IndexedDB 造成"导入数据丢失"
+        window._importGuarded = true;
+
         showNotification('恢复完成，即将刷新页面…', 'success', 2000);
         setTimeout(() => location.reload(), 2200);
     } catch (err) {

@@ -406,6 +406,9 @@ if (importAllBtn) {
 
                     await ChatBackup.applyBackupToStorage(backup, { selective: false });
 
+                    // 导入守卫：写盘后、reload 前禁止 saveData/紧急备份回写，防止内存旧数据覆盖已导入数据
+                    window._importGuarded = true;
+
                     if (typeof showNotification === 'function') showNotification('数据恢复成功，即将刷新页面应用更改', 'success', 2000);
                     setTimeout(function() { location.reload(); }, 2000);
                 } catch (err) {

@@ -983,6 +983,9 @@ let _lastEmergencyVcLen = -1;
 let _lastEmergencyVcDirty = 0;
 function _backupCriticalData(force) {
     if (window._skipBackup) return;
+    // 导入/恢复完成、刷新前不让任何写入覆盖刚导入的数据：
+    // 内存仍是旧数据（_saveRev 未变），此时若写入会用旧数据覆盖 IndexedDB/localStorage 的新数据
+    if (window._importGuarded) return;
     // 落盘整体延后到当前事件(输入/渲染)处理完再执行：真正写 localStorage 是一次同步 JSON.stringify+setItem，
     // 直接在消息推送/已读回执的主流程里同步跑会拖住主线程导致可见卡顿。force(页面隐藏/退出)时仍即时执行。
     const doBackup = () => {
@@ -1122,6 +1125,7 @@ function _tryRecoverFromBackup() {
 }
 
 const saveData = async (force) => {
+    if (window._importGuarded) return;   // 导入/恢复完成、刷新前禁止写入，防止内存旧数据覆盖已导入的新数据
     if (!SESSION_ID) {
         console.warn('[saveData] SESSION_ID 尚未初始化，跳过保存以防数据写入临时 key');
         return;

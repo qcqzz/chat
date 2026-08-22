@@ -579,6 +579,10 @@
                 await localforage.setItem(APP_PREFIX_STR + 'lastSessionId', targetSessionId);
             } catch (e) {}
 
+            // 4.5) 导入守卫：写盘后、reload 前禁止 saveData/紧急备份回写，
+            // 否则 beforeunload/pagehide 会把内存旧数据覆盖回 IndexedDB 造成"导入数据丢失"
+            window._importGuarded = true;
+
             // 5) 在 reload 之前最后一刻清掉紧急备份
             // 注意：visibilitychange/pagehide 可能在 reload 触发时重新写入备份，
             // 所以这里清完之后要尽快 reload，不给 app 重写的机会
