@@ -226,15 +226,20 @@
             cards[i].className = 'dt-polaroid-card ' + _plFronts[i];
         }
     }
-    var _plCycling = false;   // 防连点：翻牌动画进行中忽略重复点击
+    var _plLockUntil = 0;   // 拍立得时间戳锁：锁窗口内完全丢弃重复点击，避免连点叠加动画/反复解码大图卡死
     function cyclePolaroid() {
         var c = $('dt-polaroid');
-        if (!c || _plCycling) return;
-        _plCycling = true;
+        var now = Date.now();
+        if (!c || now < _plLockUntil) return;
+        var lite = document.documentElement && document.documentElement.getAttribute('data-lite') === '1';
+        // 锁窗口对齐/略宽于 flip 动画时长（transition .38s）；低配机动画期间也占合成器，锁窗略长
+        _plLockUntil = now + (lite ? 650 : 500);
         _plOrder.unshift(_plOrder.pop());        // 最底层翻到最前，其余依次后移
         renderPolaroid();
+        // 低配机(data-lite)跳过 flip 动画：只轮换内容，省去 transform 合成 + 轮换触发的图解码叠加，防连点卡死
+        if (lite) return;
         c.classList.add('flip');
-        setTimeout(function () { c.classList.remove('flip'); _plCycling = false; }, 430);
+        setTimeout(function () { if (c) c.classList.remove('flip'); }, 450);
     }
 
     // ── 拍立得设置：三张照片分别上传（排版参考聊天背景） ──
@@ -373,13 +378,12 @@
         if (badge) badge.textContent = badgeTxt;
     }
 
-    var _annCycling = false; // 防连点：短窗口内忽略重复点击，避免快速连点叠加渲染
+    var _annLockUntil = 0; // 纪念日时间戳锁：锁窗口内丢弃重复点击，连点只切换一次，避免叠加重建/遍历卡死
     function cycleAnniversary() {
-        if (_annEntries.length > 1 && !_annCycling) {
-            _annCycling = true;
+        if (_annEntries.length > 1 && Date.now() >= _annLockUntil) {
+            _annLockUntil = Date.now() + 350;
             _annIndex = (_annIndex + 1) % _annEntries.length;
             renderAnniversary();
-            setTimeout(function () { _annCycling = false; }, 350);
         }
     }
 
