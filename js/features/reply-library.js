@@ -2142,6 +2142,8 @@ function _showExportUI() {
         { id: '_re_mottos',   icon: ICONS.quote,     label: '顶部格言',      count: customMottos.length,                      key: 'customMottos' },
         { id: '_re_intros',   icon: ICONS.play,      label: '开场动画',      count: customIntros.length,                      key: 'customIntros' },
         { id: '_re_emojis',   icon: ICONS.smile,     label: 'Emoji 库',      count: customEmojis.length,                      key: 'customEmojis' },
+        { id: '_re_voices',   icon: ICONS.play,      label: '语音字卡',      count: (voiceCards || []).length,                 key: 'customVoiceCards' },
+        { id: '_re_voiceg',   icon: ICONS.folderBig, label: '语音字卡分组',  count: (window.customVoiceGroups || []).length,   key: 'customVoiceGroups',  extra: true },
         { id: '_re_ann',      icon: ICONS.folderBig, label: '今日公告配置',  count: _annTotalCount,                           key: 'announcementConfig' },
         { id: '_re_groups',   icon: ICONS.folderBig, label: '字卡分组',      count: (customReplyGroups||[]).length,            key: 'customReplyGroups',  extra: true },
         { id: '_re_pokg',     icon: ICONS.folderBig, label: '拍一拍分组',    count: (window.customPokeGroups||[]).length,     key: 'customPokeGroups',   extra: true },
@@ -2261,6 +2263,12 @@ function _doExport(selectedModules) {
         else if (m.key === 'customMottos')     { libraryData.customMottos       = customMottos;                   libraryData.modules.push('mottos'); }
         else if (m.key === 'customIntros')     { libraryData.customIntros       = customIntros;                   libraryData.modules.push('intros'); }
         else if (m.key === 'customEmojis')     { libraryData.customEmojis       = customEmojis;                   libraryData.modules.push('emojis'); }
+        else if (m.key === 'customVoiceCards') {
+            libraryData.customVoiceCards = Array.isArray(voiceCards) ? voiceCards : [];
+            libraryData.customVoiceGroups = window.customVoiceGroups || [];
+            libraryData.modules.push('voiceCards');
+            libraryData.modules.push('voiceGroups');
+        }
         else if (m.key === 'customReplyGroups')  { libraryData.customReplyGroups  = window.customReplyGroups  || []; libraryData.modules.push('groups'); }
         else if (m.key === 'customPokeGroups')   { libraryData.customPokeGroups   = window.customPokeGroups   || []; libraryData.modules.push('pokeGroups'); }
         else if (m.key === 'customStatusGroups') { libraryData.customStatusGroups = window.customStatusGroups || []; libraryData.modules.push('statusGroups'); }
@@ -2484,6 +2492,8 @@ function _showImportUI(data) {
         { id: '_ri_mottos',   icon: ICONS.quote,     label: '顶部格言',      data: data.customMottos,        key: 'customMottos' },
         { id: '_ri_intros',   icon: ICONS.play,      label: '开场动画',      data: data.customIntros,        key: 'customIntros' },
         { id: '_ri_emojis',   icon: ICONS.smile,     label: 'Emoji 库',      data: data.customEmojis,        key: 'customEmojis' },
+        { id: '_ri_voices',   icon: ICONS.play,      label: '语音字卡',      data: data.customVoiceCards,    key: 'customVoiceCards' },
+        { id: '_ri_voiceg',   icon: ICONS.folderBig, label: '语音字卡分组',  data: data.customVoiceGroups,   key: 'customVoiceGroups',  extra: true },
         { id: '_ri_ann',      icon: ICONS.folderBig, label: '今日公告配置',  data: [_annCfg],                key: 'announcementConfig',    displayCount: _annCfgCount },
         { id: '_ri_anntext',  icon: ICONS.comment,   label: '公告文案',      data: [_annText],               key: 'announcementText',      displayCount: _annTextCount },
         { id: '_ri_annpool',  icon: ICONS.dot,       label: '状态随机库',    data: _annPool,                 key: 'announcementStatusPool', displayCount: _annPoolCount },
@@ -2505,6 +2515,8 @@ function _showImportUI(data) {
                     else if (m.key === 'customMottos')     { customMottos                = data.customMottos;        totalAdded += data.customMottos.length; }
                     else if (m.key === 'customIntros')     { customIntros                = data.customIntros;        totalAdded += data.customIntros.length; }
                     else if (m.key === 'customEmojis')     { customEmojis                = data.customEmojis; }
+                    else if (m.key === 'customVoiceCards')  { voiceCards               = data.customVoiceCards || []; totalAdded += (data.customVoiceCards || []).length; }
+                    else if (m.key === 'customVoiceGroups') { window.customVoiceGroups = data.customVoiceGroups || []; }
                     else if (m.key === 'customReplyGroups')  { window.customReplyGroups  = data.customReplyGroups; }
                     else if (m.key === 'customPokeGroups')   { window.customPokeGroups   = data.customPokeGroups; }
                     else if (m.key === 'customStatusGroups') { window.customStatusGroups = data.customStatusGroups; }
@@ -2545,6 +2557,15 @@ function _showImportUI(data) {
                         totalAdded += customIntros.length - before;
                     } else if (m.key === 'customEmojis') {
                         customEmojis = [...new Set([...customEmojis, ...data.customEmojis])];
+                    } else if (m.key === 'customVoiceCards') {
+                        const before = (voiceCards || []).length;
+                        voiceCards = deduplicateContentArray([...(voiceCards || []), ...(data.customVoiceCards || [])]).result;
+                        totalAdded += (voiceCards || []).length - before;
+                    } else if (m.key === 'customVoiceGroups') {
+                        if (!window.customVoiceGroups) window.customVoiceGroups = [];
+                        (data.customVoiceGroups || []).forEach(dg => {
+                            if (!window.customVoiceGroups.find(g => g.name === dg.name)) window.customVoiceGroups.push(dg);
+                        });
                     } else if (m.key === 'customReplyGroups') {
                         if (!window.customReplyGroups) window.customReplyGroups = [];
                         data.customReplyGroups.forEach(dg => {
