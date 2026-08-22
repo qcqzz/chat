@@ -1,17 +1,22 @@
+// 贴纸网格(combo 挑选器)的滚动加载处理器，重渲染时先解绑，避免重复叠加
+let _gamesStickerScrollHandler = null;
+
+// 统计缓存：messages 没变就不重算高频词，避免每次打开统计都全量 filter + 分词
+let _statsCache = { rev: -1, data: null };
+// 词云缓存：同样按数据版本号复用，避免切到词云 tab 时每次都全量 filter + 分词
+let _wcCache = { rev: -1, partnerMsgs: null, myMsgs: null, pFreq: null, mFreq: null, aFreq: null, pTop: null, mTop: null, aTop: null };
+// 收藏缓存：避免每次切到收藏 tab 都全量 filter 消息数组
+let _favCache = { rev: -1, list: null };
+
 function renderStatsContent() {
             const statsContent = DOMElements.statsModal.content;
+            const dataRev = (typeof window._getChatDataRev === 'function') ? window._getChatDataRev() : messages.length;
 
-            const partnerMessages = messages.filter(msg =>
-                msg.sender !== 'user' && msg.sender !== null &&
-                msg.text &&
-                msg.type !== 'system'
-            );
-            
-            const myMessages = messages.filter(msg =>
-                msg.sender === 'user' &&
-                msg.text &&
-                msg.type !== 'system'
-            );
+            if (_statsCache.rev !== dataRev || !_statsCache.data) {
+                _statsCache.rev = dataRev;
+                _statsCache.data = _computeStatsData();
+            }
+            const { partnerMessages, myMessages, partnerTop, myTop, firstMsg, lastMsg } = _statsCache.data;
 
             if (partnerMessages.length === 0 && myMessages.length === 0) {
                 statsContent.innerHTML = `
@@ -22,23 +27,6 @@ function renderStatsContent() {
                     </div>`;
                 return;
             }
-
-            const getTopReplies = (msgs) => {
-                const countMap = {};
-                msgs.forEach(msg => {
-                    const text = msg.text.trim();
-                    if (text) {
-                        countMap[text] = (countMap[text] || 0) + 1;
-                    }
-                });
-                return Object.entries(countMap)
-                    .map(([text, count]) => ({ text, count }))
-                    .sort((a, b) => b.count - a.count)
-                    .slice(0, 5); 
-            };
-
-            const partnerTop = getTopReplies(partnerMessages);
-            const myTop = getTopReplies(myMessages);
 
             const generateRankHTML = (list) => {
                 if (list.length === 0) return '<div style="text-align:center;color:var(--text-secondary);font-size:12px;padding:10px;">暂无数据</div>';
@@ -56,10 +44,6 @@ function renderStatsContent() {
                     </div>`;
                 }).join('');
             };
-
-            const allMsgs = messages.filter(m => m.timestamp);
-            const firstMsg = allMsgs.length > 0 ? allMsgs[0] : { timestamp: new Date() };
-            const lastMsg = allMsgs.length > 0 ? allMsgs[allMsgs.length - 1] : { timestamp: new Date() };
 
             const formatDate = (dateObj) => {
                 return new Date(dateObj).toLocaleDateString('zh-CN', {
@@ -123,6 +107,51 @@ function renderStatsContent() {
 
             statsContent._partnerHTML = generateRankHTML(partnerTop);
             statsContent._myHTML = generateRankHTML(myTop);
+        }
+
+        // 统计计算（被 renderStatsContent 缓存复用）：只遍历一次 messages，
+        // 同时产出双方消息过滤结果、高频词 TOP5、首末条时间，避免每处各 filter 一遍全量数组。
+        function _computeStatsData() {
+            let partnerMessages = [];
+            let myMessages = [];
+            let firstMsg = { timestamp: new Date() };
+            let lastMsg = { timestamp: new Date() };
+            let firstTs = Infinity;
+            let lastTs = -Infinity;
+            const pCount = {}, mCount = {};
+
+            for (let i = 0; i < messages.length; i++) {
+                const msg = messages[i];
+                const ts = msg.timestamp ? new Date(msg.timestamp).getTime() : 0;
+                if (ts && ts < firstTs) { firstTs = ts; firstMsg = msg; }
+                if (ts && ts > lastTs) { lastTs = ts; lastMsg = msg; }
+                if (msg.type === 'system') continue;
+                if (msg.text) {
+                    if (msg.sender === 'user') {
+                        myMessages.push(msg);
+                        const t = msg.text.trim();
+                        if (t) mCount[t] = (mCount[t] || 0) + 1;
+                    } else if (msg.sender !== null) {
+                        partnerMessages.push(msg);
+                        const t = msg.text.trim();
+                        if (t) pCount[t] = (pCount[t] || 0) + 1;
+                    }
+                }
+            }
+
+            const topFrom = (countMap) => Object.entries(countMap)
+                .map(([text, count]) => ({ text, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 5);
+
+            return {
+                partnerMessages,
+                myMessages,
+                partnerTop: topFrom(pCount),
+                myTop: topFrom(mCount),
+                firstMsg: firstTs === Infinity ? { timestamp: new Date() } : firstMsg,
+                lastMsg: lastTs === -Infinity ? { timestamp: new Date() } : lastMsg
+            };
         }
 
         window.switchStatsView = function(who) {
@@ -810,8 +839,14 @@ function renderFavorites() {
     const list = document.getElementById('favorites-list');
     if (!list) return;
 
-    const favoritedMessages = (typeof messages !== 'undefined' ? messages : [])
-        .filter(m => m.favorited && m.type !== 'system');
+    // 缓存复用：messages 没变就沿用上次的过滤结果，避免每次切到收藏 tab 都全量 filter
+    const favRev = (typeof window._getChatDataRev === 'function') ? window._getChatDataRev() : (typeof messages !== 'undefined' ? messages.length : 0);
+    if (_favCache.rev !== favRev || !_favCache.list) {
+        _favCache.rev = favRev;
+        _favCache.list = (typeof messages !== 'undefined' ? messages : [])
+            .filter(m => m.favorited && m.type !== 'system');
+    }
+    const favoritedMessages = _favCache.list;
 
     if (favoritedMessages.length === 0) {
         list.innerHTML = `
@@ -1439,10 +1474,15 @@ function initComboMenu() {
             `;
             return;
         }
+        if (_gamesStickerScrollHandler) contentArea.removeEventListener('scroll', _gamesStickerScrollHandler);
         const grid = document.createElement('div');
         grid.className = 'sticker-grid-view';
-        myStickerLibrary.forEach((src, idx) => {
-            const item = makeDeletableStickerItem(src, () => {
+        contentArea.appendChild(grid);
+        // 分批渲染 + 滚动加载：贴纸很多时避免一次性创建/解码几百个 base64 <img> 拖卡主线程
+        const PAGE = 60;
+        let gidx = 0;
+        function buildItem(src, si) {
+            return makeDeletableStickerItem(src, () => {
                 addMessage({ id: Date.now(), sender: 'user', text: '', timestamp: new Date(), image: src, status: 'sent', type: 'normal' });
                 playSound('send');
                 picker.classList.remove('active');
@@ -1457,14 +1497,26 @@ function initComboMenu() {
                         console.warn('[cloud-media] 云端删除失败', err);
                     }
                 }
-                myStickerLibrary.splice(idx, 1);
+                myStickerLibrary.splice(si, 1);
                 localforage.setItem(getStorageKey('myStickerLibrary'), myStickerLibrary);
                 showNotification('✓ 已删除', 'success');
                 renderMyStickerLibrary();
             });
-            grid.appendChild(item);
-        });
-        contentArea.appendChild(grid);
+        }
+        function renderNext() {
+            const frag = document.createDocumentFragment();
+            const end = Math.min(gidx + PAGE, myStickerLibrary.length);
+            for (; gidx < end; gidx++) frag.appendChild(buildItem(myStickerLibrary[gidx], gidx));
+            if (frag.childNodes.length) grid.appendChild(frag);
+        }
+        renderNext();
+        if (myStickerLibrary.length > PAGE) {
+            _gamesStickerScrollHandler = () => {
+                if (gidx >= myStickerLibrary.length) return;
+                if (contentArea.scrollTop + contentArea.clientHeight >= contentArea.scrollHeight - 200) renderNext();
+            };
+            contentArea.addEventListener('scroll', _gamesStickerScrollHandler, { passive: true });
+        }
     }
 
     function renderPartnerStickerLibrary() {
@@ -1479,19 +1531,36 @@ function initComboMenu() {
             `;
             return;
         }
+        if (_gamesStickerScrollHandler) contentArea.removeEventListener('scroll', _gamesStickerScrollHandler);
         const grid = document.createElement('div');
         grid.className = 'sticker-grid-view';
-        stickerLibrary.forEach(src => {
-            const item = makeStickerItem(src, () => {
+        contentArea.appendChild(grid);
+        // 分批渲染 + 滚动加载：贴纸很多时避免一次性创建/解码几百个 base64 <img> 拖卡主线程
+        const PAGE = 60;
+        let idx = 0;
+        function buildItem(src) {
+            return makeStickerItem(src, () => {
                 addMessage({ id: Date.now(), sender: 'user', text: '', timestamp: new Date(), image: src, status: 'sent', type: 'normal' });
                 playSound('send');
                 picker.classList.remove('active');
                 const delayRange = settings.replyDelayMax - settings.replyDelayMin;
                 setTimeout(simulateReply, settings.replyDelayMin + Math.random() * delayRange);
             });
-            grid.appendChild(item);
-        });
-        contentArea.appendChild(grid);
+        }
+        function renderNext() {
+            const frag = document.createDocumentFragment();
+            const end = Math.min(idx + PAGE, stickerLibrary.length);
+            for (; idx < end; idx++) frag.appendChild(buildItem(stickerLibrary[idx]));
+            if (frag.childNodes.length) grid.appendChild(frag);
+        }
+        renderNext();
+        if (stickerLibrary.length > PAGE) {
+            _gamesStickerScrollHandler = () => {
+                if (idx >= stickerLibrary.length) return;
+                if (contentArea.scrollTop + contentArea.clientHeight >= contentArea.scrollHeight - 200) renderNext();
+            };
+            contentArea.addEventListener('scroll', _gamesStickerScrollHandler, { passive: true });
+        }
     }
 
     function renderStickerLibrary() { renderMyStickerLibrary(); }
@@ -1775,17 +1844,32 @@ function initComboMenu() {
         var pName = (typeof settings !== 'undefined' && settings.partnerName) ? settings.partnerName : '对方';
         var mName = (typeof settings !== 'undefined' && settings.myName)      ? settings.myName      : '我';
 
-        var partnerMsgs = messages.filter(function(m) { return m.sender !== 'user' && m.text && m.type !== 'system' && m.type !== 'call-event'; });
-        var myMsgs      = messages.filter(function(m) { return m.sender === 'user' && m.text && m.type !== 'system' && m.type !== 'call-event'; });
-
-        var pFreq = {}, mFreq = {};
-        partnerMsgs.forEach(function(m) { pFreq = mergeFreq(pFreq, tokenize(m.text)); });
-        myMsgs.forEach(function(m)      { mFreq = mergeFreq(mFreq, tokenize(m.text)); });
-        var aFreq = mergeFreq(pFreq, mFreq);
-
-        var pTop = topWords(pFreq, 60);
-        var mTop = topWords(mFreq, 60);
-        var aTop = topWords(aFreq, 60);
+        // 缓存复用：messages 没变就沿用上次的过滤与分词结果，避免每次切到词云 tab 都全量 filter + 分词
+        var wRev = (typeof window._getChatDataRev === 'function') ? window._getChatDataRev() : messages.length;
+        if (_wcCache.rev !== wRev || !_wcCache.pFreq) {
+            var partnerMsgs = messages.filter(function(m) { return m.sender !== 'user' && m.text && m.type !== 'system' && m.type !== 'call-event'; });
+            var myMsgs      = messages.filter(function(m) { return m.sender === 'user' && m.text && m.type !== 'system' && m.type !== 'call-event'; });
+            var pFreq = {}, mFreq = {};
+            partnerMsgs.forEach(function(m) { pFreq = mergeFreq(pFreq, tokenize(m.text)); });
+            myMsgs.forEach(function(m)      { mFreq = mergeFreq(mFreq, tokenize(m.text)); });
+            var aFreq = mergeFreq(pFreq, mFreq);
+            _wcCache = {
+                rev: wRev,
+                partnerMsgs: partnerMsgs,
+                myMsgs: myMsgs,
+                pFreq: pFreq,
+                mFreq: mFreq,
+                aFreq: aFreq,
+                pTop: topWords(pFreq, 60),
+                mTop: topWords(mFreq, 60),
+                aTop: topWords(aFreq, 60)
+            };
+        }
+        var partnerMsgs = _wcCache.partnerMsgs;
+        var myMsgs      = _wcCache.myMsgs;
+        var pTop        = _wcCache.pTop;
+        var mTop        = _wcCache.mTop;
+        var aTop        = _wcCache.aTop;
 
         var cur = container._currentView || 'all';
 

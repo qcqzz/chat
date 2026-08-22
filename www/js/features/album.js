@@ -33,6 +33,7 @@ window._alCurrentPhotoId = null;
 let _alView        = 'list';
 let _alSelectMode  = false;
 let _alSelectedIds = new Set();
+let _alGridScrollHandler = null; // 相册网格分批渲染的滚动加载处理器，重渲染时先解绑避免叠加
 
 // ─── 系统相册初始化 ───
 function _ensureSystemAlbums() {
@@ -250,23 +251,62 @@ function _alRenderGrid(albumId) {
     photos.forEach(p => { if (!groups[p.date]) groups[p.date]=[]; groups[p.date].push(p); });
     const dates = Object.keys(groups).sort((a,b) => b.localeCompare(a));
 
-    let html = '';
+    const body = document.getElementById('al-grid-body'); if (!body) return;
+
     if (!dates.length) {
-        html = `<div class="al-empty"><i class="fas fa-images"></i><div>还没有照片</div></div>`;
-    } else {
-        dates.forEach(date => {
-            html += `<div class="al-date-label">${_alFmtDate(date)}</div><div class="al-photo-grid">`;
-            groups[date].forEach(p => {
-                const inner = p.isVideo ? _alVideoCell(p) : _alImgEl(p.src);
-                html += `<div class="al-photo-cell" data-id="${p.id}" onclick="_alCellClick('${p.id}','${albumId}')">${inner}</div>`;
-            });
-            html += `</div>`;
-        });
+        if (_alGridScrollHandler) body.removeEventListener('scroll', _alGridScrollHandler);
+        _alGridScrollHandler = null;
+        body.innerHTML = `<div class="al-empty"><i class="fas fa-images"></i><div>还没有照片</div></div>`;
+        _alShowView('grid');
+        return;
     }
 
-    const body = document.getElementById('al-grid-body'); if (!body) return;
-    body.innerHTML = html;
-    _alBindLazy(body);
+    // 分批渲染 + 滚动加载：照片很多时避免一次性创建/解码几百张缩略图拖卡主线程
+    if (_alGridScrollHandler) body.removeEventListener('scroll', _alGridScrollHandler);
+    _alGridScrollHandler = null;
+    body.innerHTML = '';
+    const PAGE = 80; // 每批渲染的照片数
+    let dIdx = 0, pIdx = 0;
+
+    function renderNext() {
+        const frag = document.createDocumentFragment();
+        let added = 0;
+        while (dIdx < dates.length && added < PAGE) {
+            const date = dates[dIdx];
+            const g = groups[date];
+            if (pIdx === 0) {
+                const lbl = document.createElement('div');
+                lbl.className = 'al-date-label';
+                lbl.textContent = _alFmtDate(date);
+                frag.appendChild(lbl);
+            }
+            while (pIdx < g.length && added < PAGE) {
+                const p = g[pIdx];
+                const cell = document.createElement('div');
+                cell.className = 'al-photo-cell';
+                cell.dataset.id = p.id;
+                cell.onclick = () => _alCellClick(p.id, albumId);
+                cell.innerHTML = p.isVideo ? _alVideoCell(p) : _alImgEl(p.src);
+                frag.appendChild(cell);
+                pIdx++; added++;
+            }
+            if (pIdx >= g.length) { pIdx = 0; dIdx++; }
+        }
+        if (frag.childNodes.length) { body.appendChild(frag); _alBindLazy(frag); }
+        if (dIdx >= dates.length && _alGridScrollHandler) {
+            body.removeEventListener('scroll', _alGridScrollHandler);
+            _alGridScrollHandler = null;
+        }
+    }
+
+    renderNext();
+    if (photos.length > PAGE) {
+        _alGridScrollHandler = () => {
+            if (dIdx >= dates.length) return;
+            if (body.scrollTop + body.clientHeight >= body.scrollHeight - 400) renderNext();
+        };
+        body.addEventListener('scroll', _alGridScrollHandler, { passive: true });
+    }
     _alShowView('grid');
 }
 

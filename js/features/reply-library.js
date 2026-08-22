@@ -990,13 +990,35 @@ function _renderEmojiTab(list, itemsToRender) {
     }
 }
 
-let _stickerImgPool = new Map(); // src -> <img>，复用已解码图片，避免重渲染时图片重新解码/重载而闪烁
+// src -> <img>，复用已解码图片，避免重渲染时图片重新解码/重载而闪烁。
+// 加 LRU 上限：导入大量贴纸后每次重建列表都会往池里塞新 <img>，不限制会让内存无限累积、越用越卡。
+let _stickerImgPool = new Map();
+const _STICKER_POOL_MAX = 180;
+function _stickerPoolGet(key) {
+    const v = _stickerImgPool.get(key);
+    if (v !== undefined) { _stickerImgPool.delete(key); _stickerImgPool.set(key, v); } // 命中提升为最新
+    return v;
+}
+function _stickerPoolSet(key, val) {
+    if (_stickerImgPool.has(key)) _stickerImgPool.delete(key);
+    _stickerImgPool.set(key, val);
+    if (_stickerImgPool.size > _STICKER_POOL_MAX) {
+        const oldestKey = _stickerImgPool.keys().next().value;
+        _stickerImgPool.delete(oldestKey);
+    }
+}
+let _stickerScrollHandler = null; // 当前贴纸列表的滚动加载处理器，重渲染时先解绑，避免重复叠加
 function _renderStickerTab(list, itemsToRender) {
     const disabledSet = _getDisabledStickerItemsSet();
-    itemsToRender.forEach((item, index) => {
+    // 分批渲染 + 滚动加载：导入大量贴纸后一次性创建/解码几百个 base64 <img> 会把主线程拖卡，
+    // 这里首屏只渲染 PAGE 个，滚动到底附近再追加下一批。
+    if (_stickerScrollHandler && list) list.removeEventListener('scroll', _stickerScrollHandler);
+    const PAGE = 60;
+    let index = 0;
+    function buildItem(item, idx) {
         const div = document.createElement('div');
         const isDisabled = disabledSet.has(item);
-        const isSelected = _batchModeActive && _batchSelectedIndices.has(index);
+        const isSelected = _batchModeActive && _batchSelectedIndices.has(idx);
         div.className = `sticker-item${isDisabled ? ' sticker-disabled' : ''}${isSelected ? ' sticker-batch-selected' : ''}`;
         // 阶段三B：识别 oss:// 走懒加载
         const isCloud = typeof item === 'string' && item.indexOf('oss://') === 0;
@@ -1006,25 +1028,25 @@ function _renderStickerTab(list, itemsToRender) {
             <div class="sticker-delete-btn"><i class="fas fa-times"></i></div>
         `;
         const imgEl = div.querySelector('img');
-        const cached = _stickerImgPool.get(item);
+        const cached = _stickerPoolGet(item);
         if (cached) {
             // 复用旧 <img>（已解码），直接迁移到新格子，避免重新解码/加载造成闪烁
             div.replaceChild(cached, imgEl);
         } else if (isCloud) {
             if (window.CloudMedia) {
                 window.CloudMedia.bindLazyImage(imgEl, item);
-                _stickerImgPool.set(item, imgEl);
+                _stickerPoolSet(item, imgEl);
             }
         } else {
             imgEl.src = item;
-            _stickerImgPool.set(item, imgEl);
+            _stickerPoolSet(item, imgEl);
         }
         div.addEventListener('click', () => {
             if (!_batchModeActive) return;
             if (currentMajorTab !== 'reply' || currentSubTab !== 'stickers') return;
-            const wasSelected = _batchSelectedIndices.has(index);
-            if (wasSelected) _batchSelectedIndices.delete(index);
-            else _batchSelectedIndices.add(index);
+            const wasSelected = _batchSelectedIndices.has(idx);
+            if (wasSelected) _batchSelectedIndices.delete(idx);
+            else _batchSelectedIndices.add(idx);
             div.classList.toggle('sticker-batch-selected', !wasSelected);
             _renderModernToolbar();
         });
@@ -1044,15 +1066,29 @@ function _renderStickerTab(list, itemsToRender) {
                     disabledSet.delete(item);
                     _saveDisabledStickerItemsSet(disabledSet);
                 }
-                stickerLibrary.splice(index, 1);
+                stickerLibrary.splice(idx, 1);
                 _stickerImgPool.delete(item);
                 _batchSelectedIndices.clear();
                 throttledSaveData();
                 renderReplyLibrary();
             }
         });
-        list.appendChild(div);
-    });
+        return div;
+    }
+    function renderNext() {
+        const fragment = document.createDocumentFragment();
+        const end = Math.min(index + PAGE, itemsToRender.length);
+        for (; index < end; index++) fragment.appendChild(buildItem(itemsToRender[index], index));
+        if (fragment.childNodes.length) list.appendChild(fragment);
+    }
+    renderNext();
+    if (itemsToRender.length > PAGE) {
+        _stickerScrollHandler = () => {
+            if (index >= itemsToRender.length) return;
+            if (list.scrollTop + list.clientHeight >= list.scrollHeight - 250) renderNext();
+        };
+        list.addEventListener('scroll', _stickerScrollHandler, { passive: true });
+    }
 }
 /* ─────────────────────────── 语音字卡板块 ─────────────────────────── */
 let _vcCurrentAudio = null;
@@ -1101,10 +1137,26 @@ function _vcBubbleHTML(duration) {
         </div>`;
 }
 
+// 语音字卡列表的滚动加载处理器：卡片多时先渲染一部分，滚动到底再追加，避免一次性建大量含 base64 音频的卡片
+let _voiceScrollHandler = null;
 function _renderVoiceCardList(list, items) {
-    const frag = document.createDocumentFragment();
-    items.forEach((vc, index) => frag.appendChild(_createVoiceCard(vc, index)));
-    list.appendChild(frag);
+    if (_voiceScrollHandler && list) list.removeEventListener('scroll', _voiceScrollHandler);
+    const PAGE = 60;
+    let index = 0;
+    function renderNext() {
+        const frag = document.createDocumentFragment();
+        const end = Math.min(index + PAGE, items.length);
+        for (; index < end; index++) frag.appendChild(_createVoiceCard(items[index], index));
+        if (frag.childNodes.length) list.appendChild(frag);
+    }
+    renderNext();
+    if (items.length > PAGE) {
+        _voiceScrollHandler = () => {
+            if (index >= items.length) return;
+            if (list.scrollTop + list.clientHeight >= list.scrollHeight - 250) renderNext();
+        };
+        list.addEventListener('scroll', _voiceScrollHandler, { passive: true });
+    }
 }
 
 function _createVoiceCard(vc, index) {

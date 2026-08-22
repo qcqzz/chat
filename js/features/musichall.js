@@ -127,11 +127,14 @@
 
     function _chatHTML() {
         var empty = !messages.length;
+        // 只渲染最近 MH_MAX_MSGS 条：消息很多时音乐厅面板一次性塞全部 base64 图片会拖卡切换页面
+        var MAX = 200;
+        var shown = messages.slice(Math.max(0, messages.length - MAX));
         return '<div class="mh-chat-panel">' +
             '<div class="mh-chat-area" id="mh-chat-area">' +
                 (empty
                     ? '<div class="mh-chat-empty"><i class="far fa-comment-dots"></i><p>边听歌边聊聊吧</p></div>'
-                    : messages.map(_msgHTML).join('')) +
+                    : shown.map(_msgHTML).join('')) +
             '</div>' +
             '<div class="mh-emoji-panel" id="mh-emoji-panel"></div>' +
             '<div class="mh-chat-input-row">' +
@@ -778,7 +781,11 @@
                 // 即时重绘聊天区，让气泡样式生效
                 var area = document.getElementById('mh-chat-area');
                 if (area) {
-                    if (messages.length) area.innerHTML = messages.map(_msgHTML).join('');
+                    if (messages.length) {
+                        // 与 _chatHTML 一致：只重绘最近 200 条，避免大消息量时整份重建拖卡
+                        var MAX = 200;
+                        area.innerHTML = messages.slice(Math.max(0, messages.length - MAX)).map(_msgHTML).join('');
+                    }
                     area.scrollTop = area.scrollHeight;
                 }
                 var names = { 'standard': '标准', 'rounded': '圆角', 'rounded-large': '大圆角', 'square': '方形' };

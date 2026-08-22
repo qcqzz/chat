@@ -917,6 +917,7 @@ let _lastSavedSaveRev = -1;
 let _lastSavedMsgLen = -1;
 let _lastBackupRev = -1;
 window._markChatDataChanged = function () { _saveRev++; };
+window._getChatDataRev = function () { return _saveRev; };
 // 字卡"就绪"闩锁：loadData 把字卡读回内存之前为 false，期间 saveData 与紧急备份都不落写字卡，
 // 防止更新/重载窗口内过早落盘把内存中仍是空数组的 [] 写进 IndexedDB、并污染本地备份镜像。
 // 加载完成后置 true。_restoredCards 标记本次是否从备份恢复了字卡，用于加载后立即回写持久化。
@@ -1719,18 +1720,20 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
         // 阶段三B：识别 oss:// 走懒加载；识别 pending:// 走本地 base64 + 上传中角标
         const isCloudImg = typeof msg.image === 'string' && msg.image.indexOf('oss://') === 0;
         const isPendingImg = typeof msg.image === 'string' && msg.image.indexOf('pending://') === 0;
-        const escapedImg = _escapeHtml(msg.image);
-        const imgAttrs = `class="message-image${isImageOnly ? ' message-image-only' : ''}" alt="图片" style="max-width:${isImageOnly ? '100px' : '100px'}; border-radius: 12px;${!isImageOnly ? ' margin-top: 6px;' : ''} cursor: pointer;" onclick="viewImage('${escapedImg}')"`;
+        // 优化：onclick 不再内嵌整段 base64 图片地址（原来 <img> 的 HTML 里 src 和 onclick 各带一份，
+        // 消息里图片多时字符串翻倍、每次 renderMessages 都要重解析一遍超长 HTML），
+        // 改成 onclick="window._viewMsgImage(this)"，点击时按消息 id 从内存取最新图片地址，行为完全一致。
+        const imgAttrs = `class="message-image${isImageOnly ? ' message-image-only' : ''}" alt="图片" loading="lazy" decoding="async" style="max-width:${isImageOnly ? '100px' : '100px'}; border-radius: 12px;${!isImageOnly ? ' margin-top: 6px;' : ''} cursor: pointer;" onclick="window._viewMsgImage(this)"`;
         if (isCloudImg) {
-            content += `<img data-lazy-cloud-ref="${escapedImg}" ${imgAttrs}>`;
+            content += `<img data-lazy-cloud-ref="${_escapeHtml(msg.image)}" ${imgAttrs}>`;
         } else if (isPendingImg) {
             // 用一个包裹层放"上传中"角标
             content += `<div class="message-image-pending-wrap" style="position:relative;display:inline-block;">`
-                + `<img data-pending-ref="${escapedImg}" ${imgAttrs}>`
+                + `<img data-pending-ref="${_escapeHtml(msg.image)}" ${imgAttrs}>`
                 + `<div class="upload-indicator" style="position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,0.55);color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;"><i class="fas fa-cloud-upload-alt"></i></div>`
                 + `</div>`;
         } else {
-            content += `<img src="${escapedImg}" ${imgAttrs}>`;
+            content += `<img src="${_escapeHtml(msg.image)}" ${imgAttrs}>`;
         }
     }
     messageHTML += content;
@@ -2502,7 +2505,7 @@ if (!isBatchMode && type === 'normal') {
                             changed = true;
                         }
                     });
-                    if (changed) { _updateReadReceiptsDOM(); throttledSaveData(); }
+                    if (changed) { _updateReadReceiptsDOM(); }
                 }, readDelay);
             }
 
@@ -2572,7 +2575,10 @@ if (!isBatchMode && type === 'normal') {
                 }
             });
             if (changed) {
-                window._markChatDataChanged(); _updateReadReceiptsDOM(); throttledSaveData();
+                // 已读状态是会话内瞬态：只更新 DOM，不再触发 chatMessages 整数组重写。
+                // 否则每次伴侣回复都要把含 base64 的整份消息历史 structuredClone 进 IndexedDB，
+                // 消息越多越卡——这是"数据太多后连续聊天卡顿"的重要来源。
+                _updateReadReceiptsDOM();
             }
 
 if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
@@ -2868,6 +2874,21 @@ function showModal(modalElement, focusElement = null) {
                 modalElement.style.transition = '';
             }, 300);
         }
+
+        // 点击消息图片统一入口：从 <img> 往上找所属的消息 wrapper，按消息 id 取最新图片地址。
+        // 这样 <img> 的 HTML 里就不需要内嵌整段 base64（避免字符串翻倍、重渲染重解析超长 HTML）。
+        window._viewMsgImage = function (imgEl) {
+            if (!imgEl) return;
+            const wrapper = imgEl.closest('.message-wrapper');
+            if (!wrapper) return;
+            const msgId = wrapper.dataset.id || wrapper.dataset.msgId;
+            const msg = messages.find(m => String(m.id) === String(msgId));
+            if (msg && msg.image) {
+                viewImage(msg.image);
+            } else if (imgEl.src) {
+                viewImage(imgEl.src);
+            }
+        };
 
         async function viewImage(src) {
             // 阶段三B：云端引用先下载；pending 引用从本地 base64 读

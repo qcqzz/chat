@@ -236,7 +236,27 @@ async function _checkAction(){
 }
 
 function getMomentsUnreadCount(){let n=0;for(const p of momentsData.posts){if(p.isNewForUser)n++;for(const c of p.comments)if(c.authorType==='partner'&&c.isNew)n++;}return n;}
-function markPostRead(postId){const p=momentsData.posts.find(p=>p.id===postId);if(!p)return;p.isNewForUser=false;p.comments.forEach(c=>{c.isNew=false;});saveMomentsData();_updateBadge();}
+// 单条帖子标记已读，返回是否有变化（用于避免无变化时也触发 IndexedDB 保存）
+function _applyPostRead(p){
+    if(!p)return false;
+    const wasNew=p.isNewForUser;
+    p.isNewForUser=false;
+    let anyC=false;
+    if(p.comments&&p.comments.length){p.comments.forEach(c=>{if(c.isNew){c.isNew=false;anyC=true;}});}
+    return wasNew||anyC;
+}
+function markPostRead(postId){
+    if(_applyPostRead(momentsData.posts.find(p=>p.id===postId))){saveMomentsData();_updateBadge();}
+}
+// 动态列表整体打开/渲染时批量标记已读：只在有变化时保存一次，
+// 避免以前"每个帖子各调一次 markPostRead"导致几十上百次 IndexedDB 写。
+function _markAllFeedRead(){
+    let changed=false;
+    for(let i=0;i<momentsData.posts.length;i++){
+        if(_applyPostRead(momentsData.posts[i]))changed=true;
+    }
+    if(changed){saveMomentsData();_updateBadge();}
+}
 function _updateBadge(){
     const spaceIcon=document.getElementById('app-space');
     let b=document.getElementById('moments-header-badge');
@@ -307,7 +327,10 @@ window._mToggleSticker=function(postId){
     const rect=btn?btn.getBoundingClientRect():{top:300,left:10};
     const picker=document.createElement('div'); picker.id='cs-sticker-picker';
     picker.style.cssText=`position:fixed;bottom:${window.innerHeight-rect.top+8}px;left:48px;right:48px;z-index:9500;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:14px;padding:10px;box-shadow:0 8px 32px rgba(0,0,0,0.25);display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:200px;overflow-y:auto;`;
-    pool.forEach(src=>{
+    // 分批渲染 + 滚动加载：贴纸很多时避免一次性创建/解码几百个 base64 <img> 拖卡主线程
+    const PAGE=32;
+    let idx=0;
+    function buildSticker(src){
         const b=document.createElement('button');
         b.style.cssText='position:relative;background:var(--primary-bg);border:1px solid var(--border-color);padding:0;cursor:pointer;border-radius:7px;overflow:hidden;display:block;';
         const spacer=document.createElement('div');
@@ -317,10 +340,22 @@ window._mToggleSticker=function(postId){
         const imgTag=isCloud?`<img data-lazy-cloud-ref="${src}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;">`:`<img src="${src}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;">`;
         b.insertAdjacentHTML('beforeend', imgTag);
         b.onclick=()=>window._mSelectSticker(postId,src);
-        picker.appendChild(b);
-    });
+        return b;
+    }
+    function renderNext(){
+        const frag=document.createDocumentFragment();
+        const end=Math.min(idx+PAGE,pool.length);
+        for(;idx<end;idx++)frag.appendChild(buildSticker(pool[idx]));
+        if(frag.childNodes.length){picker.appendChild(frag);_bindLazy(frag);}
+    }
+    renderNext();
+    if(pool.length>PAGE){
+        picker.addEventListener('scroll',function(){
+            if(idx>=pool.length)return;
+            if(picker.scrollTop+picker.clientHeight>=picker.scrollHeight-120)renderNext();
+        },{passive:true});
+    }
     document.body.appendChild(picker);
-    _bindLazy(picker);
     setTimeout(()=>{function c(ev){if(!picker.contains(ev.target)&&(!btn||!btn.contains(ev.target))){picker.remove();document.removeEventListener('click',c);}}document.addEventListener('click',c);},100);
 };
 
@@ -613,13 +648,56 @@ function _csSetTab(tab){
     const btn=document.getElementById('csp-'+tab);
     if(btn)btn.classList.add('cs-pill-on');
 }
+// 动态列表分批渲染状态：帖子很多且带图时，一次性建几百个含 base64/云端图片的卡片会拖卡主线程。
+// 这里首屏只渲染 PAGE 条，滚动到底部附近再追加下一批。
+let _csFeedState=null; // { list, posts, idx, PAGE, renderNext, scrollHandler }
 function _csRenderFeed(){
     const list=document.getElementById('cs-feed-list');if(!list)return;
+    if(_csFeedState&&_csFeedState.scrollHandler&&_csFeedState.list) _csFeedState.list.removeEventListener('scroll',_csFeedState.scrollHandler);
+    _csFeedState=null;
     if(!momentsData.posts.length){list.innerHTML=`<div class="cs-empty"><i class="fas fa-wind"></i><div class="cs-empty-label">还没有动态<br>来发第一条吧~</div></div>`;return;}
-    list.innerHTML=momentsData.posts.map(p=>_renderCard(p)).join('');_bindLazy(list);
-    momentsData.posts.forEach(p=>markPostRead(p.id));
+    const posts=momentsData.posts;
+    const state={list,posts,idx:0,PAGE:12,scrollHandler:null};
+    _csFeedState=state;
+    list.innerHTML='';
+    state.renderNext=function(){
+        const frag=document.createDocumentFragment();
+        const end=Math.min(state.idx+state.PAGE,posts.length);
+        for(;state.idx<end;state.idx++){
+            const tmp=document.createElement('div');
+            tmp.innerHTML=_renderCard(posts[state.idx]);
+            if(tmp.firstElementChild)frag.appendChild(tmp.firstElementChild);
+        }
+        if(frag.childNodes.length){list.appendChild(frag);_bindLazy(frag);}
+        if(state.idx>=posts.length){
+            // 全部渲染完成，解绑滚动加载
+            if(state.scrollHandler&&state.list){state.list.removeEventListener('scroll',state.scrollHandler);state.scrollHandler=null;}
+        }
+    };
+    state.renderNext();
+    if(posts.length>state.PAGE){
+        state.scrollHandler=function(){
+            if(state.idx>=posts.length)return;
+            if(list.scrollTop+list.clientHeight>=list.scrollHeight-300)state.renderNext();
+        };
+        list.addEventListener('scroll',state.scrollHandler,{passive:true});
+    }
+    // 打开动态页即批量标记已读（与原行为一致），只保存一次，避免逐条触发 IndexedDB 写
+    _markAllFeedRead();
 }
-function _csScrollTo(postId){const idx=momentsData.posts.findIndex(p=>p.id===postId);const panel=document.getElementById('cs-panel-feed');if(!panel||idx<0)return;const cards=panel.querySelectorAll('.cs-post');if(cards[idx])cards[idx].scrollIntoView({behavior:'smooth',block:'start'});}
+function _csScrollTo(postId){
+    const idx=momentsData.posts.findIndex(p=>p.id===postId);
+    const panel=document.getElementById('cs-panel-feed');
+    if(!panel||idx<0)return;
+    const st=_csFeedState;
+    // 目标帖子还没被分批渲染出来：先把批次推进到目标位置，再滚动
+    if(st&&st.posts&&idx>=st.idx){
+        let guard=0;
+        while(st.idx<=idx&&st.idx<st.posts.length&&guard<100000){st.renderNext();guard++;}
+    }
+    const cards=panel.querySelectorAll('.cs-post');
+    if(cards[idx])cards[idx].scrollIntoView({behavior:'smooth',block:'start'});
+}
 
 // ─── 发帖 sheet ───
 const _VIDEO_MAX_BYTES = 50 * 1024 * 1024; // 50MB

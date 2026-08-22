@@ -4,6 +4,9 @@
     var MY_CUST_KEY  = 'pokeSym_my_custom';
     var PTR_CUST_KEY = 'pokeSym_partner_custom';
 
+    // 发图挑选器里贴纸网格的滚动加载处理器，重渲染时先解绑，避免重复叠加
+    var _comboStickerScrollHandler = null;
+
     var PRESETS = [
         { value: 'none',    label: '无装饰',   sym: '' },
         { value: 'star4',   label: '✦ 四角星', sym: '✦' },
@@ -575,48 +578,66 @@ function showEmojiTab() {
         });
     }
 
-    if (Array.isArray(stickerLibrary)) {
-        stickerLibrary.forEach(src => {
-        const item = document.createElement('div');
-        item.className = 'picker-item';
-        // 阶段三B：识别 oss:// 走懒加载
-        const isCloud = typeof src === 'string' && src.indexOf('oss://') === 0;
-        item.innerHTML = `<img style="width:100%; height:100%; object-fit:cover; border-radius:6px;">`;
-        const imgEl = item.querySelector('img');
-        if (isCloud) {
-            if (window.CloudMedia) window.CloudMedia.bindLazyImage(imgEl, src);
-        } else {
-            imgEl.src = src;
-        }
-        item.onclick = () => {
-            if (isBatchMode) {
-                batchMessages.push({ id: Date.now() + batchMessages.length, text: '', image: src });
-                updateBatchPreview();
-                showNotification('已添加到批量发送', 'success', 1200);
+    if (Array.isArray(stickerLibrary) && stickerLibrary.length > 0) {
+        // 分批渲染 + 滚动加载：贴纸很多时一次性创建/解码几百个 base64 <img> 会拖卡主线程
+        if (_comboStickerScrollHandler) area.removeEventListener('scroll', _comboStickerScrollHandler);
+        const PAGE = 60;
+        let idx = 0;
+        function buildSticker(src, si) {
+            const item = document.createElement('div');
+            item.className = 'picker-item';
+            // 阶段三B：识别 oss:// 走懒加载
+            const isCloud = typeof src === 'string' && src.indexOf('oss://') === 0;
+            item.innerHTML = `<img style="width:100%; height:100%; object-fit:cover; border-radius:6px;">`;
+            const imgEl = item.querySelector('img');
+            if (isCloud) {
+                if (window.CloudMedia) window.CloudMedia.bindLazyImage(imgEl, src);
             } else {
-                addMessage({
-                    id: Date.now(),
-                    sender: 'user',
-                    text: '',
-                    timestamp: new Date(),
-                    image: src,
-                    status: 'sent',
-                    type: 'normal'
-                });
-                playSound('send');
-                
-                const delayRange = settings.replyDelayMax - settings.replyDelayMin;
-                const randomDelay = settings.replyDelayMin + Math.random() * delayRange;
-                if (window._queueReply) {
-                    window._queueReply(() => simulateReply());
-                } else {
-                    window._pendingReplyTimer = setTimeout(() => { window._pendingReplyTimer = null; simulateReply(); }, randomDelay);
-                }
+                imgEl.src = src;
             }
-            document.getElementById('user-sticker-picker').classList.remove('active');
-        };
-        area.appendChild(item);
-    });
+            item.onclick = () => {
+                if (isBatchMode) {
+                    batchMessages.push({ id: Date.now() + batchMessages.length, text: '', image: src });
+                    updateBatchPreview();
+                    showNotification('已添加到批量发送', 'success', 1200);
+                } else {
+                    addMessage({
+                        id: Date.now(),
+                        sender: 'user',
+                        text: '',
+                        timestamp: new Date(),
+                        image: src,
+                        status: 'sent',
+                        type: 'normal'
+                    });
+                    playSound('send');
+
+                    const delayRange = settings.replyDelayMax - settings.replyDelayMin;
+                    const randomDelay = settings.replyDelayMin + Math.random() * delayRange;
+                    if (window._queueReply) {
+                        window._queueReply(() => simulateReply());
+                    } else {
+                        window._pendingReplyTimer = setTimeout(() => { window._pendingReplyTimer = null; simulateReply(); }, randomDelay);
+                    }
+                }
+                document.getElementById('user-sticker-picker').classList.remove('active');
+            };
+            return item;
+        }
+        function renderNext() {
+            const frag = document.createDocumentFragment();
+            const end = Math.min(idx + PAGE, stickerLibrary.length);
+            for (; idx < end; idx++) frag.appendChild(buildSticker(stickerLibrary[idx], idx));
+            if (frag.childNodes.length) area.appendChild(frag);
+        }
+        renderNext();
+        if (stickerLibrary.length > PAGE) {
+            _comboStickerScrollHandler = () => {
+                if (idx >= stickerLibrary.length) return;
+                if (area.scrollTop + area.clientHeight >= area.scrollHeight - 200) renderNext();
+            };
+            area.addEventListener('scroll', _comboStickerScrollHandler, { passive: true });
+        }
     }
 }
 

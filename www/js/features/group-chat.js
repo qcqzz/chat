@@ -492,6 +492,10 @@ window._runMsgSearch = function() {
         return;
     }
 
+    // 优化：搜索命中可能成千上万，一次性 map 成 DOM 会拖卡主线程，只渲染前 200 条
+    var SHOWN = 200;
+    var shownList = filtered.slice(0, SHOWN);
+
     var myAvatarEl = document.querySelector('#my-avatar img');
     var partnerAvatarEl = document.querySelector('#partner-avatar img');
     var myAvatar = myAvatarEl ? myAvatarEl.src : '';
@@ -506,7 +510,7 @@ window._runMsgSearch = function() {
         return safe.replace(new RegExp('(' + safeQ + ')', 'gi'), '<mark style="background:rgba(var(--accent-color-rgb,180,140,100),0.3);border-radius:2px;padding:0 1px;">$1</mark>');
     }
 
-    resultsEl.innerHTML = filtered.map(function(msg) {
+    resultsEl.innerHTML = shownList.map(function(msg) {
         var isUser = msg.sender === 'user';
         var name = isUser ? myName : partnerName;
         var avatar = isUser ? myAvatar : partnerAvatar;
@@ -543,7 +547,7 @@ window._runMsgSearch = function() {
     }).join('');
 
     resultsEl.insertAdjacentHTML('afterbegin',
-        '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;padding:0 2px;">共找到 ' + filtered.length + ' 条结果</div>'
+        '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;padding:0 2px;">共找到 ' + filtered.length + ' 条结果' + (filtered.length > SHOWN ? '，仅显示前 ' + SHOWN + ' 条' : '') + '</div>'
     );
 };
 
