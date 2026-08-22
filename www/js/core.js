@@ -935,6 +935,9 @@ let _saveRev = 0;
 let _lastSavedSaveRev = -1;
 let _lastSavedMsgLen = -1;
 let _lastBackupRev = -1;
+// 消息主存储落库节流：见 saveData 内 chatMessages 分支的说明。JS 变量在下方定义，保证闭包可读。
+let _MSG_PERSIST_INTERVAL = 3000;
+let _msgPersistAt = 0;
 window._markChatDataChanged = function () { _saveRev++; };
 window._getChatDataRev = function () { return _saveRev; };
 // 字卡"就绪"闩锁：loadData 把字卡读回内存之前为 false，期间 saveData 与紧急备份都不落写字卡，
@@ -1112,7 +1115,7 @@ function _tryRecoverFromBackup() {
     }
 }
 
-const saveData = async () => {
+const saveData = async (force) => {
     if (!SESSION_ID) {
         console.warn('[saveData] SESSION_ID 尚未初始化，跳过保存以防数据写入临时 key');
         return;
@@ -1141,6 +1144,14 @@ const saveData = async () => {
             const msgLen = Array.isArray(messages) ? messages.length : 0;
             // 消息未发生变更(长度未变 且 无追加/撤回/已读等变更标记)时跳过重写，避免每条消息都重拷整份含 base64 的数组
             if (_saveRev !== _lastSavedSaveRev || msgLen !== _lastSavedMsgLen) {
+                // 消息主存储落库再做一层独立节流：连续操作时 throttledSaveData(500ms) 会反复触发 saveData，
+                // 而 localforage.setItem 会对整份含大量 base64 图片的 messages 做结构化克隆——导入大数据后
+                // 每次 clone 都可能阻塞主线程数百毫秒到数秒，连点/连发时表现就是"整个应用都卡"。
+                // 这里把消息实体落库限制为每 3 秒至多一次；退出/切后台时通过 saveData(true) 强制绕过本守卫，
+                // 保证退出前最新消息都能落盘（不会丢数据）。
+                const now = Date.now();
+                if (!force && now - (_msgPersistAt || 0) < _MSG_PERSIST_INTERVAL) return Promise.resolve();
+                _msgPersistAt = now;
                 return localforage.setItem(getStorageKey('chatMessages'), messages).then(() => {
                     _lastSavedSaveRev = _saveRev;
                     _lastSavedMsgLen = msgLen;

@@ -196,7 +196,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 } catch (e) { console.warn('[visibilitychange] 重新拉起保活失败:', e); }
                 try {
-                    const p = saveData();
+                    // saveData(true)：切后台时强制绕过消息落库节流，立即把整份消息（含图片）写进 IndexedDB，
+                    // 避免依赖 3 秒节流导致退出时丢最新消息
+                    const p = saveData(true);
                     if (p && typeof p.catch === 'function') {
                         p.catch(e => console.error('[visibilitychange] 保存失败:', e));
                     }
@@ -248,10 +250,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         window.addEventListener('pagehide', () => {
+            try { if (typeof saveData === 'function') saveData(true).catch(() => {}); } catch (e) {}
             try { if (typeof _flushCriticalBackup === 'function') _flushCriticalBackup(); else _backupCriticalData(); } catch (e) {}
         });
 
         window.addEventListener('beforeunload', () => {
+            try { if (typeof saveData === 'function') saveData(true).catch(() => {}); } catch (e) {}
             try { if (typeof _flushCriticalBackup === 'function') _flushCriticalBackup(); else _backupCriticalData(); } catch (e) {}
         });
 
