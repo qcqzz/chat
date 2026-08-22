@@ -189,7 +189,10 @@
 
 (function() {
     var KEY = 'keepaliveAudioEnabled';
-    var SRC = 'https://img.heliar.top/file/1772885159972_silence.m4a';
+    // 内嵌静音音频（base64 WAV），完全本地，不依赖外网：
+    // 1) 移动端启动时不再拉远程音频，减少卡顿与网络重试；
+    // 2) muted=true 可绕过浏览器自动播放限制，让 WebView 无需用户操作也能直接进入"运行中"。
+    var SRC = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
     var _audio = null;
     var _unlockBound = false;
     var _retryTimer = null;
@@ -203,11 +206,12 @@
         _audio = new Audio(SRC);
         _audio.loop   = true;
         _audio.volume = 0.01;
+        _audio.muted  = true;   // 静音自播：绕过自动播放策略，评保活可靠进入"运行中"
         _audio.preload = 'auto';
         _audio._createdAt = Date.now();
         _audio.addEventListener('play',  function(){ _setUI(true);  });
         _audio.addEventListener('pause', function(){ _setUI(false); });
-        // 静音音频一旦出错/中断，自动重建重试，避免保活悄悄失效
+        // 静音音频一旦出错/中断，自动重建重试，避免保活悄悄失效（本地资源重试开销极小）
         ['error', 'abort', 'stalled', 'emptied'].forEach(function (evt) {
             _audio.addEventListener(evt, function () {
                 console.warn('[keepalive] 音频事件:', evt);
@@ -270,7 +274,7 @@
         if (desc) {
             if (!_get())  desc.textContent = '保持后台运行，不错过ta的消息';
             else if (playing) desc.textContent = '运行中 · 页面已保活';
-            else         desc.textContent = '已开启 · 首次点击/回前台后自动激活';
+            else         desc.textContent = '已开启 · 正在自动拉起';
         }
         if (row)  row.style.display = _get() ? 'flex' : 'none';
         var bars = document.querySelectorAll('.keepalive-wave-bar');

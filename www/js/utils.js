@@ -624,7 +624,55 @@ function applyGlobalThemeCss(cssCode) {
     styleTag.textContent = cssCode;
 }
 
+// 全量备份进度条弹窗：返回 { update(pct,label), done(), close() }
+window.showBackupProgress = function () {
+    try {
+        var overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:999992;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML =
+            '<div style="width:min(420px,88vw);background:var(--secondary-bg,#fff);border-radius:18px;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;">'
+            + '<div style="font-size:17px;font-weight:800;color:var(--text-primary);display:flex;align-items:center;justify-content:center;gap:8px;"><i class="fas fa-file-export" style="color:var(--accent-color);"></i>正在备份</div>'
+            + '<div id="bkprog-label" style="margin:12px 0 6px;font-size:13px;color:var(--text-secondary);min-height:18px;">准备中…</div>'
+            + '<div style="height:12px;border-radius:8px;background:rgba(127,127,127,0.18);overflow:hidden;">'
+            +   '<div id="bkprog-bar" style="height:100%;width:0%;border-radius:8px;background:linear-gradient(90deg,var(--accent-color,#4A90E2),#6ab0ff);transition:width .25s ease;"></div>'
+            + '</div>'
+            + '<div style="margin-top:8px;font-size:12px;color:var(--text-secondary);opacity:0.8;" id="bkprog-pct">0%</div>'
+            + '</div>';
+        document.body.appendChild(overlay);
+        var bar = overlay.querySelector('#bkprog-bar');
+        var pctEl = overlay.querySelector('#bkprog-pct');
+        var labelEl = overlay.querySelector('#bkprog-label');
+        var started = Date.now();
+        return {
+            update: function (pct, label) {
+                pct = Math.max(0, Math.min(100, Math.round(pct || 0)));
+                if (bar) bar.style.width = pct + '%';
+                if (pctEl) pctEl.textContent = pct + '%';
+                if (labelEl && label) labelEl.textContent = label;
+            },
+            done: function () {
+                if (bar) bar.style.width = '100%';
+                if (pctEl) pctEl.textContent = '100%';
+                if (labelEl) labelEl.textContent = '备份完成 ✓';
+                var self = overlay;
+                setTimeout(function () { if (self && self.parentNode) self.parentNode.removeChild(self); }, 900);
+            },
+            close: function () {
+                if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            }
+        };
+    } catch (e) {
+        // 弹窗创建失败时静默降级，不影响备份本身
+        return { update: function () {}, done: function () {}, close: function () {} };
+    }
+};
+
 async function exportAllData() {
+    // 打开全量备份的进度条弹窗
+    var prog = typeof window.showBackupProgress === 'function' ? window.showBackupProgress() : null;
+    var onProgress = function (pct, label) {
+        if (prog && typeof prog.update === 'function') prog.update(pct, label);
+    };
     try {
         if (typeof ChatBackup !== 'undefined' && ChatBackup.exportBackupToFile) {
             await ChatBackup.exportBackupToFile({
@@ -636,10 +684,12 @@ async function exportAllData() {
                 inclDg: true,
                 inclStickers: true,
                 inclCS: true
-            });
+            }, onProgress);
+            if (prog && typeof prog.done === 'function') prog.done();
             return;
         }
         if (typeof ChatBackup !== 'undefined' && ChatBackup.buildBackupPayload && ChatBackup.serializeBackupV4) {
+            if (prog && typeof prog.update === 'function') prog.update(15, '正在读取本地数据…');
             const payload = await ChatBackup.buildBackupPayload({
                 inclMsgs: true,
                 inclSet: true,
@@ -650,14 +700,17 @@ async function exportAllData() {
                 inclStickers: true,
                 inclCS: true
             });
+            if (prog && typeof prog.update === 'function') prog.update(60, '正在生成备份文件…');
             const jsonString = ChatBackup.serializeBackupV4(payload);
             const dateStr = new Date().toISOString().slice(0, 10);
             const fileName = `chatapp-backup-${dateStr}.json`;
             const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
             // Capacitor 环境优先使用原生分享
             if (_isCapacitorEnv()) {
+                if (prog && typeof prog.update === 'function') prog.update(92, '正在保存到手机…');
                 downloadFileFallback(blob, fileName);
                 if (typeof showNotification === 'function') showNotification('已导出 JSON 备份', 'success');
+                if (prog && typeof prog.done === 'function') prog.done();
                 return;
             }
             // 移动端 / WebView 优先尝试系统分享（保存到文件）
@@ -667,17 +720,21 @@ async function exportAllData() {
                     if (navigator.canShare({ files: [file] })) {
                         await navigator.share({ files: [file], title: '传讯全量备份', text: '备份日期：' + dateStr });
                         if (typeof showNotification === 'function') showNotification('备份导出成功', 'success');
+                        if (prog && typeof prog.done === 'function') prog.done();
                         return;
                     }
                 } catch (e) { /* 用户取消或不支持，回退到下载 */ }
             }
             downloadFileFallback(blob, fileName);
             if (typeof showNotification === 'function') showNotification('已导出 JSON 备份', 'success');
+            if (prog && typeof prog.done === 'function') prog.done();
         } else {
+            if (prog && typeof prog.close === 'function') prog.close();
             showNotification('备份模块或函数未加载，请刷新页面', 'error');
         }
     } catch (e) {
         console.error('全量导出失败:', e);
+        if (prog && typeof prog.close === 'function') prog.close();
         showNotification('全量导出失败，请重试', 'error');
     }
 }
@@ -846,7 +903,7 @@ async function importAllData(file) {
 }
 
 // ====== 软件更新检查 ======
-var APP_VERSION = '2.2.0';
+var APP_VERSION = '2.3.1';
 var GITHUB_REPO = 'qcqzz/chat';
 var GITHUB_RELEASES_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest';
 var GITHUB_API_URL = 'https://api.github.com/repos/' + GITHUB_REPO + '/releases/latest';

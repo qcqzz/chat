@@ -491,6 +491,13 @@
             var remote = await _downloadFromOSS(objectKey);
             if (!remote) throw new Error('云端找不到该梦角的数据');
 
+            // 覆盖写盘前的安全网：先把当前完整本地数据留一份回滚快照（独立前缀，清库不会清掉它）
+            try {
+                if (typeof ChatBackup !== 'undefined' && typeof ChatBackup.makeRollbackSnapshot === 'function') {
+                    await ChatBackup.makeRollbackSnapshot('云同步恢复到本地');
+                }
+            } catch (_serr) { console.warn('[cloud-sync] 云同步前快照失败:', _serr); }
+
             // 需要保留的 key（不清空）：全局配置，不属于任何梦角
             var PRESERVE_KEYS = [
                 APP_PREFIX_STR + 'cloudSyncConfig',   // 阿里云密钥

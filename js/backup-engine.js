@@ -317,6 +317,32 @@
         reader.readAsDataURL(blob);
     }
 
+    // 把 Blob 真正保存到手机「下载/ChuanXun」目录（MediaStore 写入，文件管理器立即可见），返回 Promise
+    function _saveToDevice(blob, fileName) {
+        return new Promise(function (resolve, reject) {
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ExportPlugin) {
+                _saveViaExportPlugin(blob, fileName, function (ok) {
+                    if (ok) {
+                        if (typeof showNotification === 'function') {
+                            showNotification('备份已保存到手机「下载/ChuanXun」目录', 'success', 4000);
+                        }
+                        resolve();
+                    } else {
+                        reject(new Error('保存到「下载/ChuanXun」失败'));
+                    }
+                });
+                return;
+            }
+            // 兜底：走通用下载（浏览器环境或缺少插件时）
+            try {
+                downloadBlob(blob, fileName);
+                resolve();
+            } catch (e) {
+                reject(e);
+            }
+        });
+    }
+
     function _capacitorSaveAndShare(blob, fileName) {
         // 使用 Filesystem 插件将文件写入缓存目录，然后分享
         var fs = _getFilesystemPlugin();
@@ -513,9 +539,17 @@
         return !!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share);
     }
 
-    async function exportBackupToFile(flags) {
+    async function exportBackupToFile(flags, progress) {
+        progress = progress || function () {};
+        // 进度回调：0-100，仅在有效阶段上报
+        var report = function (pct, label) {
+            try { progress(Math.max(0, Math.min(100, pct)), label || ''); } catch (e) {}
+        };
+
         if (typeof showNotification === 'function') showNotification('正在打包备份（ZIP：结构与媒体分离）…', 'info', 4000);
+        report(8, '正在读取本地数据…');
         var payload = await buildBackupPayload(flags);
+        report(35, '数据读取完成，正在打包 ZIP…');
         var dateStr = new Date().toISOString().slice(0, 10);
         var fileNameZip = 'chatapp-backup-' + dateStr + '.zip';
 
@@ -524,19 +558,28 @@
                 var zip = new JSZip();
                 var store = payload.mediaStore || {};
                 var mediaIndex = {};
+                var totalMedia = 0;
                 for (var sid in store) {
                     if (!Object.prototype.hasOwnProperty.call(store, sid)) continue;
-                    var url = store[sid];
+                    totalMedia++;
+                }
+                var doneMedia = 0;
+                for (var sid2 in store) {
+                    if (!Object.prototype.hasOwnProperty.call(store, sid2)) continue;
+                    var url = store[sid2];
                     var parts = dataUrlToBinary(url);
-                    var path = 'media/' + sid;
+                    var path = 'media/' + sid2;
                     if (parts && parts.bytes && parts.bytes.length) {
                         zip.file(path, parts.bytes, { binary: true });
-                        mediaIndex[sid] = { path: path, mime: parts.mime };
+                        mediaIndex[sid2] = { path: path, mime: parts.mime };
                     } else {
                         var txtPath = path + '.txt';
                         zip.file(txtPath, String(url));
-                        mediaIndex[sid] = { path: txtPath, mime: 'text/plain+dataurl' };
+                        mediaIndex[sid2] = { path: txtPath, mime: 'text/plain+dataurl' };
                     }
+                    doneMedia++;
+                    // 媒体压缩阶段：35% → 60%
+                    report(35 + Math.round(25 * doneMedia / (totalMedia || 1)), '正在压缩媒体文件…');
                 }
                 var jsonBody = {
                     type: 'chatapp-backup-v5',
@@ -551,14 +594,22 @@
                     mediaIndex: mediaIndex
                 };
                 zip.file('backup.json', '\uFEFF' + JSON.stringify(jsonBody));
+                report(65, '正在生成 ZIP 压缩包…');
                 var zipBlob = await zip.generateAsync({
                     type: 'blob',
                     compression: 'DEFLATE',
                     compressionOptions: { level: 6 }
+                }, function (meta) {
+                    // 压缩阶段：65% → 88%
+                    if (meta && typeof meta.percent === 'number') {
+                        report(65 + Math.round(23 * meta.percent / 100), '正在压缩文件…');
+                    }
                 });
-                // Capacitor 环境：直接保存到手机「下载/ChuanXun」目录
+                // Capacitor 环境：直接保存到手机「下载/ChuanXun」目录（文件管理器可见）
                 if (_isCapacitorEnv()) {
-                    downloadBlob(zipBlob, fileNameZip);
+                    report(92, '正在保存到手机「下载/ChuanXun」…');
+                    await _saveToDevice(zipBlob, fileNameZip);
+                    report(100, '保存完成');
                     return;
                 }
                 if (navigator.share && /Mobile|Android|iPhone|iPad/.test(navigator.userAgent)) {
@@ -570,12 +621,14 @@
                                 title: '传讯全量备份',
                                 text: 'ZIP 备份：' + new Date().toLocaleDateString()
                             });
+                            report(100, '备份导出成功');
                             if (typeof showNotification === 'function') showNotification('备份导出成功', 'success');
                             return;
                         }
                     } catch (e) { /* fall through */ }
                 }
                 downloadBlob(zipBlob, fileNameZip);
+                report(100, '备份导出成功');
                 if (typeof showNotification === 'function') {
                     showNotification('已导出 ZIP：主 JSON 不含大图，导入更不易失败', 'success', 3500);
                 }
@@ -593,9 +646,11 @@
         var str = serializeBackupV4(payload);
         var blob = new Blob([str], { type: 'application/json;charset=utf-8' });
         var fileName = 'chatapp-backup-' + dateStr + '.json';
-        // Capacitor 环境：直接保存到手机「下载/ChuanXun」目录
+        // Capacitor 环境：直接保存到手机「下载/ChuanXun」目录（文件管理器可见）
         if (_isCapacitorEnv()) {
-            downloadBlob(blob, fileName);
+            report(92, '正在保存到手机「下载/ChuanXun」…');
+            await _saveToDevice(blob, fileName);
+            report(100, '保存完成');
             return;
         }
         if (navigator.share && /Mobile|Android|iPhone|iPad/.test(navigator.userAgent)) {
@@ -603,12 +658,14 @@
                 var f = new File([blob], fileName, { type: 'application/json' });
                 if (navigator.canShare && navigator.canShare({ files: [f] })) {
                     await navigator.share({ files: [f], title: '传讯全量备份', text: '备份日期：' + new Date().toLocaleDateString() });
+                    report(100, '备份导出成功');
                     if (typeof showNotification === 'function') showNotification('备份导出成功', 'success');
                     return;
                 }
             } catch (e2) { /* fall through */ }
         }
         downloadBlob(blob, fileName);
+        report(100, '备份导出成功');
         if (typeof showNotification === 'function') showNotification('备份导出成功（JSON）', 'success');
     }
 
@@ -673,6 +730,10 @@
     async function applyBackupToStorage(data, opt) {
         opt = opt || {};
         var selective = !!opt.selective;
+        // 覆盖写盘前的安全网：先生成一份"操作前"完整快照（恢复回滚时跳过，避免自相覆盖）
+        if (!window._restoringRollback) {
+            try { await _makeRollbackSnapshot('导入/恢复'); } catch (e) {}
+        }
         var mediaStore = data.mediaStore || {};
         var lfRaw = getLfSource(data);
         var lsRaw = data.localStorage || {};
@@ -747,6 +808,85 @@
         }
     }
 
+    // ===== 自动回滚快照 =====
+    // 无论"更新覆盖"、"云同步覆盖"还是"导入/恢复"，任何覆盖写盘前都会先生成一份完整本地快照，
+    // 存入独立的 IndexedDB 快照槽（保留最近 2 份），即使后续操作/更新导致数据丢失，也能一键找回。
+    // 独立前缀（不以 APP_PREFIX 开头），这样"云同步覆盖到本地"在清空 CHAT_APP 前缀 key 时不会把快照一起清掉
+    var ROLLBACK_PREFIX = '__rollback_';
+
+    function _appPfx() {
+        return (typeof APP_PREFIX !== 'undefined') ? APP_PREFIX : 'CHAT_APP_V3_';
+    }
+
+    async function _makeRollbackSnapshot(reason) {
+        try {
+            var lfMap = {};
+            var allKeys = await localforage.keys();
+            for (var i = 0; i < allKeys.length; i++) {
+                var k = allKeys[i];
+                if (k.indexOf(ROLLBACK_PREFIX) === 0) continue; // 快照槽不嵌套进快照
+                try { lfMap[k] = await localforage.getItem(k); } catch (e) {}
+            }
+            var lsMap = {};
+            for (var j = 0; j < localStorage.length; j++) {
+                var lk = localStorage.key(j);
+                try { lsMap[lk] = localStorage.getItem(lk); } catch (e) {}
+            }
+            var slotKey = ROLLBACK_PREFIX + Date.now();
+            var payload = {
+                formatVersion: 5,
+                type: 'chatapp-backup-v5',
+                appPrefix: _appPfx(),
+                sessionId: (typeof SESSION_ID !== 'undefined') ? SESSION_ID : undefined,
+                t: Date.now(),
+                reason: reason || '操作前',
+                indexedDB: lfMap,
+                localStorage: lsMap
+            };
+            await localforage.setItem(slotKey, payload);
+            // 只保留最近 2 份，避免无限膨胀
+            var prefix = ROLLBACK_PREFIX;
+            var all2 = await localforage.keys();
+            var mine = all2.filter(function (x) { return x.indexOf(prefix) === 0; }).sort();
+            while (mine.length > 2) { try { await localforage.removeItem(mine[0]); } catch (e) {} mine.shift(); }
+            console.log('[rollback] 已生成操作前快照:', reason || '操作前', slotKey);
+            return slotKey;
+        } catch (e) {
+            console.warn('[rollback] 快照失败:', e);
+            return null;
+        }
+    }
+
+    async function _listRollbackSnapshots() {
+        var prefix = ROLLBACK_PREFIX;
+        var all = await localforage.keys();
+        var out = [];
+        for (var i = 0; i < all.length; i++) {
+            if (all[i].indexOf(prefix) === 0) {
+                var p = null;
+                try { p = await localforage.getItem(all[i]); } catch (e) {}
+                if (p) out.push({ key: all[i], t: (p.t || 0), reason: (p.reason || '操作前') });
+            }
+        }
+        out.sort(function (a, b) { return b.t - a.t; });
+        return out;
+    }
+
+    async function _restoreRollbackSnapshot(slotKey) {
+        var payload = await localforage.getItem(slotKey);
+        if (!payload) throw new Error('快照不存在或已被清理');
+        window._restoringRollback = true;
+        // 复用统一的恢复写盘逻辑（含 session remap、_importGuarded 守卫）
+        await applyBackupToStorage(payload, {});
+        window._importGuarded = true;
+        try {
+            localStorage.removeItem('BACKUP_V1_critical');
+            localStorage.removeItem('BACKUP_V1_timestamp');
+            localStorage.removeItem('_cdRecLogs');
+        } catch (e) {}
+        return slotKey;
+    }
+
     function isFullBackupShape(d) {
         if (!d || typeof d !== 'object') return false;
         if (d.formatVersion === 5 && d.type === 'chatapp-backup-v5') return true;
@@ -766,6 +906,9 @@
         loadBackupFromFile: loadBackupFromFile,
         loadBackupFromArrayBuffer: loadBackupFromArrayBuffer,
         applyBackupToStorage: applyBackupToStorage,
+        makeRollbackSnapshot: _makeRollbackSnapshot,
+        listRollbackSnapshots: _listRollbackSnapshots,
+        restoreRollbackSnapshot: _restoreRollbackSnapshot,
         serializeBackupV4: serializeBackupV4,
         getLfSource: getLfSource,
         isFullBackupShape: isFullBackupShape,

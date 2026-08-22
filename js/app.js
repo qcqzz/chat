@@ -221,31 +221,54 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } catch(e) { console.warn('[visibilitychange] 补发消息失败:', e); }
 
                 try {
-                    const backup = typeof _tryRecoverFromBackup === 'function' ? _tryRecoverFromBackup() : null;
-                    if (backup && Array.isArray(backup.messages) && backup.messages.length > 0 && Array.isArray(messages) && backup.messages.length > messages.length) {
-                        console.warn('[visibilitychange] 检测到备份消息比当前更多，自动尝试恢复');
+                    // 回到前台：先把当前帧渲染出去，避免下面任何恢复/检查阻塞首帧（"回到前台卡顿"来源）
+                    requestAnimationFrame(() => {
                         try {
-                            messages = backup.messages.map(m => {
-                                const ts = new Date(m.timestamp);
-                                return { ...m, timestamp: isNaN(ts.getTime()) ? new Date() : ts };
-                            });
-                            if (backup.settings) Object.assign(settings, backup.settings);
-                            if (typeof updateUI === 'function') updateUI();
-                            if (typeof throttledSaveData === 'function') throttledSaveData();
-                            showNotification('已自动恢复本地临时备份内容', 'warning', 3500);
+                            // 分片处理备份恢复：备份消息较多时分批 map，避免一次同步展开上万条卡死主线程
+                            const backup = typeof _tryRecoverFromBackup === 'function' ? _tryRecoverFromBackup() : null;
+                            if (backup && Array.isArray(backup.messages) && backup.messages.length > 0 && Array.isArray(messages) && backup.messages.length > messages.length) {
+                                // 备份消息数远大于当前内存时，说明确实丢了不少；否则轻微差异不做全量恢复
+                                if (backup.messages.length - messages.length < 3) {
+                                    // 差异很小，直接放弃恢复，避免把当前页面内容整体替换
+                                } else {
+                                    console.warn('[visibilitychange] 检测到备份消息比当前更多，自动尝试恢复');
+                                    const srcMsgs = backup.messages;
+                                    const target = new Array(srcMsgs.length);
+                                    let idx = 0;
+                                    const CHUNK = 200;
+                                    const step = () => {
+                                        const end = Math.min(idx + CHUNK, srcMsgs.length);
+                                        for (; idx < end; idx++) {
+                                            const m = srcMsgs[idx];
+                                            const ts = new Date(m.timestamp);
+                                            target[idx] = Object.assign({}, m, { timestamp: isNaN(ts.getTime()) ? new Date() : ts });
+                                        }
+                                        if (idx < srcMsgs.length) {
+                                            requestAnimationFrame(step);
+                                        } else {
+                                            messages = target;
+                                            if (backup.settings) Object.assign(settings, backup.settings);
+                                            if (typeof updateUI === 'function') updateUI();
+                                            if (typeof throttledSaveData === 'function') throttledSaveData();
+                                            showNotification('已自动恢复本地临时备份内容', 'warning', 3500);
+                                        }
+                                    };
+                                    requestAnimationFrame(step);
+                                }
+                            }
                         } catch (restoreErr) {
                             console.warn('[visibilitychange] 自动恢复失败，保留当前页面内容:', restoreErr);
                         }
-                    }
+                        // 回到前台时立即检查信封回信状态（也放入 rAF，避免与上面恢复抢占首帧）
+                        try {
+                            if (typeof checkEnvelopeStatus === 'function') {
+                                checkEnvelopeStatus().catch(function(e) { console.warn('[visibilitychange] 信封检查失败:', e); });
+                            }
+                        } catch(e) { console.warn('[visibilitychange] 信封检查异常:', e); }
+                    });
                 } catch (e) {
-                    console.warn('[visibilitychange] 恢复备份失败:', e);
+                    console.warn('[visibilitychange] 恢复调度异常:', e);
                 }
-                // 回到前台时立即检查信封回信状态
-                try {
-                    if (typeof checkEnvelopeStatus === 'function') {
-                        checkEnvelopeStatus().catch(function(e) { console.warn('[visibilitychange] 信封检查失败:', e); });
-                    }
-                } catch(e) { console.warn('[visibilitychange] 信封检查异常:', e); }
             }
         });
 
