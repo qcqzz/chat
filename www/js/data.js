@@ -220,53 +220,82 @@
         }
     }
 
+    // 递归估算任意值的占用字节数（UTF-16 *2）。只用"累加 length"，不整份 JSON.stringify，
+    // 避免对含大量 base64 的巨键再生成一份超大字符串把主线程卡死。
+    function estimateValueBytes(v) {
+        if (typeof v === 'string') return v.length * 2;
+        if (v == null) return 0;
+        if (typeof v === 'number') return 8;
+        if (typeof v === 'boolean') return 1;
+        if (Array.isArray(v)) {
+            var s = v.length * 2;
+            for (var i = 0; i < v.length; i++) s += estimateValueBytes(v[i]);
+            return s;
+        }
+        if (typeof v === 'object') {
+            var t = 0;
+            for (var k in v) {
+                if (Object.prototype.hasOwnProperty.call(v, k)) { t += k.length * 2; t += estimateValueBytes(v[k]); }
+            }
+            return t;
+        }
+        return 0;
+    }
+    // 已在内存引用估算过的大键，后续不再从 IndexedDB getItem（否则巨键 structuredClone + stringify 会卡死打开面板）
+    var MEM_EST_KEYS = ['messages', 'stickerLibrary', 'myStickerLibrary', 'voiceCards', 'customThemes'];
+
     function updateStats() {
         var total = 0, msgs = 0, cfg = 0, media = 0;
-        var processLS = function () {
-            for (var i = 0; i < localStorage.length; i++) {
-                var k = localStorage.key(i) || '';
-                var v = localStorage.getItem(k) || '';
-                var bytes = (k.length + v.length) * 2;
-                total += bytes;
-                if (/messages|msgs|session/i.test(k)) msgs += bytes;
-                else if (v.startsWith('data:image') || v.startsWith('data:video')) media += bytes;
-                else cfg += bytes;
-            }
-            applyStats(total, msgs, cfg, media);
-        };
+        // 1) localStorage 即时累加（轻量，仅字符串长度）
+        for (var i = 0; i < localStorage.length; i++) {
+            var k = localStorage.key(i) || '';
+            var v = localStorage.getItem(k) || '';
+            var bytes = (k.length + v.length) * 2;
+            total += bytes;
+            if (/messages|msgs|session/i.test(k)) msgs += bytes;
+            else if (v.indexOf('data:image') === 0 || v.indexOf('data:video') === 0) media += bytes;
+            else cfg += bytes;
+        }
+        // 2) 大键从内存引用估算（window 已由 saveData 同步）——不 getItem、不 stringify
+        for (var mi = 0; mi < MEM_EST_KEYS.length; mi++) {
+            var ref = (typeof window !== 'undefined') ? window[MEM_EST_KEYS[mi]] : undefined;
+            if (ref == null) continue;
+            var b = estimateValueBytes(ref);
+            total += b;
+            if (MEM_EST_KEYS[mi] === 'messages') msgs += b;
+            else if (MEM_EST_KEYS[mi] === 'customThemes') cfg += b;
+            else media += b;
+        }
+        // 3) 其余 IndexedDB 键（头像/背景/分组等量小）异步分片统计，批次间让出主线程，避免一次卡死
+        var moreTotal = 0, moreMsgs = 0, moreCfg = 0, moreMedia = 0;
+        function finish() {
+            applyStats(total + moreTotal, msgs + moreMsgs, cfg + moreCfg, media + moreMedia);
+        }
+        function doMore(keys, startIdx) {
+            if (!keys || startIdx >= keys.length) { finish(); return; }
+            var end = Math.min(startIdx + 4, keys.length);
+            (function next(batchIdx) {
+                if (batchIdx >= end) { setTimeout(function () { doMore(keys, end); }, 0); return; }
+                var kk = keys[batchIdx];
+                if (MEM_EST_KEYS.indexOf(kk) !== -1) { next(batchIdx + 1); return; } // 已在内存估算，跳过
+                localforage.getItem(kk).then(function (raw) {
+                    if (raw != null) {
+                        var bb = estimateValueBytes(raw);
+                        moreTotal += bb;
+                        if (/messages|msgs|session/i.test(kk)) moreMsgs += bb;
+                        else if (/avatar|image|photo|bg|background|wallpaper|favAudio/i.test(kk)) moreMedia += bb;
+                        else moreCfg += bb;
+                    }
+                    next(batchIdx + 1);
+                }).catch(function () { next(batchIdx + 1); });
+            })(startIdx);
+        }
         try {
             if (window.localforage) {
-                localforage.keys().then(function (keys) {
-                    var promises = keys.map(function (k) {
-                        // favAudio_ 是音频 Base64 或 oss:// 引用，直接估算大小，不读内容避免内存爆炸
-                        // 阶段四：键名格式变为 CHAT_APP_V3_<SID>_favAudio_<msgId>，兼容旧格式
-                        if (k.startsWith('favAudio_') || k.includes('_favAudio_')) {
-                            return localforage.getItem(k).then(function(raw) {
-                                var bytes = typeof raw === 'string' ? raw.length * 2 : 0;
-                                return { k: k, b: bytes };
-                            }).catch(function() { return { k: k, b: 0 }; });
-                        }
-                        return localforage.getItem(k).then(function (raw) {
-                            if (raw == null) return { k: k, b: 0 };
-                            var str = typeof raw === 'string' ? raw : JSON.stringify(raw);
-                            return { k: k, b: (k.length + str.length) * 2 };
-                        });
-                    });
-                    Promise.all(promises).then(function (results) {
-                        results.forEach(function (r) {
-                            total += r.b;
-                            if (/messages|msgs|session/i.test(r.k)) msgs += r.b;
-                            else if (/avatar|image|photo|bg|background|wallpaper/i.test(r.k)) media += r.b;
-                            else cfg += r.b;
-                        });
-                        applyStats(total, msgs, cfg, media);
-                    }).catch(function (err) {
-                        console.warn('localforage 统计部分失败，回退到 localStorage:', err);
-                        processLS();
-                    });
-                }).catch(processLS);
-            } else { processLS(); }
-        } catch (e) { processLS(); }
+                localforage.keys().then(function (keys) { doMore(keys, 0); })
+                    .catch(function () { finish(); });
+            } else { finish(); }
+        } catch (e) { finish(); }
     }
 
     function syncToggles() {

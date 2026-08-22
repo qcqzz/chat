@@ -745,6 +745,12 @@ const loadData = async () => {
 
         // 字卡加载完成，允许后续 saveData/备份落写字卡
         _cardsReady = true;
+        // 数据加载完成，同步大键到 window，供数据管理面板"内存引用估算"使用（避免打开面板时 getItem 巨键）
+        window.messages = messages;
+        window.stickerLibrary = stickerLibrary;
+        window.myStickerLibrary = myStickerLibrary;
+        window.voiceCards = voiceCards;
+        window.customThemes = customThemes;
         if (_restoredCards) {
             // 恢复出的字卡立即回写 IndexedDB，避免每次启动都依赖备份、或空数组继续残留在主库
             setTimeout(() => { try { saveData(); } catch (e) { console.warn('[loadData] 回写字卡失败:', e); } }, 800);
@@ -1120,6 +1126,13 @@ const saveData = async (force) => {
         console.warn('[saveData] SESSION_ID 尚未初始化，跳过保存以防数据写入临时 key');
         return;
     }
+    // 供数据管理面板做"内存引用估算"使用：避免打开面板时对含全部 base64 的巨键 getItem + stringify。
+    // saveData 只在数据加载完成后才被调用，此刻下方变量已初始化，无 TDZ 风险。
+    window.messages = messages;
+    window.stickerLibrary = stickerLibrary;
+    window.myStickerLibrary = myStickerLibrary;
+    window.voiceCards = voiceCards;
+    window.customThemes = customThemes;
 
     const promises = [
         { key: 'chatSettings',           val: () => localforage.setItem(getStorageKey('chatSettings'), settings) },
