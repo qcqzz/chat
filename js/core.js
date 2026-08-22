@@ -905,6 +905,25 @@ const _EMERGENCY_LF_KEY = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHA
 // 语音字卡独立紧急备份键：voiceCards 可能含数 MB base64 音频，单独存放，
 // 使"消息频繁变更"与"语音字卡(重数据)"解耦，避免每条新消息都重拷整份语音音频。
 const _EMERGENCY_VC_KEY = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_') + '_emergencyVoiceCards';
+// 文本备份用消息骨架：去掉大体积 base64 图片，避免每次 JSON.stringify 阻塞主线程；
+// 保留图片存在性标记(true)和 oss:// 云端引用。返回新数组（未改动时返回原数组引用）。
+function _stripMsgImagesForTextBackup(list) {
+    if (!Array.isArray(list)) return list;
+    let out = list;
+    for (let i = 0; i < list.length; i++) {
+        const m = list[i];
+        const img = m && m.image;
+        if (typeof img === 'string' && img.indexOf('data:') === 0 && img.length > 256) {
+            if (out === list) out = list.slice(0, i);
+            const copy = Object.assign({}, m);
+            copy.image = true;
+            out.push(copy);
+        } else if (out !== list) {
+            out.push(m);
+        }
+    }
+    return out;
+}
 // 备份节流时间戳：避免拿全部消息在主线程做同步 JSON.stringify 写 localStorage，导致聊天时反复卡顿。
 // 每次 saveData() 都会走到这里（每条消息 + 500ms 节流都会触发），这里把真正落盘限制为每 10 秒最多一次，
 // 页面隐藏/关闭时会通过 flush() 强制落盘，保证退出前数据不丢。
@@ -971,10 +990,15 @@ function _backupCriticalData(force) {
         const BACKUP_MSGS = 150;
         const isTruncated = Array.isArray(messages) && messages.length > BACKUP_MSGS;
         const msgTail = isTruncated ? messages.slice(-BACKUP_MSGS) : messages;
+        // localStorage 纯文本备份用"消息骨架"（去掉大体积 base64 图片）：
+        // 图片 base64 单张几百 KB、且 localStorage 配额也装不下，每 10 秒对它做一次 JSON.stringify
+        // 会阻塞主线程数秒——这正是"连续操作卡顿/卡住"的元凶之一。图片本体始终在 IndexedDB
+        // （主存储 chatMessages + _EMERGENCY_LF_KEY 紧急备份），文本备份仅保留骨架保证可恢复出聊天文本。
+        const textTail = _stripMsgImagesForTextBackup(msgTail);
 
         const backupPayload = {
             ts: now,
-            messages: msgTail,
+            messages: textTail,
             settings: settings,
             sessionId: SESSION_ID,
             anniversaries: anniversaries,
@@ -998,7 +1022,7 @@ function _backupCriticalData(force) {
             // 个别字段无法序列化时降级为极简备份，保证 stringify 不拖垮启动
             json = JSON.stringify({
                 ts: now,
-                messages: Array.isArray(msgTail) ? msgTail.slice(-30) : [],
+                messages: Array.isArray(textTail) ? textTail.slice(-30) : [],
                 settings: settings,
                 sessionId: SESSION_ID,
                 anniversaries: anniversaries,
@@ -1035,9 +1059,12 @@ function _backupCriticalData(force) {
                 const msgChanged = _saveRev !== _lastEmergencyRev;
                 if (force || _lastEmergencyRev === -1 || msgChanged) {
                     _lastEmergencyRev = _saveRev;
+                    // 这里用与文本备份一致的"消息骨架"（去掉大 base64 图片）：
+                    // 本键恢复路径只读字卡（customReplies/groups/voiceCards），不消费 messages，
+                    // 且完整图片始终在 IndexedDB 主存储 chatMessages 里，无需在这里反复重拷大图。
                     localforage.setItem(_EMERGENCY_LF_KEY, {
                         ts: now,
-                        messages: msgTail,
+                        messages: textTail,
                         settings: settings,
                         sessionId: SESSION_ID,
                         anniversaries: anniversaries,
@@ -2044,6 +2071,9 @@ const addMessage = (message) => {
             } else {
                 container.appendChild(newMsgFragment);
             }
+            // 连续收发消息时回收 DOM 顶部的旧消息：停留在底部不会触发 scroll，原先消息节点会无限累积
+            // （含 base64 图片的 wrapper 越来越多，每次追加/重排都变慢），这里每次追加后都限制 DOM 总量
+            if (typeof _trimLatestModeTop === 'function') { try { _trimLatestModeTop(); } catch (e) {} }
         }
         newMsgCountWhileBrowsing++;
         if (typeof window._updateNewMsgIndicator === 'function') window._updateNewMsgIndicator();
@@ -2091,6 +2121,10 @@ const addMessage = (message) => {
     } else {
         container.appendChild(newMsgFragment);
     }
+
+    // 连续收发消息时回收 DOM 顶部的旧消息：停留在底部不会触发 scroll，原先消息节点会无限累积，
+    // 这里每次追加后都限制 DOM 总量，避免"连续操作越来越卡"（与上面的未追底分支逻辑一致）
+    if (typeof _trimLatestModeTop === 'function') { try { _trimLatestModeTop(); } catch (e) {} }
 
     requestAnimationFrame(() => {
         container.scrollTop = container.scrollHeight;
