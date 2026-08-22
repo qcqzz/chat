@@ -1368,8 +1368,11 @@ function _openVoiceEditor(index) {
         const text = (textArea.value || '').trim();
         const card = { id: (isEdit && existing && existing.id) ? existing.id : _vcId(existing || {}), text: text, audio: pendingAudio, duration: pendingDuration || 5 };
         if (!Array.isArray(voiceCards)) voiceCards = [];
-        if (isEdit && voiceCards[index]) voiceCards[index] = card;
-        else voiceCards.push(card);
+        if (isEdit && voiceCards[index]) {
+            // 原地替换元素（引用与长度均不变），必须显式标记脏，否则重数据写守卫会误判为未变更而跳过落盘
+            if (window._markDataDirty) window._markDataDirty('customVoiceCards');
+            voiceCards[index] = card;
+        } else voiceCards.push(card);
         _batchSelectedIndices.clear();
         throttledSaveData();
         renderReplyLibrary();

@@ -706,6 +706,15 @@ const loadData = async () => {
                     const _lb = await localforage.getItem(_EMERGENCY_LF_KEY);
                     if (_lb && typeof _lb === 'object' && _lb.ts) _lfCardBackup = _lb;
                 } catch (e) {}
+                // 语音字卡独立键：为免主备份每次因消息变化而重拷大音频，voiceCards 单独存一个键，
+                // 恢复时把它并入主备份源；兼容旧版"主备份内直接含 customVoiceCards"的格式。
+                try {
+                    const _lvc = await localforage.getItem(_EMERGENCY_VC_KEY);
+                    if (_lvc && typeof _lvc === 'object' && _lvc.ts && Array.isArray(_lvc.customVoiceCards)) {
+                        if (_lfCardBackup) _lfCardBackup.customVoiceCards = _lvc.customVoiceCards;
+                        else _lfCardBackup = _lvc;
+                    }
+                } catch (e) {}
                 const _src = (_lfCardBackup && _lfCardBackup.ts) ? _lfCardBackup : _cardBackup;
                 if (_src) {
                     if (_cardMissing(savedCustomReplies) && Array.isArray(_src.customReplies) && _src.customReplies.length) {
@@ -893,6 +902,9 @@ window.deleteAnniversaryItem = function(id) {
 const _BACKUP_PREFIX = 'BACKUP_V1_';
 // IndexedDB 全量紧急备份键：含语音字卡等本体内存，配合 localStorage 纯文本备份作为"更新/存储异常"时的完整恢复源。
 const _EMERGENCY_LF_KEY = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_') + '_emergencyBackup';
+// 语音字卡独立紧急备份键：voiceCards 可能含数 MB base64 音频，单独存放，
+// 使"消息频繁变更"与"语音字卡(重数据)"解耦，避免每条新消息都重拷整份语音音频。
+const _EMERGENCY_VC_KEY = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_') + '_emergencyVoiceCards';
 // 备份节流时间戳：避免拿全部消息在主线程做同步 JSON.stringify 写 localStorage，导致聊天时反复卡顿。
 // 每次 saveData() 都会走到这里（每条消息 + 500ms 节流都会触发），这里把真正落盘限制为每 10 秒最多一次，
 // 页面隐藏/关闭时会通过 flush() 强制落盘，保证退出前数据不丢。
@@ -910,6 +922,36 @@ window._markChatDataChanged = function () { _saveRev++; };
 // 加载完成后置 true。_restoredCards 标记本次是否从备份恢复了字卡，用于加载后立即回写持久化。
 let _cardsReady = false;
 let _restoredCards = false;
+// ── 重数据键（含 base64 音频/图片）的写入守卫 ──
+// saveData 每次被节流触发都会把所有键重新写入 IndexedDB；导入大量数据后
+// voiceCards(语音音频)/stickers(贴纸)/themes(主题图) 可能达到数 MB，
+// 每次无条件 structuredClone 会拖死主线程，表现为"没数据不卡、导入数据后操作几次就卡死"。
+// 这里只在数据真正变更时才重写对应键：脏标记(处理原地元素替换) + 引用/长度变化兜底(覆盖 push/splice/filter)。
+const _heavyDirty = {};
+const _heavySavedDirty = {};
+const _heavySaved = {};
+const _heavyRef = {};
+const _heavyLen = {};
+window._markDataDirty = function (key) { _heavyDirty[key] = (_heavyDirty[key] || 0) + 1; };
+function _writeHeavyIfChanged(fullKey, getVal) {
+    const cur = getVal();
+    const dirtyCount = _heavyDirty[fullKey] || 0;
+    if (_heavySaved[fullKey] && dirtyCount === _heavySavedDirty[fullKey]) {
+        const sameRef = cur === _heavyRef[fullKey];
+        const sameLen = !Array.isArray(cur) || !Array.isArray(_heavyRef[fullKey]) || cur.length === _heavyLen[fullKey];
+        if (sameRef && sameLen) return Promise.resolve();
+    }
+    _heavySaved[fullKey] = true;
+    _heavySavedDirty[fullKey] = dirtyCount;
+    _heavyRef[fullKey] = cur;
+    _heavyLen[fullKey] = Array.isArray(cur) ? cur.length : -1;
+    return localforage.setItem(fullKey, cur);
+}
+// 紧急备份(IndexedDB 全量快照，含 voiceCards 音频)的上次写入状态，用于跳过未变更的重复重写
+let _lastEmergencyRev = -1;
+let _lastEmergencyVcRef = null;
+let _lastEmergencyVcLen = -1;
+let _lastEmergencyVcDirty = 0;
 function _backupCriticalData(force) {
     if (window._skipBackup) return;
     // 落盘整体延后到当前事件(输入/渲染)处理完再执行：真正写 localStorage 是一次同步 JSON.stringify+setItem，
@@ -979,21 +1021,42 @@ function _backupCriticalData(force) {
         // 全量紧急备份（含语音字卡音频）写入 IndexedDB：localStorage 配额小、且 stringify 大体积会 OOM，
         // 而 IndexedDB 走结构化克隆、不产生超长单字符串，低内存机型也安全，因此把完整备份(含 voiceCards)存这里，
         // 使"更新/异常后可恢复出包含语音字卡在内的全部数据"。仅字卡就绪后才写，避免内存中尚未加载的空数组覆盖。
+        // 变更守卫：把"轻量备份(消息/设置/纯文本字卡)"与"语音字卡(可能数 MB base64 音频)"拆成两个键分别写入。
+        // 原先只要消息一变就重拷整份 voiceCards 进 IndexedDB，导入大量语音字卡后每条新消息都会触发一次
+        // 超大 structuredClone 拖死主线程——这正是"没数据不卡、导入数据后操作卡顿"的主要来源。
+        // 现在语音字卡只在它自己变更时才重写（独立键），消息变化只更新轻量键，主线程不再被反复阻塞。
         if (_cardsReady) {
             try {
-                localforage.setItem(_EMERGENCY_LF_KEY, {
-                    ts: now,
-                    messages: msgTail,
-                    settings: settings,
-                    sessionId: SESSION_ID,
-                    anniversaries: anniversaries,
-                    _truncated: isTruncated,
-                    customReplies: customReplies || [],
-                    customReplyGroups: (window.customReplyGroups) || [],
-                    customVoiceGroups: (window.customVoiceGroups) || [],
-                    customVoiceCards: voiceCards || [],
-                    voiceCardEnabled: !!voiceCardEnabled
-                }).catch(function (e) { console.warn('IndexedDB 全量紧急备份写入失败:', e); });
+                const vcRef = voiceCards || [];
+                const vcLen = Array.isArray(vcRef) ? vcRef.length : -1;
+                const vcDirty = _heavyDirty['customVoiceCards'] || 0;
+                const vcChanged = (vcRef !== _lastEmergencyVcRef) || (vcLen !== _lastEmergencyVcLen) || (vcDirty !== _lastEmergencyVcDirty);
+                const msgChanged = _saveRev !== _lastEmergencyRev;
+                if (force || _lastEmergencyRev === -1 || msgChanged) {
+                    _lastEmergencyRev = _saveRev;
+                    localforage.setItem(_EMERGENCY_LF_KEY, {
+                        ts: now,
+                        messages: msgTail,
+                        settings: settings,
+                        sessionId: SESSION_ID,
+                        anniversaries: anniversaries,
+                        _truncated: isTruncated,
+                        customReplies: customReplies || [],
+                        customReplyGroups: (window.customReplyGroups) || [],
+                        customVoiceGroups: (window.customVoiceGroups) || [],
+                        voiceCardEnabled: !!voiceCardEnabled
+                    }).catch(function (e) { console.warn('IndexedDB 全量紧急备份写入失败:', e); });
+                }
+                if (force || _lastEmergencyVcRef === null || vcChanged) {
+                    _lastEmergencyVcRef = vcRef;
+                    _lastEmergencyVcLen = vcLen;
+                    _lastEmergencyVcDirty = vcDirty;
+                    localforage.setItem(_EMERGENCY_VC_KEY, {
+                        ts: now,
+                        sessionId: SESSION_ID,
+                        customVoiceCards: vcRef
+                    }).catch(function (e) { console.warn('IndexedDB 语音字卡紧急备份写入失败:', e); });
+                }
             } catch (e) { console.warn('IndexedDB 全量紧急备份写入异常:', e); }
         }
     } catch (e) {
@@ -1039,13 +1102,13 @@ const saveData = async () => {
         { key: 'customStatuses',         val: () => localforage.setItem(getStorageKey('customStatuses'), customStatuses) },
         { key: 'customMottos',           val: () => localforage.setItem(getStorageKey('customMottos'), customMottos) },
         { key: 'customIntros',           val: () => localforage.setItem(getStorageKey('customIntros'), customIntros) },
-        { key: 'customVoiceCards',       val: () => _cardsReady ? localforage.setItem(getStorageKey('customVoiceCards'), voiceCards) : Promise.resolve() },
+        { key: 'customVoiceCards',       val: () => _cardsReady ? _writeHeavyIfChanged(getStorageKey('customVoiceCards'), () => voiceCards) : Promise.resolve() },
         { key: 'customVoiceGroups',      val: () => _cardsReady ? localforage.setItem(getStorageKey('customVoiceGroups'), window.customVoiceGroups || []) : Promise.resolve() },
         { key: 'voiceCardEnabled',       val: () => _cardsReady ? localforage.setItem(getStorageKey('voiceCardEnabled'), voiceCardEnabled) : Promise.resolve() },
-        { key: 'stickerLibrary',         val: () => localforage.setItem(getStorageKey('stickerLibrary'), stickerLibrary) },
-        { key: 'myStickerLibrary',       val: () => localforage.setItem(getStorageKey('myStickerLibrary'), myStickerLibrary) },
-        { key: 'customThemes',           val: () => localforage.setItem(`${APP_PREFIX}customThemes`, customThemes) },
-        { key: 'themeSchemes',           val: () => localforage.setItem(`${APP_PREFIX}themeSchemes`, themeSchemes) },
+        { key: 'stickerLibrary',         val: () => _writeHeavyIfChanged(getStorageKey('stickerLibrary'), () => stickerLibrary) },
+        { key: 'myStickerLibrary',       val: () => _writeHeavyIfChanged(getStorageKey('myStickerLibrary'), () => myStickerLibrary) },
+        { key: 'customThemes',           val: () => _writeHeavyIfChanged(`${APP_PREFIX}customThemes`, () => customThemes) },
+        { key: 'themeSchemes',           val: () => _writeHeavyIfChanged(`${APP_PREFIX}themeSchemes`, () => themeSchemes) },
         { key: 'chatMessages',           val: () => {
             const msgLen = Array.isArray(messages) ? messages.length : 0;
             // 消息未发生变更(长度未变 且 无追加/撤回/已读等变更标记)时跳过重写，避免每条消息都重拷整份含 base64 的数组
@@ -3305,6 +3368,9 @@ function showModal(modalElement, focusElement = null) {
                             window._setMoodData(importedData.moodCalendar, importedData.customMoodOptions || []);
                         }
 
+                        // 导入直接替换了内存数据，必须先递增版本号再落盘，否则消息写入守卫
+                        // (版本号+长度未变即跳过重写) 会误判为"未变更"而跳过保存，导致导入的数据没存进 IndexedDB。
+                        if (window._markChatDataChanged) window._markChatDataChanged();
                         saveData();
                         if (doMsgs && typeof renderMessages === 'function') renderMessages();
                         if (typeof applySettings === 'function') applySettings();
