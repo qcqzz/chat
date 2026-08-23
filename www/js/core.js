@@ -228,37 +228,14 @@ function _trimWindowTop() {
     }
 }
 
-// latest（正常）模式下往上翻历史时，同样只回收"已经滚过去"的旧消息，让 DOM 数量也有上限。
-// 只有当前视口已经离开渲染区最顶部时才能回收——如果用户还贴在顶部继续往上翻，
-// 说明他正在看最旧的部分，这时候回收会闪到他眼前的内容，必须跳过。
+// latest（正常）模式：不再回收顶部旧消息 DOM。
+// 之前依赖"回收顶部 DOM + 数据窗口计数"来维持渲染量恒定，但回收时序会与向上翻页
+// （loadMoreHistory 向顶部追加更早消息）发生交错，导致窗口错位——表现为历史
+// "翻几次就翻不动 / 滚动乱跳 / 漏段只剩特殊消息"。
+// 为保证完整聊天记录能连续、不乱、不漏地一直向上翻到底，最新模式改为纯数据驱动：
+// 只向顶部追加，不做任何 DOM 回收。（window 历史浏览模式的 _trimWindowTop 等保持不变）
 function _trimLatestModeTop() {
-    const container = DOMElements && DOMElements.chatContainer;
-    if (!container) return;
-    const maxLen = _getVirtualWindowSize();
-    const wrappers = container.querySelectorAll('.message-wrapper');
-    if (wrappers.length <= maxLen) return;
-    if (container.scrollTop < 30) return; // 视口还在最顶上，不能回收
-    const removeCount = wrappers.length - maxLen;
-    let removedHeight = 0;
-    for (let i = 0; i < removeCount; i++) {
-        const w = wrappers[i];
-        if (!w || !w.parentNode) break;
-        removedHeight += w.offsetHeight;
-        w.parentNode.removeChild(w);
-    }
-    // 回收顶部旧消息后，用 DOM 反推数据窗口起点：
-    // 让下一次 loadMoreHistory 从"当前 DOM 顶部那条"恰好续接，避免窗口偏移导致
-    // 向上翻时重复插入或漏掉一整段普通消息（表现为只剩拍一拍/邀请等特殊消息）
-    _syncWindowFromDOM();
-    if (msgViewMode === 'latest') {
-        displayedMessageCount = Math.max(HISTORY_BATCH_SIZE, messages.length - msgWinStart);
-    }
-    if (removedHeight > 0) {
-        const prevBehavior = container.style.scrollBehavior;
-        container.style.scrollBehavior = 'auto';
-        container.scrollTop = Math.max(0, container.scrollTop - removedHeight);
-        container.style.scrollBehavior = prevBehavior || '';
-    }
+    return;
 }
 
 function loadMoreHistory() {
