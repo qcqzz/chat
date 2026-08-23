@@ -246,7 +246,6 @@ function _trimLatestModeTop() {
         removedHeight += w.offsetHeight;
         w.parentNode.removeChild(w);
     }
-    displayedMessageCount = Math.max(HISTORY_BATCH_SIZE, displayedMessageCount - removeCount);
     if (removedHeight > 0) {
         const prevBehavior = container.style.scrollBehavior;
         container.style.scrollBehavior = 'auto';
