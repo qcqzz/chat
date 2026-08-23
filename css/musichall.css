@@ -611,6 +611,32 @@
     cursor: pointer;
 }
 
+/* 一键导入网易云歌单 */
+.mh-netease-wrap {
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border-color, rgba(128,128,128,.3));
+}
+.mh-netease-wrap .mh-set-title {
+    margin-bottom: 8px;
+}
+.mh-nm-hint {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--text-secondary, #999);
+    align-self: center;
+}
+.mh-nm-status {
+    margin-top: 6px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    background: rgba(128,128,128,.1);
+    color: var(--text-primary);
+}
+.mh-nm-status.mh-nm-ok { background: rgba(60,200,140,.15); color: #2fa07a; }
+.mh-nm-status.mh-nm-err { background: rgba(224,86,86,.15); color: #d14a4a; }
+
 /* 自定义唱片（排版同设置"聊天背景" gallery） */
 .mh-vinyl-gallery {
     display: flex;

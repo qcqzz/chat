@@ -607,6 +607,156 @@
             renderPlaylistList();
             syncPlayerUI();
         });
+
+        // ── 一键导入网易云歌单 ──────────────────────────
+        el.insertAdjacentHTML('beforeend',
+            '<div class="mh-netease-wrap">' +
+                '<div class="mh-set-title"><i class="fas fa-cloud-arrow-down"></i>网易云歌单导入</div>' +
+                '<input class="mh-import-field" id="mh-nm-link" placeholder="歌单链接或ID (例如: https://music.163.com/#/playlist?id=23234213 或 23234213)">' +
+                '<div class="mh-import-row">' +
+                    '<button class="mh-import-file-btn" id="mh-nm-btn" title="一键导入网易云歌单"><i class="fas fa-music"></i></button>' +
+                    '<span class="mh-nm-hint">填写后自动抓取全部分组曲目</span>' +
+                '</div>' +
+                '<div id="mh-nm-status" class="mh-nm-status" style="display:none"></div>' +
+            '</div>'
+        );
+
+        var nmBtn = el.querySelector('#mh-nm-btn');
+        if (nmBtn) nmBtn.addEventListener('click', function () { neteaseImportPlaylist(); });
+    }
+
+    // 从网易云歌单链接/ID 中提取数字 ID
+    function neteaseExtractId(input) {
+        if (!input) return null;
+        var s = String(input).trim();
+        var m = s.match(/[?&#]id=(\d+)/);
+        if (m) return m[1];
+        m = s.match(/\/playlist\/(\d+)/);
+        if (m) return m[1];
+        if (/^\d+$/.test(s)) return s;
+        return null;
+    }
+
+    // 一键导入网易云歌单
+    function neteaseImportPlaylist() {
+        var inputEl = document.getElementById('mh-nm-link');
+        var statusEl = document.getElementById('mh-nm-status');
+        var id = neteaseExtractId(inputEl ? inputEl.value : '');
+        if (!id) { showNotification('请填写有效的网易云歌单链接或ID', 'warning'); return; }
+        if (typeof showLoading === 'function') showLoading(true);
+        if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '正在获取歌单…'; statusEl.className = 'mh-nm-status'; }
+
+        // 优先使用带播放地址的社区镜像接口，失败再回退官方开放接口（支持 JSONP，规避 CORS）
+        var apis = [
+            function () { return fetchJson('https://api.i-meto.com/meting/api?server=netease&type=playlist&id=' + id + '&r=' + Math.random()); },
+            function () { return fetchJsonp('https://music.163.com/api/playlist/detail?id=' + id); },
+            function () { return fetchJson('https://meting.qjqq.cn/api?server=netease&type=playlist&id=' + id); }
+        ];
+
+        runNetEaseApis(apis, function (songsData) {
+            if (typeof showLoading === 'function') showLoading(false);
+            var added = ingestNetEaseSongs(songsData);
+            if (added <= 0) {
+                if (statusEl) { statusEl.textContent = '未能解析歌单，请检查链接或稍后再试'; statusEl.className = 'mh-nm-status mh-nm-err'; }
+                showNotification('网易云歌单导入失败', 'error');
+                return;
+            }
+            saveSongs();
+            renderPlaylistList();
+            syncPlayerUI();
+            if (statusEl) { statusEl.textContent = '成功导入 ' + added + ' 首歌曲'; statusEl.className = 'mh-nm-status mh-nm-ok'; }
+            if (inputEl) inputEl.value = '';
+            showNotification('网易云歌单导入成功，共 ' + added + ' 首', 'success');
+        }, function () {
+            if (typeof showLoading === 'function') showLoading(false);
+            if (statusEl) { statusEl.textContent = '导入失败：无法连接网易云服务'; statusEl.className = 'mh-nm-status mh-nm-err'; }
+            showNotification('网易云歌单导入失败', 'error');
+        });
+    }
+
+    // 依次尝试各接口
+    function runNetEaseApis(apis, done, fail) {
+        if (!apis || !apis.length) { fail(); return; }
+        var fn = apis.shift();
+        var ok = false;
+        var t = setTimeout(function () {
+            if (!ok) { runNetEaseApis(apis, done, fail); }
+        }, 15000);
+        fn().then(function (data) {
+            ok = true;
+            clearTimeout(t);
+            if (data && Array.isArray(data)) done(data);
+            else runNetEaseApis(apis, done, fail);
+        }).catch(function () {
+            clearTimeout(t);
+            runNetEaseApis(apis, done, fail);
+        });
+    }
+
+    // 普通 CORS json 拉取
+    function fetchJson(url) {
+        return new Promise(function (resolve, reject) {
+            var x = new XMLHttpRequest();
+            x.open('GET', url, true);
+            x.timeout = 12000;
+            x.onload = function () { try { resolve(JSON.parse(x.responseText)); } catch (e) { reject(e); } };
+            x.onerror = x.ontimeout = function () { reject(new Error('fetch failed')); };
+            x.send();
+        });
+    }
+
+    // 官方接口 JSONP 拉取（规避 CORS）
+    function fetchJsonp(url) {
+        return new Promise(function (resolve, reject) {
+            var cb = 'cb_mh_' + Date.now();
+            var s = document.createElement('script');
+            var timer = setTimeout(function () { cleanup(); reject(new Error('timeout')); }, 12000);
+            function cleanup() {
+                clearTimeout(timer);
+                try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+                if (s.parentNode) s.parentNode.removeChild(s);
+            }
+            window[cb] = function (data) { cleanup(); resolve(data); };
+            s.onerror = function () { cleanup(); reject(new Error('script error')); };
+            s.src = url + (url.indexOf('?') > -1 ? '&' : '?') + 'callback=' + cb;
+            document.head.appendChild(s);
+        });
+    }
+
+    // 兼容不同接口返回结构，抽取歌曲并去重
+    function ingestNetEaseSongs(data) {
+        var items = [];
+        if (Array.isArray(data)) {
+            // meting 社区接口：直接为歌曲数组
+            items = data;
+        } else if (data && Array.isArray(data.tracks)) {
+            // playlistDetail 结构：tracks 数组
+            data.tracks.forEach(function (t) {
+                items.push({ name: t.name, artist: (t.artists || []).map(function (a) { return a.name; }).join('/'), url: t.mp3Url, id: t.id });
+            });
+        } else if (data && data.result && Array.isArray(data.result.tracks)) {
+            // 官方 playlist/detail 结构：result.tracks 数组
+            data.result.tracks.forEach(function (t) {
+                items.push({ name: t.name, artist: (t.artists || []).map(function (a) { return a.name; }).join('/'), url: t.mp3Url, id: t.id });
+            });
+        } else if (data && Array.isArray(data.playlist && data.playlist.tracks)) {
+            data.playlist.tracks.forEach(function (t) {
+                items.push({ name: t.name, artist: (t.artists || []).map(function (a) { return a.name; }).join('/'), url: t.mp3Url, id: t.id });
+            });
+        }
+        var titleSet = {};
+        var added = 0;
+        for (var i = 0; i < items.length; i++) {
+            var it = items[i];
+            var title = (it.title || it.name || '').trim();
+            var sub = (it.author || it.artist || '').trim();
+            var url = it.url || it.audio || '';
+            if (!title || titleSet[title]) continue;
+            titleSet[title] = true;
+            songs.push({ title: title, sub: sub || '网易云音乐', url: url || '' });
+            added++;
+        }
+        return added;
     }
 
     function renderVinylSection() {
