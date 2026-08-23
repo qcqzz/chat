@@ -246,6 +246,13 @@ function _trimLatestModeTop() {
         removedHeight += w.offsetHeight;
         w.parentNode.removeChild(w);
     }
+    // 回收顶部旧消息后，用 DOM 反推数据窗口起点：
+    // 让下一次 loadMoreHistory 从"当前 DOM 顶部那条"恰好续接，避免窗口偏移导致
+    // 向上翻时重复插入或漏掉一整段普通消息（表现为只剩拍一拍/邀请等特殊消息）
+    _syncWindowFromDOM();
+    if (msgViewMode === 'latest') {
+        displayedMessageCount = Math.max(HISTORY_BATCH_SIZE, messages.length - msgWinStart);
+    }
     if (removedHeight > 0) {
         const prevBehavior = container.style.scrollBehavior;
         container.style.scrollBehavior = 'auto';
