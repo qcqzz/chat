@@ -14,8 +14,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - { key: 22, appName: 22, appId: com.chuanxun.app22, versionCode: 202, versionName: "0.2.2" }
-          - { key: 25, appName: 25, appId: com.chuanxun.app25, versionCode: 205, versionName: "0.2.5" }
+          - { key: 22, appName: 22, appId: com.chuanxun.app22, versionCode: 2202, versionName: "2.2" }
+          - { key: 25, appName: 25, appId: com.chuanxun.app25, versionCode: 2505, versionName: "2.5" }
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
