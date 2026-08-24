@@ -32,18 +32,28 @@ public class KeepAliveReceiver extends BroadcastReceiver {
         }
 
         try {
-            // 启动前台服务（如果未运行），确保 WebView 保持活跃
-            Intent serviceIntent = new Intent(context, ForegroundService.class);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent);
-            } else {
-                context.startService(serviceIntent);
+            // 启动前台服务（如果未运行），确保 WebView 保持活跃。
+            // 注意：Android 12+ 在深度后台（没有可见 Activity）时 startForegroundService()
+            // 会抛 ForegroundServiceStartNotAllowedException。这里单独捕获，避免它中断下方
+            // 的闹钟自愈调度——一次失败的拉起绝不能让整个保活链断裂。
+            try {
+                Intent serviceIntent = new Intent(context, ForegroundService.class);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent);
+                } else {
+                    context.startService(serviceIntent);
+                }
+            } catch (Exception se) {
+                Log.w(TAG, "后台拉起前台服务受限(忽略，仅续闹钟): " + se.getMessage());
             }
 
-            // 重新调度下一次唤醒（主 + 后备）
-            scheduleNext(context);
-        } catch (Exception e) {
-            Log.e(TAG, "唤醒处理失败: " + e.getMessage());
+            // 重新调度下一次唤醒（主 + 后备）——无论服务是否启动成功都必须续上，
+            // 否则 Android 后台限制会让保活闹钟链断裂，之后系统不再定时唤醒，收不到消息。
+            try {
+                scheduleNext(context);
+            } catch (Exception e) {
+                Log.e(TAG, "续调闹钟失败: " + e.getMessage());
+            }
         } finally {
             if (wl != null && wl.isHeld()) {
                 try { wl.release(); } catch (Exception e) {}
