@@ -1230,7 +1230,8 @@
     function boardKey(board) { return JSON.stringify(board); }
     function aiGo() {
         var n = state.n, center = (n - 1) / 2, legal = [];
-        var prePris = state.prisoners[1];
+        // 梦角为白(DREAM)，落子吃掉的只能是黑方(USER) → 被提子记在 prisoners[0]，不能用 [1]
+        var prePris = state.prisoners[0];
 
         // 布局期判定：盘面空点多于 85% 视为开局，此时优先占角/星位，避免开局乱点散子
         var emptyCount = 0;
@@ -1261,8 +1262,8 @@
                 if (!sim) continue;
                 var score = 0;
 
-                // 1) 吃子：提掉对手一支棋是实质收益
-                var gains = sim.prisoners[1] - prePris;
+                // 1) 吃子：提掉黑方一支棋是实质收益
+                var gains = sim.prisoners[0] - prePris;
                 if (gains > 0) score += 260 + gains * 40;
 
                 // 2) 邻接：贴住对手紧气 > 连自己扩张
