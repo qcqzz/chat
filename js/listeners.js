@@ -533,6 +533,9 @@ fileInput.addEventListener('change', function(e) {
                     });
             };
 
+            // 暴露给其他页面（如桌面页头像点击编辑）复用
+            window.openAvatarModal = openAvatarModal;
+
             DOMElements.partner.name.addEventListener('click', () => openNameModal(true));
             DOMElements.me.name.addEventListener('click', () => openNameModal(false));
             DOMElements.partner.avatar.addEventListener('click', () => openAvatarModal(true));

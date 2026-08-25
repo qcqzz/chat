@@ -81,6 +81,28 @@
         _lastNameM = setName('my-name', 'dt-name-me', '我', _lastNameM);
         _synced = true;
     }
+
+    // ── 头像点击编辑（复用聊天页的头像编辑弹窗）──
+    var _avatarListenersBound = false;
+    function bindAvatarEdit() {
+        if (_avatarListenersBound) return;
+        var dstP = $('dt-avatar-partner'), dstM = $('dt-avatar-me');
+        if (!dstP || !dstM) return;
+        _avatarListenersBound = true;
+        // 聊天页头像编辑弹窗尚未初始化时，等待可用
+        var enable = function (el, isPartner) {
+            el.style.cursor = 'pointer';
+            el.addEventListener('click', function () {
+                if (typeof window.openAvatarModal === 'function') {
+                    window.openAvatarModal(isPartner);
+                } else {
+                    showNotification && showNotification('头像编辑暂不可用，请稍后重试', 'info');
+                }
+            });
+        };
+        enable(dstP, true);
+        enable(dstM, false);
+    }
     function setName(srcId, dstId, fallback, lastRef) {
         var src = $(srcId), dst = $(dstId);
         if (!src || !dst) return lastRef;
@@ -540,6 +562,7 @@
 
         renderSignature();
         syncTopbarUsers();
+        bindAvatarEdit();
         renderTopbarBgGallery();
         applyTopbarBg(getActive());
         renderDesktopBgGallery();

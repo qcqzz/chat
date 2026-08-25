@@ -677,20 +677,28 @@
     // 依次尝试各接口
     function runNetEaseApis(apis, done, fail) {
         if (!apis || !apis.length) { fail(); return; }
-        var fn = apis.shift();
-        var ok = false;
-        var t = setTimeout(function () {
-            if (!ok) { runNetEaseApis(apis, done, fail); }
-        }, 15000);
-        fn().then(function (data) {
-            ok = true;
-            clearTimeout(t);
-            if (data && Array.isArray(data)) done(data);
-            else runNetEaseApis(apis, done, fail);
-        }).catch(function () {
-            clearTimeout(t);
-            runNetEaseApis(apis, done, fail);
-        });
+        // box 在本次导入的所有递归调用间共享，保证 done/fail 全局只触发一次。
+        // 若不隔离：某接口在 15s 超时之后才返回成功数据时，其 promise resolve 仍会再走 done，
+        // 与超时触发的递归链并存 → 完成回调被触发两次（重复弹通知/重复开关 loading）。
+        var box = { settled: false };
+        function finish(cb, arg) { if (!box.settled) { box.settled = true; cb(arg); } }
+        (function next(list) {
+            if (!list.length) { finish(fail); return; }
+            var fn = list.shift();
+            var local = false;
+            var t = setTimeout(function () {
+                if (local) return; local = true;
+                next(list);
+            }, 15000);
+            fn().then(function (data) {
+                if (local) return; local = true; clearTimeout(t);
+                if (data && Array.isArray(data)) finish(done, data);
+                else next(list);
+            }).catch(function () {
+                if (local) return; local = true; clearTimeout(t);
+                next(list);
+            });
+        })(apis);
     }
 
     // 普通 CORS json 拉取

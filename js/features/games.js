@@ -521,9 +521,9 @@
         if (ok) {
             state.coqUsed++;
             for (var i = 0; i < 3; i++) if (!state.userHearts[i]) { state.userHearts[i] = true; break; }
-            notify('梦角同意了你的撒娇，一颗爱心恢复完整 💗', 'success');
+            notify(esc(partnerName()) + '同意了你的撒娇，一颗爱心恢复完整 💗', 'success');
         } else {
-            notify('梦角笑着摇摇头，拒绝了这次撒娇', 'info');
+            notify(esc(partnerName()) + '笑着摇摇头，拒绝了这次撒娇', 'info');
         }
         renderScreen();
     };
@@ -536,9 +536,9 @@
         if (ok) {
             state.cheUsed++;
             undoMove();
-            notify('梦角噘噘嘴，同意了你的悔棋 ⏪', 'success');
+            notify(esc(partnerName()) + '噘噘嘴，同意了你的悔棋 ⏪', 'success');
         } else {
-            notify('被梦角识破了，耍赖失败！', 'info');
+            notify('被' + esc(partnerName()) + '识破了，耍赖失败！', 'info');
         }
         // 不管成功与否都刷新（成功时棋盘已变）
         renderScreen();
@@ -1231,38 +1231,91 @@
     function aiGo() {
         var n = state.n, center = (n - 1) / 2, legal = [];
         var prePris = state.prisoners[1];
+
+        // 布局期判定：盘面空点多于 85% 视为开局，此时优先占角/星位，避免开局乱点散子
+        var emptyCount = 0;
+        for (var rr = 0; rr < n; rr++) for (var cc = 0; cc < n; cc++) { if (!state.board[rr][cc]) emptyCount++; }
+        var opening = emptyCount > n * n * 0.85;
+
+        // 布局教学点（角三三 / 星位 / 高目小目 / 三线边 / 天元），越贴这些点分越高，让开局落子有章法
+        function layoutScore(r, c) {
+            var e = Math.min(r, n - 1 - r), et = Math.min(c, n - 1 - c);
+            var half = Math.floor((n - 1) / 2);
+            // 角部三三 (3,3)
+            if (((r === 3 || r === n - 4)) && (c === 3 || c === n - 4)) return 46;
+            // 星位 (4,4)
+            if ((r === 4 || r === n - 5) && (c === 4 || c === n - 5)) return 40;
+            // 高目/小目（贴 3、4 线的位置）
+            if ((e === 3 || e === 4) && (et === 3 || et === 4)) return 34;
+            // 三线边（贴边但非角）
+            if ((e === 3 || e === 4) || (et === 3 || et === 4)) return 18;
+            // 天元
+            if (e === half && et === half) return 12;
+            return 0;
+        }
+
         for (var r = 0; r < n; r++) {
             for (var c = 0; c < n; c++) {
                 if (state.board[r][c]) continue;
                 var sim = simulateMove(r, c, DREAM);
                 if (!sim) continue;
                 var score = 0;
-                if (sim.prisoners[1] > prePris) score += 150; // 吃子（大优，略升）
-                // 接子/靠子：贴近己方利于扩张，逼近对方便于攻击
+
+                // 1) 吃子：提掉对手一支棋是实质收益
+                var gains = sim.prisoners[1] - prePris;
+                if (gains > 0) score += 260 + gains * 40;
+
+                // 2) 邻接：贴住对手紧气 > 连自己扩张
                 var ownN = 0, oppN = 0;
                 for (var d = 0; d < ADJ.length; d++) {
                     var dr = ADJ[d][0], dc = ADJ[d][1], nr = r + dr, nc = c + dc;
                     if (!inb(nr, nc, n)) continue;
                     var v = state.board[nr][nc];
-                    if (v === DREAM) ownN++; else if (v === USER) oppN++;
+                    if (v === DREAM) {
+                        ownN++;
+                        // 己方气紧的棋（被打吃的边角）尽早接应
+                        var myG = groupInfo(state.board, n, nr, nc);
+                        if (myG.libs <= 2) score += 62;
+                    } else if (v === USER) {
+                        oppN++;
+                        // 对手被打吃（气=1）时紧贴上去打吃
+                        var opG = groupInfo(state.board, n, nr, nc);
+                        if (opG.libs === 1) score += 112;
+                    }
                 }
-                score += ownN * 26 + oppN * 20;
-                // 落点自身气数：气少易被吃的先手劣后，避开自杀式落子
+                score += ownN * 24 + oppN * 46;
+
+                // 3) 落点自身气：孤子(气1)重罚，稳(气≥3)奖励
                 var own = groupInfo(sim.board, n, r, c);
-                if (own.libs === 1 && !(sim.prisoners[1] > prePris)) score -= 45;
-                else if (own.libs >= 3) score += 12;
-                // 靠近中心，抢占开阔地
-                score += (n - (Math.abs(r - center) + Math.abs(c - center))) * 1.2;
-                score += Math.random() * 1.0;
+                if (own.libs === 1 && gains === 0) score -= 90;
+                else if (own.libs === 2) score += 2;
+                else if (own.libs >= 3) score += 18;
+
+                // 4) 开局布局章法：星位/角/低线优先，避免开天辟地满盘散点
+                if (opening) score += layoutScore(r, c);
+
+                // 5) 中盘方向感：适度贴近中心，但别全军挤到天元
+                if (!opening) score += (n - (Math.abs(r - center) + Math.abs(c - center))) * 1.6;
+
+                // 6) 抑制散点：既不成棋也不紧贴对手的"上下左右皆空"孤着，中盘略罚
+                if (!opening && ownN === 0 && oppN === 0) score -= 22;
+
+                // 极小扰动打破平分即可，绝不主导选择
+                score += Math.random() * 0.8;
+
                 legal.push({ sim: sim, r: r, c: c, s: score });
             }
         }
         if (!legal.length) return 'pass';
         legal.sort(function (a, b) { return b.s - a.s; });
         var pick = legal[0];
-        if (state.dreamMercy && legal.length > 1 && Math.random() < 0.6) {
-            // 让着用户：随机选一个合法点，弱化占位/吃子，整体变弱
-            pick = legal[Math.floor(Math.random() * legal.length)];
+        if (state.dreamMercy && legal.length > 1) {
+            // 让着用户："合理程度"地退让——从评分中等偏下的合法点里挑一个
+            // （既不是最强着，也绝不是无意义的随机点），让棋更像正常对手在放水
+            var mid = Math.max(1, Math.floor(legal.length * 0.25));
+            var poolSize = Math.max(1, Math.round(legal.length * 0.4));
+            var pool = legal.slice(mid, mid + poolSize);
+            if (pool.length) pick = pool[Math.floor(Math.random() * pool.length)];
         }
         return { board: pick.sim.board, prisoners: pick.sim.prisoners, r: pick.r, c: pick.c };
     }

@@ -21,9 +21,10 @@ public class ForegroundService extends Service {
     private static final String PREFS_NAME = "chuanxun_prefs";
     private static final String KEY_PARTNER_NAME = "partnerName";
 
-    // 保活续锁周期：每 15 分钟重新获取一次 WakeLock，避免单一 24h 锁被占用超时
-    private static final long WAKELOCK_RENEW_INTERVAL_MS = 15 * 60 * 1000L;
-    private static final long WAKELOCK_TIMEOUT_MS = 30 * 60 * 1000L;
+    // 保活续锁周期：每 1 分钟重新检查一次 WakeLock，缩短"锁被系统回收后到重新抢回"的空窗，
+    // 尽量不给系统利用单次锁超时杀死后台 JS 的机会。锁用较短的 10 分钟超时，由上方循环持续续期。
+    private static final long WAKELOCK_RENEW_INTERVAL_MS = 1 * 60 * 1000L;
+    private static final long WAKELOCK_TIMEOUT_MS = 10 * 60 * 1000L;
 
     private PowerManager.WakeLock wakeLock = null;
     private String partnerName = "对方";
@@ -198,7 +199,7 @@ public class ForegroundService extends Service {
             }
             Log.i("ForegroundService", "任务被划掉，已重启服务并重排定时唤醒");
         } catch (Exception e) {
-            Log.w("ForegroundService", "重新调度失败: " + e.getMessage());
+            Log.w("ForegroundService", "任务被划掉时重启服务受限(闹钟已重排): " + e.getMessage());
         }
     }
 
