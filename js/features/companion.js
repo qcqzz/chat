@@ -1564,8 +1564,13 @@
             return;
         }
 
+        // 防重复进入：若已处于陪伴页，先干净关闭一次再重开（避免重复启动计时器/白噪音叠加错乱）
+        if (page.classList.contains('active')) {
+            try { closeCompanionPage({ skipLogEvent: true }); } catch (e) { console.warn('[companion] reset on re-enter:', e); }
+        }
+
         // 防御：清理可能残留的白噪音（避免上次未完全关闭时新陪伴叠加播放）
-        stopNoise();
+        try { stopNoise(); } catch (e) { console.warn('[companion] stopNoise error:', e); }
 
         // 设置背景：优先用用户选定的背景，没有选定时用第一个
         const bgs = companionData.backgrounds[currentMode];
