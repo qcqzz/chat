@@ -561,7 +561,8 @@ const loadData = async () => {
             localforage.getItem(getStorageKey('myStickerLibrary')),
             localforage.getItem(getStorageKey('customReplyGroups')),
             localforage.getItem(getStorageKey('customPokeGroups')),
-            localforage.getItem(getStorageKey('customStatusGroups'))
+            localforage.getItem(getStorageKey('customStatusGroups')),
+            localforage.getItem(getStorageKey('myStickerGroups'))
         ]);
         const getVal = (index) => results[index].status === 'fulfilled' ? results[index].value : null;
 
@@ -586,6 +587,7 @@ const loadData = async () => {
         const savedReplyGroups = getVal(18);
         const savedPokeGroups = getVal(19);
         const savedStatusGroups = getVal(20);
+        const savedMyStickerGroups = getVal(21);
 
         // 语音字卡数据 + 发送开关（独立键，避免改动上面 Promise 下标）
         const savedVoiceCards = await localforage.getItem(getStorageKey('customVoiceCards'));
@@ -670,6 +672,80 @@ const loadData = async () => {
         if (savedAnniversaries) anniversaries = savedAnniversaries;
         if (savedStickers) stickerLibrary = savedStickers;
         if (savedMyStickers) myStickerLibrary = savedMyStickers;
+        if (savedMyStickerGroups) window.myStickerGroups = savedMyStickerGroups;
+        else window.myStickerGroups = [];
+
+        // 迁移："我的表情库"以前是纯字符串数组（元素直接是图片地址），
+        // 现在要支持分组，每一项需要有自己的身份（id）和归属（groupId），
+        // 改成对象数组。只有第一次加载到旧格式数据时才会触发，转完就直接存回去，
+        // 以后不会再重复转。
+        (function _migrateMyStickerLibrary() {
+            if (!Array.isArray(myStickerLibrary) || !myStickerLibrary.length) return;
+            var needsMigration = myStickerLibrary.some(function (s) { return typeof s === 'string'; });
+            if (!needsMigration) return;
+            var base = Date.now();
+            var n = myStickerLibrary.length;
+            myStickerLibrary = myStickerLibrary.map(function (s, i) {
+                if (typeof s === 'string') {
+                    // 这个数组从老格式（纯字符串数组）那会儿开始，加新表情就一直是 unshift 塞到最前面
+                    // （见 app.js 的 myStickerLibrary.unshift），也就是说数组第0个本来就是"最新"那张，
+                    // 不是"最老"那张——时间戳要按这个真实规律倒着算，第0个给最大的时间戳，
+                    // 不然新的排序逻辑（按 addedAt 倒序）会把老数据的先后顺序整个搞反
+                    return { id: 'stk_' + base + '_' + i, src: s, groupId: null, addedAt: base + (n - 1 - i), groupJoinedAt: base + (n - 1 - i) };
+                }
+                return s; // 已经是新格式的，原样保留
+            });
+            try { localforage.setItem(getStorageKey('myStickerLibrary'), myStickerLibrary); } catch (e) {}
+        })();
+
+        // 一次性补救：上面那段迁移代码上线后，已经有一批用户的老表情包被那个"方向搞反"的
+        // bug 转换过一次了（转换本身已经完成，不会再走上面那条 needsMigration 分支）。
+        // 这里专门找出"当年被那个bug处理过"的那一批，把顺序倒回来——判断依据是：
+        // 一批条目的 id 共享同一个 'stk_<base>_' 前缀，且 addedAt 严格是 base, base+1, base+2...
+        // 这种连续整数（真实世界不同时间上传的表情，时间戳几乎不可能刚好差1毫秒排成这样，
+        // 这个特征几乎只有那个bug的产物才会有），符合的话就按当前数组位置重新倒序赋值一次。
+        // 用一个开关记一下修过了，不会同一批数据被反复橄来倒去
+        (function _fixMyStickerMigrationOrderBug() {
+            try {
+                if (localStorage.getItem('myStickerOrderFixApplied') === '1') return;
+            } catch (e) { return; }
+            if (!Array.isArray(myStickerLibrary) || !myStickerLibrary.length) {
+                try { localStorage.setItem('myStickerOrderFixApplied', '1'); } catch (e) {}
+                return;
+            }
+            // 按 id 里的 base 前缀分批，逐批检查是不是"连续整数"这个特征
+            var groups = {};
+            var order = [];
+            myStickerLibrary.forEach(function (entry, idx) {
+                if (!entry || typeof entry.id !== 'string') return;
+                var m = entry.id.match(/^stk_(\d+)_\d+$/);
+                if (!m) return;
+                var base = m[1];
+                if (!groups[base]) { groups[base] = []; order.push(base); }
+                groups[base].push({ entry: entry, idx: idx });
+            });
+            var fixedCount = 0;
+            order.forEach(function (base) {
+                var members = groups[base];
+                if (members.length < 2) return; // 单独一条不构成"批量迁移"的特征，跳过，避免误伤正常数据
+                // members 已经是按数组原始顺序收集的（forEach 天然顺序），检查是不是连续整数
+                var baseNum = Number(base);
+                var isSequential = members.every(function (m, i) { return m.entry.addedAt === baseNum + i; });
+                if (!isSequential) return; // 不符合特征，可能是正常数据凑巧共享了前缀，不动它
+                var n = members.length;
+                members.forEach(function (m, i) {
+                    var newVal = baseNum + (n - 1 - i);
+                    m.entry.addedAt = newVal;
+                    m.entry.groupJoinedAt = newVal;
+                });
+                fixedCount += n;
+            });
+            if (fixedCount > 0) {
+                try { localforage.setItem(getStorageKey('myStickerLibrary'), myStickerLibrary); } catch (e) {}
+                console.log('[sticker-fix] 已修正 ' + fixedCount + ' 张老表情包的排序方向');
+            }
+            try { localStorage.setItem('myStickerOrderFixApplied', '1'); } catch (e) {}
+        })();
         if (savedCustomThemes) customThemes = savedCustomThemes;
         if (savedThemeSchemes) themeSchemes = savedThemeSchemes;
         try { const ce = await localforage.getItem(getStorageKey('customEmojis')); if (ce && Array.isArray(ce)) customEmojis = ce; } catch(e) {}
@@ -813,12 +889,19 @@ const loadData = async () => {
             }
         }, 100);
 
+        // 数据已完整加载进内存后解锁，此前保存/备份一律跳过，防止空/默认数据覆盖磁盘
+        _dataReady = true;
+
     } catch (e) {
         console.error("LoadData 内部致命错误:", e);
-        settings = getDefaultSettings();
-        messages = [];
+        // 加载失败时：只兜底重置 settings（若 settings 未初始化），
+        // 不清空已成功加载到内存的 messages/anniversaries/customReplies 等全局数据，
+        // 避免加载中间出错被空数据覆盖全量落盘，最终整条数据被清空。
+        if (!settings || typeof settings !== 'object') settings = getDefaultSettings();
+        if (typeof messages === 'undefined' || messages === null) messages = [];
         // 即便加载出错，也解除闩锁，保证后续 saveData/备份仍能正常落写字卡，避免永远无法保存
         _cardsReady = true;
+        _dataReady = true;
         updateUI();
     }
 };
@@ -934,6 +1017,9 @@ window._getChatDataRev = function () { return _saveRev; };
 // 加载完成后置 true。_restoredCards 标记本次是否从备份恢复了字卡，用于加载后立即回写持久化。
 let _cardsReady = false;
 let _restoredCards = false;
+// 数据整体"就绪"闩锁：loadData 完成前为 false。与 _cardsReady 同类，用于全局兜底——
+// 防止任何在加载完成前触发的保存/备份用"尚未就绪(空数组/默认值)"的内存数据覆盖磁盘上已存在的数据。
+let _dataReady = false;
 // ── 重数据键（含 base64 音频/图片）的写入守卫 ──
 // saveData 每次被节流触发都会把所有键重新写入 IndexedDB；导入大量数据后
 // voiceCards(语音音频)/stickers(贴纸)/themes(主题图) 可能达到数 MB，
@@ -1109,6 +1195,7 @@ function _tryRecoverFromBackup() {
 
 const saveData = async (force) => {
     if (window._importGuarded) return;   // 导入/恢复完成、刷新前禁止写入，防止内存旧数据覆盖已导入的新数据
+    if (!_dataReady) return;             // 数据未加载就绪前不落盘，防止空/默认内存数据覆盖磁盘已有数据
     if (!SESSION_ID) {
         console.warn('[saveData] SESSION_ID 尚未初始化，跳过保存以防数据写入临时 key');
         return;
@@ -1138,6 +1225,7 @@ const saveData = async (force) => {
         { key: 'voiceCardEnabled',       val: () => _cardsReady ? localforage.setItem(getStorageKey('voiceCardEnabled'), voiceCardEnabled) : Promise.resolve() },
         { key: 'stickerLibrary',         val: () => _writeHeavyIfChanged(getStorageKey('stickerLibrary'), () => stickerLibrary) },
         { key: 'myStickerLibrary',       val: () => _writeHeavyIfChanged(getStorageKey('myStickerLibrary'), () => myStickerLibrary) },
+        { key: 'myStickerGroups',        val: () => localforage.setItem(getStorageKey('myStickerGroups'), window.myStickerGroups || []) },
         { key: 'customThemes',           val: () => _writeHeavyIfChanged(`${APP_PREFIX}customThemes`, () => customThemes) },
         { key: 'themeSchemes',           val: () => _writeHeavyIfChanged(`${APP_PREFIX}themeSchemes`, () => themeSchemes) },
         { key: 'chatMessages',           val: () => {

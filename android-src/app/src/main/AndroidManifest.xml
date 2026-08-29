@@ -61,6 +61,11 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <!-- 系统通知栏媒体播放条：按钮点击接收器 -->
+        <receiver
+            android:name=".MediaActionReceiver"
+            android:exported="false" />
     </application>
 
     <!-- Permissions -->

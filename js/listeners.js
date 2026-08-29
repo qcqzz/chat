@@ -1722,6 +1722,9 @@ if (_cancelEnvEl) _cancelEnvEl.addEventListener('click', () => {
                     document.getElementById('playlist').classList.remove('active');
                     const audio = document.getElementById('audio');
                     if (audio) audio.pause();
+                    if (typeof MediaNotif !== 'undefined' && MediaNotif.isSupported()) {
+                        MediaNotif.cancel();
+                    }
                     showNotification('音乐播放器已关闭', 'info');
                 }
                 hideModal(DOMElements.advancedModal.modal);
@@ -2628,6 +2631,10 @@ if (sessionId === currentSessionId) {
             vinylRecord.classList.remove('has-cover');
             vinylRecord.style.borderWidth = '2px';
         }
+        if (typeof _cachedMediaCover !== 'undefined') {
+            _cachedMediaCover = base64Data || null;
+            if (typeof _pushSystemMedia === 'function' && MediaNotif) _pushSystemMedia(isPlaying);
+        }
     };
 
 const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
@@ -2704,25 +2711,159 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
     const playBtn = document.getElementById('play-btn');
     const progressArea = document.getElementById('progress-area');
 
+    // ── 系统通知栏媒体播放条（Android 原生 MediaNotification） ──
+    let _cachedMediaCover = null;
+
+    function _pushSystemMedia(playing) {
+        if (typeof MediaNotif === 'undefined' || !MediaNotif.isSupported()) return;
+        if (songs.length === 0) {
+            MediaNotif.cancel();
+            return;
+        }
+        const song = songs[currentIndex] || {};
+        const dur = isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
+        MediaNotif.show({
+            title: song.title || '未知歌曲',
+            sub: song.sub || '',
+            cover: _cachedMediaCover || undefined,
+            coverKey: _cachedMediaCover ? String(_cachedMediaCover.length) : '',
+            duration: Math.round(dur * 1000),
+            position: Math.round((audio.currentTime || 0) * 1000),
+            playing: !!playing
+        });
+    }
+
+    if (typeof MediaNotif !== 'undefined' && MediaNotif.isSupported()) {
+        // 预先读取用户自定义封面，作为通知栏大图标
+        localforage.getItem(APP_PREFIX + 'playerCover').then(cover => {
+            if (cover) _cachedMediaCover = cover;
+        }).catch(() => {});
+        MediaNotif.setControlHandler((action) => {
+            if (action === 'play') { if (!isPlaying) togglePlay(); }
+            else if (action === 'pause') { if (isPlaying) togglePlay(); }
+            else if (action === 'next') nextSong();
+            else if (action === 'prev') prevSong();
+        });
+    }
+
     const addSongModal = document.getElementById('add-song-modal');
     const newSongTitle = document.getElementById('new-song-title');
     const newSongSub = document.getElementById('new-song-sub');
     const newSongUrl = document.getElementById('new-song-url');
     const confirmAddSongBtn = document.getElementById('confirm-add-song');
     const cancelAddSongBtn = document.getElementById('cancel-add-song');
-    const importMp3Btn = document.getElementById('import-mp3-btn');
-    const mp3FileInput = document.getElementById('mp3-file-input');
     const modalTitleElem = addSongModal.querySelector('.modal-title span');
+
+    // ── 本地音频文件上传（走云端存储，跟"更换头像"等走同一套 CloudMedia） ──
+    const musicLocalFileInput = document.getElementById('new-song-file');
+    const musicLocalUploadLabel = document.getElementById('music-local-upload-label');
+    const musicLocalClearBtn = document.getElementById('music-local-clear-btn');
+    const musicLocalFilenameEl = document.getElementById('music-local-filename');
+    const musicLocalHintEl = document.getElementById('music-local-hint');
+    let _pendingLocalFile = null;      // 选中但还没确认添加的本地文件
+    let _pendingLocalFiles = null;      // 批量多选：选中的本地文件数组（>1 时进入批量模式）
+    let _editingCloudUrl = null;       // 编辑模式下，原来就是云端引用的url（避免被误当成普通链接改掉）
+
+    function _cloudReady() {
+        return !!(window.CloudSync && typeof window.CloudSync.isConnected === 'function' && window.CloudSync.isConnected());
+    }
+
+    function _updateLocalUploadAvailability() {
+        const ready = _cloudReady();
+        // 无论是否配置云端，本地音频都始终可选：有云端传云端，无云端本地保存
+        if (musicLocalUploadLabel) musicLocalUploadLabel.classList.remove('disabled');
+        if (musicLocalFileInput) musicLocalFileInput.disabled = false;
+        if (musicLocalHintEl) musicLocalHintEl.classList.remove('is-blocked');
+        if (musicLocalHintEl) musicLocalHintEl.textContent = ready
+            ? '已配置云端，本地文件将上传到云端存储'
+            : '未配置云端，本地文件将直接保存到设备';
+    }
+
+    function _resetLocalUploadUI() {
+        _pendingLocalFile = null;
+        _pendingLocalFiles = null;
+        _editingCloudUrl = null;
+        if (musicLocalFileInput) musicLocalFileInput.value = '';
+        if (musicLocalFilenameEl) musicLocalFilenameEl.textContent = '';
+        if (musicLocalClearBtn) musicLocalClearBtn.style.display = 'none';
+        newSongUrl.disabled = false;
+        newSongUrl.style.opacity = '';
+        newSongTitle.disabled = false;
+        newSongTitle.style.opacity = '';
+        newSongSub.disabled = false;
+        newSongSub.style.opacity = '';
+        _updateLocalUploadAvailability();
+    }
+
+    musicLocalFileInput && musicLocalFileInput.addEventListener('change', () => {
+        const files = musicLocalFileInput.files ? Array.from(musicLocalFileInput.files) : [];
+        if (!files.length) return;
+        _editingCloudUrl = null; // 重新选了本地文件，之前编辑时带着的旧云端引用不再需要
+        _pendingLocalFile = files[0];
+        _pendingLocalFiles = files;
+
+        const isBatch = files.length > 1;
+        musicLocalFilenameEl.textContent = isBatch
+            ? '已选择 ' + files.length + ' 个文件，将按文件名批量导入'
+            : '已选择：' + files[0].name;
+        musicLocalClearBtn.style.display = 'flex';
+        // 链接框跟着变灰禁用，避免同时填两种搞混
+        newSongUrl.value = '';
+        newSongUrl.disabled = true;
+        newSongUrl.style.opacity = '0.5';
+
+        if (isBatch) {
+            // 批量导入统一用文件名作歌名、未知艺术家，锁定逐首编辑框
+            newSongTitle.value = '';
+            newSongSub.value = '';
+            newSongTitle.disabled = true;
+            newSongTitle.style.opacity = '0.5';
+            newSongSub.disabled = true;
+            newSongSub.style.opacity = '0.5';
+        } else {
+            newSongTitle.disabled = false;
+            newSongTitle.style.opacity = '';
+            newSongSub.disabled = false;
+            newSongSub.style.opacity = '';
+            // 歌名没填的话，顺手用文件名（去掉后缀）帮着填一下
+            if (!newSongTitle.value.trim()) {
+                newSongTitle.value = files[0].name.replace(/\.[^.]+$/, '');
+            }
+        }
+    });
+
+    musicLocalClearBtn && musicLocalClearBtn.addEventListener('click', () => {
+        _pendingLocalFile = null;
+        _pendingLocalFiles = null;
+        _editingCloudUrl = null;
+        musicLocalFileInput.value = '';
+        musicLocalFilenameEl.textContent = '';
+        musicLocalClearBtn.style.display = 'none';
+        newSongUrl.disabled = false;
+        newSongUrl.style.opacity = '';
+        newSongTitle.disabled = false;
+        newSongTitle.style.opacity = '';
+        newSongSub.disabled = false;
+        newSongSub.style.opacity = '';
+    });
 
     let currentIndex = 0;
     let isPlaying = false;
     let playMode = 'sequence';
     let editModeIndex = -1;
+    let _lastLocalBlobUrl = null;   // 本地直存音频当前生成的临时播放地址
     let searchTerm = '';
     let isSearchVisible = false;
-    let pendingMp3DataUrl = null;
 
-    function loadSong(index) {
+    function _markPlaying(playing) {
+        isPlaying = playing;
+        document.getElementById('icon-play').style.display = playing ? 'none' : 'block';
+        document.getElementById('icon-pause').style.display = playing ? 'block' : 'none';
+        player.classList.toggle('playing', playing);
+        if (typeof _pushSystemMedia === 'function') _pushSystemMedia(playing);
+    }
+
+    function loadSong(index, forcePlay) {
         if (songs.length === 0) return;
         if (index >= songs.length) index = 0;
         if (index < 0) index = songs.length - 1;
@@ -2730,8 +2871,33 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
         const song = songs[index];
         document.getElementById('music-title').innerText = song.title || '未知歌曲';
         document.getElementById('music-subtitle').innerText = song.sub || '';
-        
-        if (song.url) audio.src = song.url;
+        if (typeof _pushSystemMedia === 'function') _pushSystemMedia(isPlaying);
+
+        const isCloud = window.CloudMedia && window.CloudMedia.isCloudRef && window.CloudMedia.isCloudRef(song.url);
+        if (isCloud) {
+            // 云端引用要先解析成真实可播放的地址，这一步是异步的——
+            // 不能像本地链接那样直接同步赋值给 audio.src
+            window.CloudMedia.fetchUrl(song.url).then((blobUrl) => {
+                audio.src = blobUrl;
+                if (forcePlay || isPlaying) {
+                    audio.play().then(() => _markPlaying(true)).catch(() => {});
+                }
+            }).catch((e) => {
+                showNotification('云端音频加载失败：' + (e && e.message || e), 'error');
+            });
+        } else if (song.url) {
+            let src = song.url;
+            if (song.url instanceof Blob) {
+                // 本地直存音频：生成可播放的临时地址，切换歌曲时回收上一次的
+                if (_lastLocalBlobUrl) URL.revokeObjectURL(_lastLocalBlobUrl);
+                _lastLocalBlobUrl = URL.createObjectURL(song.url);
+                src = _lastLocalBlobUrl;
+            }
+            audio.src = src;
+            if (forcePlay || isPlaying) {
+                audio.play().then(() => _markPlaying(true)).catch(() => {});
+            }
+        }
         updatePlaylistHighlight();
     }
 
@@ -2742,18 +2908,12 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
         }
         if (isPlaying) {
             audio.pause();
-            isPlaying = false;
-            document.getElementById('icon-play').style.display = 'block';
-            document.getElementById('icon-pause').style.display = 'none';
-            player.classList.remove('playing');
+            _markPlaying(false);
         } else {
             const playPromise = audio.play();
             if (playPromise !== undefined) {
                 playPromise.then(_ => {
-                    isPlaying = true;
-                    document.getElementById('icon-play').style.display = 'none';
-                    document.getElementById('icon-pause').style.display = 'block';
-                    player.classList.add('playing');
+                    _markPlaying(true);
                 }).catch(error => {
                     console.error(error);
                     showNotification('播放失败，请检查网络或链接是否有效', 'error');
@@ -2768,14 +2928,12 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
         else if (playMode === 'shuffle') currentIndex = Math.floor(Math.random() * songs.length);
         else currentIndex = (currentIndex + 1) % songs.length;
         if (playMode !== 'single') loadSong(currentIndex);
-        if (isPlaying) audio.play();
     }
 
     function prevSong() {
         if (songs.length === 0) return;
         currentIndex = (currentIndex - 1 + songs.length) % songs.length;
         loadSong(currentIndex);
-        if (isPlaying) audio.play();
     }
 
     async function savePlaylist() {
@@ -2792,10 +2950,28 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
         const song = songs[index];
         if (!song) return;
         editModeIndex = index;
-        pendingMp3DataUrl = null;
         newSongTitle.value = song.title;
         newSongSub.value = song.sub;
-        newSongUrl.value = song.url;
+        _resetLocalUploadUI();
+        const isCloud = window.CloudMedia && window.CloudMedia.isCloudRef && window.CloudMedia.isCloudRef(song.url);
+        if (isCloud) {
+            // 这首歌原来就是本地上传的，链接框留空、灰掉，用文件名提示区显示状态，
+            // 不要把 oss:// 这种内部引用当成普通链接显示出来
+            _editingCloudUrl = song.url;
+            newSongUrl.value = '';
+            newSongUrl.disabled = true;
+            newSongUrl.style.opacity = '0.5';
+            musicLocalFilenameEl.textContent = '当前使用：已上传的本地音频文件（重新选择可替换）';
+        } else if (song.url instanceof Blob) {
+            // 本地直存音频：链接框留空灰掉，提示当前用本地直存，重选可替换
+            _editingCloudUrl = null;
+            newSongUrl.value = '';
+            newSongUrl.disabled = true;
+            newSongUrl.style.opacity = '0.5';
+            musicLocalFilenameEl.textContent = '当前使用：本地直存音频文件（重新选择可替换）';
+        } else {
+            newSongUrl.value = song.url;
+        }
         modalTitleElem.innerText = "编辑歌曲信息";
         confirmAddSongBtn.innerText = "保存修改";
         showModal(addSongModal);
@@ -2803,11 +2979,10 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
 
     function openAddModal() {
         editModeIndex = -1;
-        pendingMp3DataUrl = null;
         newSongTitle.value = '';
         newSongSub.value = '';
         newSongUrl.value = '';
-        newSongUrl.style.color = '';
+        _resetLocalUploadUI();
         modalTitleElem.innerText = "添加自定义歌曲";
         confirmAddSongBtn.innerText = "添加播放";
         showModal(addSongModal);
@@ -2893,7 +3068,7 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
                     showNotification('歌单为空，无法导出', 'warning');
                     return;
                 }
-                const dataStr = JSON.stringify(songs, null, 2);
+                const dataStr = JSON.stringify(songs, (k, v) => (v instanceof Blob ? undefined : v), 2);
                 const blob = new Blob([dataStr], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
@@ -3031,10 +3206,9 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
                         if (songs.length > 0) {
                             currentIndex = realIndex % songs.length;
                             loadSong(currentIndex);
-                            if (isPlaying) audio.play();
                         } else {
                             audio.pause();
-                            isPlaying = false;
+                            _markPlaying(false);
                             loadSong(0);
                         }
                     } else if (realIndex < currentIndex) {
@@ -3046,9 +3220,7 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
             div.addEventListener('click', (e) => {
                 e.stopPropagation();
                 currentIndex = realIndex;
-                loadSong(currentIndex);
-                if (!isPlaying) togglePlay();
-                else audio.play();
+                loadSong(currentIndex, true);
             });
 
             container.appendChild(div);
@@ -3060,29 +3232,116 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
         if (contentDiv) renderListContent(contentDiv);
     }
 
-    confirmAddSongBtn.addEventListener('click', () => {
+    confirmAddSongBtn.addEventListener('click', async () => {
         const title = newSongTitle.value.trim();
         const sub = newSongSub.value.trim();
-        let url = newSongUrl.value.trim();
-
-        // 优先使用导入的MP3文件
-        if (pendingMp3DataUrl) {
-            url = pendingMp3DataUrl;
-        }
+        const url = newSongUrl.value.trim();
 
         if (!title) {
             showNotification('请输入歌曲名称', 'error');
             return;
         }
-        if (!url) {
-            showNotification('请输入音频链接或导入MP3文件', 'error');
+
+        let finalUrl = null;
+
+        // ── 批量导入：一次选择了多个本地音频文件 ──
+        if (_pendingLocalFiles && _pendingLocalFiles.length > 1) {
+            const cloudReady = _cloudReady();
+            const originalBtnText = confirmAddSongBtn.innerText;
+            confirmAddSongBtn.disabled = true;
+            const batchSongs = [];
+            let failed = 0;
+            try {
+                for (let i = 0; i < _pendingLocalFiles.length; i++) {
+                    confirmAddSongBtn.innerText = '批量导入中 (' + (i + 1) + '/' + _pendingLocalFiles.length + ')…';
+                    try {
+                        const file = _pendingLocalFiles[i];
+                        let url;
+                        if (cloudReady) {
+                            const result = await window.CloudMedia.upload(file, 'music');
+                            url = result.url; // 'oss://media/.../music/xxx.mp3'
+                        } else {
+                            url = file; // 无云端时直接把音频原始二进制（Blob）存进本地，不转码不膨胀
+                        }
+                        batchSongs.push({
+                            title: file.name.replace(/\.[^.]+$/, ''),
+                            sub: '未知艺术家',
+                            url,
+                            isCustom: true
+                        });
+                    } catch (e) {
+                        failed++;
+                        console.warn('批量导入失败:', _pendingLocalFiles[i].name, e);
+                        showNotification('「' + _pendingLocalFiles[i].name + '」导入失败', 'error');
+                    }
+                }
+            } finally {
+                confirmAddSongBtn.innerText = originalBtnText;
+                confirmAddSongBtn.disabled = false;
+            }
+
+            if (batchSongs.length === 0) {
+                showNotification('全部导入失败，请重试', 'error');
+                return; // 保持弹窗打开，方便重试
+            }
+
+            // 批量加入：使新增歌曲排在最前
+            const wasEmpty = songs.length === 0;
+            songs.unshift(...batchSongs);
+            if (wasEmpty) loadSong(0);
+
+            searchTerm = '';
+            savePlaylist();
+            showNotification(
+                '已导入 ' + batchSongs.length + ' 首歌曲' + (failed ? '，' + failed + ' 首失败' : ''),
+                failed ? 'warning' : 'success'
+            );
+            newSongTitle.value = '';
+            newSongSub.value = '';
+            newSongUrl.value = '';
+            _resetLocalUploadUI();
+            hideModal(addSongModal);
+            return;
+        }
+
+        if (_pendingLocalFile) {
+            // 选了本地文件——有云端上传到云端拿 oss:// 引用；无云端直接本地保存为 base64
+            const cloudReady = _cloudReady();
+            const originalBtnText = confirmAddSongBtn.innerText;
+            confirmAddSongBtn.innerText = cloudReady ? '上传中…' : '本地保存中…';
+            confirmAddSongBtn.disabled = true;
+            try {
+                if (cloudReady) {
+                    const result = await window.CloudMedia.upload(_pendingLocalFile, 'music');
+                    finalUrl = result.url; // 'oss://media/.../music/xxx.mp3'
+                } else {
+                    finalUrl = _pendingLocalFile; // 无云端时直接把音频原始二进制（Blob）存进本地
+                }
+            } catch (e) {
+                showNotification('导入失败：' + (e && e.message || e), 'error');
+                confirmAddSongBtn.innerText = originalBtnText;
+                confirmAddSongBtn.disabled = false;
+                return;
+            }
+            confirmAddSongBtn.innerText = originalBtnText;
+            confirmAddSongBtn.disabled = false;
+        } else if (_editingCloudUrl) {
+            // 编辑模式：用户没重新选本地文件，也没填新链接——保留原来的云端引用不动
+            finalUrl = _editingCloudUrl;
+        } else if (editModeIndex >= 0 && songs[editModeIndex] && songs[editModeIndex].url && songs[editModeIndex].url instanceof Blob) {
+            // 编辑本地直存音频：没重选也没填链接，保留原文件
+            finalUrl = songs[editModeIndex].url;
+        } else if (url) {
+            finalUrl = url;
+        } else {
+            showNotification('请输入音频链接，或选择本地文件上传', 'error');
             return;
         }
 
         const songData = {
             title,
             sub: sub || '未知艺术家',
-            url,
+            url: finalUrl,
             isCustom: true
         };
 
@@ -3096,50 +3355,17 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
         }
 
         searchTerm = '';
-        pendingMp3DataUrl = null;
         savePlaylist();
         newSongTitle.value = '';
         newSongSub.value = '';
         newSongUrl.value = '';
+        _resetLocalUploadUI();
         hideModal(addSongModal);
     });
 
     cancelAddSongBtn.addEventListener('click', () => {
-        pendingMp3DataUrl = null;
+        _resetLocalUploadUI();
         hideModal(addSongModal);
-    });
-
-    // MP3文件导入
-    importMp3Btn.addEventListener('click', () => {
-        mp3FileInput.click();
-    });
-
-    mp3FileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        if (file.size > 30 * 1024 * 1024) {
-            showNotification('文件太大，请选择30MB以内的MP3文件', 'error');
-            mp3FileInput.value = '';
-            return;
-        }
-        const reader = new FileReader();
-        reader.onerror = () => {
-            showNotification('文件读取失败，请重试', 'error');
-            mp3FileInput.value = '';
-        };
-        reader.onload = (ev) => {
-            pendingMp3DataUrl = ev.target.result;
-            newSongUrl.value = '[已导入本地MP3文件]';
-            newSongUrl.style.color = 'var(--accent-color)';
-            // 自动用文件名填充标题
-            if (!newSongTitle.value.trim()) {
-                const fileName = file.name.replace(/\.(mp3|m4a|aac|ogg|wav|flac)$/i, '');
-                newSongTitle.value = fileName;
-            }
-            showNotification('MP3文件已加载，点击"添加播放"即可', 'success');
-            mp3FileInput.value = '';
-        };
-        reader.readAsDataURL(file);
     });
 
     function setupDrag() {
@@ -3217,21 +3443,32 @@ playlist.style.top = (rect.top + (player.classList.contains('collapsed') ? 65 : 
 
     audio.addEventListener('timeupdate', (e) => {
         const { duration, currentTime } = e.target;
-        if (duration) document.getElementById('progress-bar').style.width = `${(currentTime / duration) * 100}%`;
+        const pct = duration ? (currentTime / duration) * 100 : 0;
+        document.getElementById('progress-bar').style.width = `${pct}%`;
+        if (typeof MediaNotif !== 'undefined' && MediaNotif.isSupported() && isPlaying) {
+            const ms = (pos) => Math.round((pos || 0) * 1000);
+            MediaNotif.update(ms(currentTime), ms(duration), true);
+        }
     });
     audio.addEventListener('ended', nextSong);
 
-    const _mode_btnEl = document.getElementById('mode-btn');
-    if (_mode_btnEl) _mode_btnEl.addEventListener('click', () => {
-        if (playMode === 'sequence') { playMode = 'single'; }
-        else if (playMode === 'single') { playMode = 'shuffle'; }
-        else { playMode = 'sequence'; }
+    function _setPlayModeUI() {
         document.getElementById('icon-loop').style.display   = playMode === 'sequence' ? 'block' : 'none';
         document.getElementById('icon-single').style.display = playMode === 'single'   ? 'block' : 'none';
         document.getElementById('icon-shuffle').style.display= playMode === 'shuffle'  ? 'block' : 'none';
+    }
+
+    function _cycleMode() {
+        if (playMode === 'sequence') { playMode = 'single'; }
+        else if (playMode === 'single') { playMode = 'shuffle'; }
+        else { playMode = 'sequence'; }
+        _setPlayModeUI();
         const labels = { sequence: '顺序播放', single: '单曲循环', shuffle: '随机播放' };
         showNotification(labels[playMode], 'info', 1000);
-    });
+    }
+
+    const _mode_btnEl = document.getElementById('mode-btn');
+    if (_mode_btnEl) _mode_btnEl.addEventListener('click', _cycleMode);
 
     const listBtn = document.getElementById('list-btn');
     listBtn.addEventListener('click', (e) => {
@@ -3255,6 +3492,7 @@ playlist.style.top = (rect.top + (player.classList.contains('collapsed') ? 65 : 
     if (settings.musicPlayerEnabled) {
         player.classList.add('visible');
     }
+    _setPlayModeUI();
 };
 
         function initCoreListeners() {

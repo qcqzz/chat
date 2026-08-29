@@ -447,6 +447,7 @@ window.closeEnvViewModal = function() {
 
 window.replyToEnvLetter = function() {
     hideModal(document.getElementById('envelope-view-modal'));
+    const letter = envelopeData.inbox.find(l => l.id === editingEnvId);
     const envelopeModal = document.getElementById('envelope-modal');
     showModal(envelopeModal);
     setTimeout(() => {
@@ -461,6 +462,22 @@ window.replyToEnvLetter = function() {
         document.getElementById('env-compose-form').dataset.replyMode = 'true';
         const hint = document.getElementById('env-reply-time-info');
         if (hint) hint.textContent = '传递你的心意吧';
+
+        // 回复框上方带出梦角的原信，默认折叠，方便边看边回
+        const quoteCtx = document.getElementById('env-compose-quote-ctx');
+        if (quoteCtx && letter) {
+            const pName = (typeof settings !== 'undefined' && settings.partnerName) || '对方';
+            document.getElementById('env-compose-quote-label').textContent = pName + '的来信';
+            const quoteText = document.getElementById('env-compose-quote-text');
+            quoteText.textContent = letter.content;
+            quoteText.style.maxHeight = '80px';
+            const expandBtn = document.getElementById('env-compose-quote-expand');
+            expandBtn.textContent = '展开查看全文';
+            expandBtn.style.display = letter.content && letter.content.length > 120 ? 'block' : 'none';
+            quoteCtx.style.display = 'block';
+        } else if (quoteCtx) {
+            quoteCtx.style.display = 'none';
+        }
     }, 150);
 };
 
@@ -487,6 +504,8 @@ window.openNewEnvelopeForm = function() {
     document.getElementById('env-compose-form').dataset.replyMode = '';
     const hint = document.getElementById('env-reply-time-info');
     if (hint) hint.textContent = '对方将在 10-24 小时内回信（8-12 句话）';
+    const quoteCtx = document.getElementById('env-compose-quote-ctx');
+    if (quoteCtx) quoteCtx.style.display = 'none';
     document.getElementById('env-compose-form').style.display = 'block';
 };
 

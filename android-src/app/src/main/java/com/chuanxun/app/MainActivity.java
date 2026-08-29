@@ -18,6 +18,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(NotificationPlugin.class);
         registerPlugin(VoiceRecorderPlugin.class);
         registerPlugin(ExportPlugin.class);
+        registerPlugin(MediaNotificationPlugin.class);
         super.onCreate(savedInstanceState);
 
         // 覆盖 WebChromeClient，直接放行 WebView 的麦克风/摄像头权限请求。
@@ -51,8 +52,21 @@ public class MainActivity extends BridgeActivity {
             // 若桥尚未就绪，回退到默认行为，不阻塞启动
         }
 
-        // 启动前台服务保活
-        Intent serviceIntent = new Intent(this, ForegroundService.class);
-        startForegroundService(serviceIntent);
+        // 启动前台服务保活。
+        // 注意：startForegroundService() 后必须在 5 秒内调用 startForeground()，
+        // 否则系统抛 ForegroundServiceDidNotStartInTimeException 崩溃。此处整体包一层防御，
+        // 个别厂商或深度后台限制前台服务启动时，后台保活会退化为由 KeepAliveReceiver 的
+        // 定时唤醒 + 前端静音音频自播兜底，绝不因启动失败拖垮整个 App。
+        try {
+            Intent serviceIntent = new Intent(this, ForegroundService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+        } catch (Exception e) {
+            // 前台服务启动被系统/厂商拒绝：仅记录日志，不影响主流程。
+            android.util.Log.w("MainActivity", "启动前台服务受限: " + e.getMessage());
+        }
     }
 }

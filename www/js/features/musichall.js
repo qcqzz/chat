@@ -13,6 +13,9 @@
     var LS_SETTINGS = 'CHAT_APP_V3__mhSettings';
     var LS_INVITE   = 'CHAT_APP_V3__mhInvite';
     var LS_MSGS     = 'CHAT_APP_V3__mhMessages';
+    // 歌单本体(可能含音频 base64)改走 IndexedDB(localforage)：容量远大于 localStorage，
+    // 结构化克隆不产生超长单字符串，避免大歌单 stringify 造成的 OOM/闪退，也不受配额限制丢歌。
+    var LF_SONGS    = 'CHAT_APP_V3__mhSongs_lf';
 
     function lsGet(k, fb) {
         try { var s = localStorage.getItem(k); return s ? JSON.parse(s) : fb; } catch (e) { return fb; }
@@ -38,7 +41,22 @@
         _mhPendingTimer = setTimeout(function () { mhReplyPending = 0; _mhPendingTimer = null; }, 15000);
     }
 
-    function saveSongs() { lsSet(LS_PLAYLIST, songs); }
+    function saveSongs() {
+        // 含音频本体(data: 前缀)的歌单 → 只写 IndexedDB；纯链接小歌单同时镜像 localStorage
+        var hasEmbedded = false;
+        for (var i = 0; i < songs.length; i++) {
+            if (songs[i].url && songs[i].url.indexOf('data:') === 0) { hasEmbedded = true; break; }
+        }
+        if (typeof localforage !== 'undefined') {
+            localforage.setItem(LF_SONGS, songs).catch(function (e) {
+                console.warn('[musichall] IndexedDB 歌单写入失败:', e);
+            });
+        }
+        // 纯链接小歌单镜像 localStorage 兼容老版本读取；含音频本体的歌单跳过（防 stringify OOM）
+        if (!hasEmbedded && songs.length <= 50) {
+            try { localStorage.setItem(LS_PLAYLIST, JSON.stringify(songs)); } catch (e) {}
+        }
+    }
     function saveConf() { lsSet(LS_SETTINGS, conf); }
     function saveInvite() { lsSet(LS_INVITE, invite); }
     function saveMessages() {
@@ -172,22 +190,58 @@
         return isPartner ? '<i class="fas fa-music"></i>' : '<i class="fas fa-user"></i>';
     }
 
+    // ── 本地文件存储（加法式：仅当 Filesystem 可用且歌曲走文件引用时启用）────
+    // 原 base64 直接塞 songs[].url 的逻辑完全保留；只有"新导入的本地文件"额外
+    // 写入应用目录存为真实文件，songs[].url 留空、songs[].localFile 记文件名，
+    // 播放时才 readFile 按需读入内存，避免大量 base64 常驻导致 OOM 闪退。
+    function _mhMusicFs() {
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem) return window.Capacitor.Plugins.Filesystem;
+        return null;
+    }
+    function _mhExtFromMime(m) {
+        var low = String(m || '').toLowerCase();
+        if (low.indexOf('mpeg') >= 0 || low.indexOf('mp3') >= 0) return '.mp3';
+        if (low.indexOf('m4a') >= 0 || low.indexOf('aac') >= 0) return '.m4a';
+        if (low.indexOf('wav') >= 0) return '.wav';
+        if (low.indexOf('flac') >= 0) return '.flac';
+        if (low.indexOf('ogg') >= 0) return '.ogg';
+        return '.mp3';
+    }
+    function _mhLocalPath(name) { return 'music/' + name; }
+
     // ── 播放控制 ──────────────────────────────────────────
-    function loadSong(index) {
-        if (!songs.length) return;
+    // 兼容回调：本地文件歌曲的 base64 需异步 readFile 获得，读完才回调继续播放；
+    // 普通 base64/云端/远程 url 歌曲则同步 resolve，回调立即执行，行为与原版一致。
+    function loadSong(index, cb) {
+        if (!songs.length) { if (typeof cb === 'function') cb(false); return; }
         if (index >= songs.length) index = 0;
         if (index < 0) index = songs.length - 1;
         cur = index;
-        if (audio) {
-            audio.src = songs[cur].url;
-            audio.load();
-        }
         syncPlayerUI();
+        if (!audio) { if (typeof cb === 'function') cb(false); return; }
+        var s = songs[cur];
+        var finish = function (src) { audio.src = src; audio.load(); if (typeof cb === 'function') cb(true); };
+        if (s && s.localFile && _mhMusicFs()) {
+            _mhMusicFs().readFile({ path: _mhLocalPath(s.localFile), directory: 'DATA' }).then(function (r) {
+                if (r && r.data) { finish('data:' + (s.mime || 'audio/mpeg') + ';base64,' + r.data); }
+                else { finish(''); if (typeof showNotification === 'function') showNotification('本地音频缺失：' + s.title, 'error'); }
+            }).catch(function (e) {
+                console.warn('[musichall] 读取本地文件失败(回退空源):', e);
+                finish(''); if (typeof showNotification === 'function') showNotification('本地音频读取失败：' + s.title, 'error');
+            });
+            return;
+        }
+        finish((s && s.url) ? s.url : '');
     }
     function playCur() {
         if (!songs.length) { showNotification('歌单为空，请先导入歌曲', 'warning'); return; }
-        if (cur < 0 || cur >= songs.length) loadSong(0);
-        if (!audio.src) loadSong(cur);
+        if (cur < 0 || cur >= songs.length) { loadSong(0, _playAfterLoad); return; }
+        if (!audio.src) { loadSong(cur, _playAfterLoad); return; }
+        _playAfterLoad(true);
+    }
+    function _playAfterLoad(ok) {
+        if (!audio) return;
+        if (ok === false) { /* 加载失败已在上层提示 */ return; }
         var p = audio.play();
         if (p && p.catch) p.catch(function (e) { console.error('[musichall] 播放失败', e); showNotification('播放失败，请检查音频链接', 'error'); });
     }
@@ -224,8 +278,8 @@
     function onEnded() {
         if (mode === 'single') { audio.currentTime = 0; playCur(); return; }
         var n = nextIdx();
-        if (n >= 0) loadSong(n);
-        playCur();
+        if (n >= 0) loadSong(n, _playAfterLoad);
+        else if (!songs.length) { /* 无曲目不动作 */ }
     }
     function fmt(sec) {
         if (isNaN(sec)) return '0:00';
@@ -237,8 +291,8 @@
         var prev = panel.querySelector('#mh-prev');
         var next = panel.querySelector('#mh-next');
         if (play) play.addEventListener('click', togglePlay);
-        if (prev) prev.addEventListener('click', function () { if (!songs.length) return; loadSong(cur - 1); playCur(); });
-        if (next) next.addEventListener('click', function () { if (!songs.length) return; var n = nextIdx(); loadSong(n); playCur(); });
+        if (prev) prev.addEventListener('click', function () { if (!songs.length) return; loadSong(cur - 1, _playAfterLoad); });
+        if (next) next.addEventListener('click', function () { if (!songs.length) return; var n = nextIdx(); loadSong(n, _playAfterLoad); });
     }
     function syncPlayerUI() {
         var t = document.getElementById('mh-song-title');
@@ -499,6 +553,11 @@
             d.addEventListener('click', function (e) {
                 e.stopPropagation();
                 var i = Number(d.getAttribute('data-idx'));
+                var s = songs[i];
+                // 若删除的是本地文件歌曲，顺带清理磁盘文件（失败不阻塞，加法式删除）
+                if (s && s.localFile && _mhMusicFs()) {
+                    _mhMusicFs().deleteFile({ path: _mhLocalPath(s.localFile), directory: 'DATA' }).catch(function () {});
+                }
                 songs.splice(i, 1);
                 if (cur >= songs.length) cur = songs.length - 1;
                 if (cur === i && audio) { audio.pause(); audio.src = ''; }
@@ -510,8 +569,7 @@
         wrap.querySelectorAll('.mh-song-row').forEach(function (r) {
             r.addEventListener('click', function () {
                 var i = Number(r.getAttribute('data-idx'));
-                loadSong(i);
-                playCur();
+                loadSong(i, _playAfterLoad);
                 renderPlaylistList();
             });
         });
@@ -577,10 +635,12 @@
         var fileBtn = el.querySelector('#mh-in-file');
         var fileInput = el.querySelector('#mh-in-file-input');
         var pendingDataUrl = null;
+        var pendingMime = null;
         if (fileBtn && fileInput) fileBtn.addEventListener('click', function () { fileInput.click(); });
         if (fileInput) fileInput.addEventListener('change', function () {
             var f = fileInput.files[0];
             if (!f) return;
+            pendingMime = (f.type && f.type.indexOf('audio/') === 0) ? f.type : ('audio/' + String(f.name.split('.').pop() || 'mpeg'));
             var reader = new FileReader();
             reader.onload = function () {
                 pendingDataUrl = reader.result;
@@ -597,15 +657,44 @@
             var sub = el.querySelector('#mh-in-sub').value.trim();
             var url = el.querySelector('#mh-in-url').value.trim() || pendingDataUrl;
             if (!title || !url) { showNotification('请填写名称与音频链接/文件', 'warning'); return; }
-            songs.push({ title: title, sub: sub, url: url });
-            saveSongs();
-            showNotification('已添加到歌单', 'success');
-            el.querySelector('#mh-in-title').value = '';
-            el.querySelector('#mh-in-sub').value = '';
-            el.querySelector('#mh-in-url').value = '';
-            pendingDataUrl = null;
-            renderPlaylistList();
-            syncPlayerUI();
+            var ran = function () {
+                songs.push({ title: title, sub: sub, url: url });
+                saveSongs();
+                showNotification('已添加到歌单', 'success');
+                el.querySelector('#mh-in-title').value = '';
+                el.querySelector('#mh-in-sub').value = '';
+                el.querySelector('#mh-in-url').value = '';
+                pendingDataUrl = null;
+                pendingMime = null;
+                renderPlaylistList();
+                syncPlayerUI();
+            };
+            // 本地文件导入：Filesystem 可用时把 base64 写入应用目录存为真实文件，
+            // songs 只记 localFile 引用（大幅降内存）；失败则回退原 base64 逻辑。
+            var fs = _mhMusicFs();
+            if (fs && url === pendingDataUrl && url.indexOf('data:') === 0) {
+                var m = /^data:([^;]+);base64,/.exec(url);
+                var mime = m ? m[1] : (pendingMime || 'audio/mpeg');
+                var data = url.split(',')[1];
+                var fname = 'mh_' + Date.now() + '_' + Math.floor(Math.random() * 100000) + _mhExtFromMime(mime);
+                fs.writeFile({ path: _mhLocalPath(fname), data: data, directory: 'DATA', recursive: true }).then(function () {
+                    songs.push({ title: title, sub: sub, url: '', localFile: fname, mime: mime });
+                    saveSongs();
+                    showNotification('已添加到歌单', 'success');
+                    el.querySelector('#mh-in-title').value = '';
+                    el.querySelector('#mh-in-sub').value = '';
+                    el.querySelector('#mh-in-url').value = '';
+                    pendingDataUrl = null;
+                    pendingMime = null;
+                    renderPlaylistList();
+                    syncPlayerUI();
+                }).catch(function (e) {
+                    console.warn('[musichall] 写入本地文件失败，回退 base64 存储:', e);
+                    ran();
+                });
+                return;
+            }
+            ran();
         });
 
         // ── 一键导入网易云歌单 ──────────────────────────
@@ -1158,6 +1247,17 @@
         if (_booted) return;
         _booted = true;
         hookFragment();
+        // 启动后异步以 IndexedDB 歌单为准覆盖同步种子（localStorage 种子兼容老版本/纯链接小歌单）。
+        // 音乐文件上传量多时只存 IndexedDB，重进也能完整恢复，不再被配额清空。
+        if (typeof localforage !== 'undefined') {
+            localforage.getItem(LF_SONGS).then(function (v) {
+                if (!v || !Array.isArray(v)) return;
+                if (JSON.stringify(v) !== JSON.stringify(songs)) {
+                    songs = v;
+                    try { renderPlaylistList(); syncPlayerUI(); } catch (e) {}
+                }
+            }).catch(function () {});
+        }
         // 等 app 数据准备好后再检查邀请
         setTimeout(function () { checkInvite(); }, 2500);
     }

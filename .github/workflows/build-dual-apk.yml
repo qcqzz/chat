@@ -81,6 +81,8 @@ jobs:
           cp android-src/app/src/main/java/com/chuanxun/app/BootReceiver.java android/app/src/main/java/com/chuanxun/app/
           cp android-src/app/src/main/java/com/chuanxun/app/MainActivity.java android/app/src/main/java/com/chuanxun/app/
           cp android-src/app/src/main/java/com/chuanxun/app/VoiceRecorderPlugin.java android/app/src/main/java/com/chuanxun/app/
+          cp android-src/app/src/main/java/com/chuanxun/app/MediaNotificationPlugin.java android/app/src/main/java/com/chuanxun/app/
+          cp android-src/app/src/main/java/com/chuanxun/app/MediaActionReceiver.java android/app/src/main/java/com/chuanxun/app/
           cp android-src/app/src/main/AndroidManifest.xml android/app/src/main/
           cp android-src/app/src/main/assets/capacitor.plugins.json android/app/src/main/assets/
           echo "前台服务代码已注入"

@@ -23,12 +23,18 @@ public class KeepAliveReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         Log.i(TAG, "定时唤醒触发: " + (intent != null ? intent.getAction() : "null"));
 
-        // 获取短暂 WakeLock 确保 CPU 不立即休眠
-        PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        // 获取短暂 WakeLock 确保 CPU 不立即休眠。
+        // 单独包一层保护：个别厂商/低内存场景下 newWakeLock 或 acquire 可能抛异常，
+        // 这里绝不因取锁失败拖垮广播线程，导致下方续闹钟自愈链也被打断。
         PowerManager.WakeLock wl = null;
-        if (pm != null) {
-            wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "chuanxun::keepalive");
-            wl.acquire(10 * 1000L); // 10 秒
+        try {
+            PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "chuanxun::keepalive");
+                wl.acquire(10 * 1000L); // 10 秒
+            }
+        } catch (Exception wlE) {
+            Log.w(TAG, "获取 WakeLock 失败(忽略，仅尽力续闹钟): " + wlE.getMessage());
         }
 
         try {

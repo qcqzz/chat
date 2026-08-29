@@ -61,6 +61,48 @@
         return 'data:' + (mime || 'application/octet-stream') + ';base64,' + uint8ToBase64Chunked(u8);
     }
 
+    // 把 Blob 读成 data:URL 字符串（供备份链路承载二进制；分块编码避免大文件内存峰值）
+    async function blobToDataUrl(blob) {
+        var mime = blob.type || 'application/octet-stream';
+        var buf = await blob.arrayBuffer();
+        return binaryToDataUrl(mime, new Uint8Array(buf));
+    }
+
+    // 递归把子树中的 Blob 替换成 data:URL 字符串（原地）
+    async function blobToDataUrlTree(node) {
+        if (node instanceof Blob) return await blobToDataUrl(node);
+        if (Array.isArray(node)) {
+            for (var i = 0; i < node.length; i++) node[i] = await blobToDataUrlTree(node[i]);
+            return node;
+        }
+        if (node && typeof node === 'object' && !(node instanceof Date)) {
+            for (var k in node) {
+                if (Object.prototype.hasOwnProperty.call(node, k)) node[k] = await blobToDataUrlTree(node[k]);
+            }
+        }
+        return node;
+    }
+
+    // 恢复时把 audio data:URL 还原成 Blob（保持本地直存，不膨胀体积）
+    function dataUrlToBlobTree(node) {
+        if (typeof node === 'string' && /^data:audio\//.test(node) && node.length > 120) {
+            var m = dataUrlToBinary(node);
+            if (m && m.bytes && m.bytes.length) return new Blob([m.bytes], { type: m.mime || 'audio/mpeg' });
+            return node;
+        }
+        if (Array.isArray(node)) {
+            var arr = new Array(node.length);
+            for (var i = 0; i < node.length; i++) arr[i] = dataUrlToBlobTree(node[i]);
+            return arr;
+        }
+        if (node && typeof node === 'object') {
+            var o = {};
+            for (var k in node) if (Object.prototype.hasOwnProperty.call(node, k)) o[k] = dataUrlToBlobTree(node[k]);
+            return o;
+        }
+        return node;
+    }
+
     /**
      * 将大树中的 data: 媒体字符串抽离到 store，原处替换为 { __mRef: id }（导入时再展开）
      */
@@ -222,6 +264,8 @@
         var lfOut = {};
         for (var k in lfData) {
             if (!Object.prototype.hasOwnProperty.call(lfData, k)) continue;
+            // 先把 Blob 直存的本地音频等二进制转成 data:URL，交给 extractMediaTree 抽到 mediaStore
+            lfData[k] = await blobToDataUrlTree(lfData[k]);
             lfOut[k] = extractMediaTree(lfData[k], state);
         }
         var lsOut = {};
@@ -756,6 +800,8 @@
             var lk = lfKeys[i];
             var targetKey = needRemap ? remapLfKey(lk, backupSid, curSid, appPfx) : lk;
             var val = inlineMediaTree(lfRaw[lk], mediaStore);
+            // 自定义歌单里的本地直存音频：把 data:URL 还原成 Blob，保持本地直存
+            if (targetKey && targetKey.indexOf('customSongs') !== -1) val = dataUrlToBlobTree(val);
             try {
                 await localforage.setItem(targetKey, val);
             } catch (e) {

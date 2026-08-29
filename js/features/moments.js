@@ -569,6 +569,8 @@ window.openCoupleSpace=window.openMomentsModal=function(scrollToPostId){
     const page=document.getElementById('couple-space-page');if(!page)return;
     // 打开情侣空间前，先收起娱乐页，避免两个全屏页叠加
     if(typeof window.closeEntertainment==='function')window.closeEntertainment();
+    // 进场动画开关：关闭时去掉淡入过渡，直接显示
+    page.classList.toggle('cs-no-anim', !(window._uiAnimOn && window._uiAnimOn('Space')));
     page.style.display='flex';
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
         // 页面动画前先把 header 放好（此时整页还在 translateY(100%) 不可见）

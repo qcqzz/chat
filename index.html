@@ -25,6 +25,8 @@
     <link rel="stylesheet" href="css/companion.css">
     <link rel="stylesheet" href="css/cinema.css">
     <link rel="stylesheet" href="css/musichall.css">
+    <link rel="stylesheet" href="css/music-local.css">
+    <link rel="stylesheet" href="css/my-sticker-groups.css">
 
     <style id="css-live-preview-style"></style>
     <style>
@@ -508,6 +510,10 @@ html[data-theme="dark"] #chat-transition-overlay{
                     <button onclick="window.openMyStickerSettings()" title="管理表情库" style="background:none;border:none;cursor:pointer;padding:4px 8px;color:var(--text-secondary);font-size:12px;display:flex;align-items:center;gap:3px;border-radius:6px;transition:all 0.2s;" onmouseover="this.style.background='rgba(var(--accent-color-rgb),0.12)';this.style.color='var(--accent-color)'" onmouseout="this.style.background='none';this.style.color='var(--text-secondary)'"><i class="fas fa-cog"></i></button>
                 </div>
             </div>
+            <!-- 分组图标行单独放在这里，跟 #combo-content-area 是平级兄弟，完全不在可滚动区域里面——
+                 之前用 position:sticky 想让它"看起来固定"，但手机Safari上sticky跟这个弹层的
+                 定位方式凑一起会有滚动露馅的问题，干脆物理上搬出滚动区域，从根上不存在这个可能 -->
+            <div class="my-sticker-group-row-slot" id="my-sticker-group-row-slot"></div>
             <div class="combo-content-area" id="combo-content-area">
             </div>
         </div>
@@ -1160,6 +1166,11 @@ html[data-theme="dark"] #chat-transition-overlay{
             </div>
 
             <div id="env-compose-form" style="display:none;">
+                <div id="env-compose-quote-ctx" style="display:none;margin:0 0 10px;background:rgba(var(--accent-color-rgb),0.06);border:1px solid rgba(var(--accent-color-rgb),0.18);border-radius:10px;padding:10px 14px;border-left:3px solid rgba(var(--accent-color-rgb),0.5);">
+                    <div style="font-size:11px;color:var(--accent-color);margin-bottom:4px;display:flex;align-items:center;gap:4px;"><i class="fas fa-envelope-open-text" style="font-size:10px;"></i><span id="env-compose-quote-label">对方的来信</span></div>
+                    <div id="env-compose-quote-text" style="font-size:12.5px;color:var(--text-secondary);line-height:1.7;font-style:italic;white-space:pre-wrap;word-break:break-word;max-height:80px;overflow:hidden;position:relative;"></div>
+                    <div id="env-compose-quote-expand" style="font-size:11px;color:var(--accent-color);margin-top:5px;cursor:pointer;display:none;" onclick="(function(){var t=document.getElementById('env-compose-quote-text');t.style.maxHeight=t.style.maxHeight==='none'?'80px':'none';document.getElementById('env-compose-quote-expand').textContent=t.style.maxHeight==='none'?'收起':'展开查看全文';})()">展开查看全文</div>
+                </div>
                 <div class="env-compose-paper">
                     <div class="env-compose-heading">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
@@ -1827,27 +1838,16 @@ html[data-theme="dark"] #chat-transition-overlay{
             </div>
         </div>
 
-        <!-- 拍立得照片：桌面拍立得三张分别上传（排版参考聊天背景，未设置时显示默认灰底图） -->
+        <!-- 拍立得照片：桌面拍立得三张固定位（排版同聊天背景图库，网格缩略图） -->
         <div class="settings-section" id="polaroid-set-section">
             <div class="settings-section-title">
                 <i class="fas fa-images"></i>拍立得照片
             </div>
             <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;opacity:0.75;line-height:1.5;">
-                分别设置桌面拍立得的三张照片。点击下方图片上传，可在固定框内拖动与缩放选择裁剪范围，与顶栏/桌面背景等自定义裁剪规则一致。未设置时显示默认灰底图。支持 JPG / PNG。
+                桌面拍立得固定展示三张（最上层、中间、最底层）。点击缩略图上传替换，可在固定框内拖动与缩放裁剪；点击右上角垃圾桶恢复默认灰底图。支持 JPG / PNG。
             </div>
 
-            <div class="pl-set-group">
-                <div class="pl-set-label"><i class="fas fa-camera"></i>第 1 张 · 最上层</div>
-                <div class="bg-gallery" id="polaroid-gallery-1"></div>
-            </div>
-            <div class="pl-set-group">
-                <div class="pl-set-label"><i class="fas fa-camera"></i>第 2 张 · 中间</div>
-                <div class="bg-gallery" id="polaroid-gallery-2"></div>
-            </div>
-            <div class="pl-set-group">
-                <div class="pl-set-label"><i class="fas fa-camera"></i>第 3 张 · 最底层</div>
-                <div class="bg-gallery" id="polaroid-gallery-3"></div>
-            </div>
+            <div class="bg-gallery" id="polaroid-gallery-list"></div>
 
             <div style="text-align:center;margin-top:10px;">
                 <button class="modal-btn modal-btn-secondary" id="reset-all-polaroid" style="font-size:12px;padding:6px 12px;">
@@ -2416,7 +2416,7 @@ html[data-theme="dark"] #chat-transition-overlay{
                         </div>
                         <div class="cs-slider-row">
                             <span class="cs-slider-label">最长等待</span>
-                            <input type="range" min="1000" max="120000" step="1000" value="7000" class="font-size-slider" id="reply-delay-max-slider">
+                            <input type="range" min="1000" max="1800000" step="1000" value="7000" class="font-size-slider" id="reply-delay-max-slider">
                             <span class="cs-slider-val" id="reply-delay-max-value">7s</span>
                         </div>
                     </div>
@@ -2431,7 +2431,7 @@ html[data-theme="dark"] #chat-transition-overlay{
                         <div id="auto-send-control" style="display:none;">
                             <div class="cs-slider-row">
                                 <span class="cs-slider-label">间隔</span>
-                                <input type="range" min="1" max="120" step="1" value="5" class="font-size-slider" id="auto-send-slider">
+                                <input type="range" min="1" max="180" step="1" value="5" class="font-size-slider" id="auto-send-slider">
                                 <span class="cs-slider-val" id="auto-send-value">5分钟</span>
                             </div>
                         </div>
@@ -2708,6 +2708,24 @@ html[data-theme="dark"] #chat-transition-overlay{
                             <span class="setting-pill-icon"><i class="fas fa-asterisk"></i></span>
                             <span class="setting-pill-label">戳一戳装饰符号 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;" id="poke-symbol-desc">点击设置符号样式</span></span>
                             <i class="fas fa-chevron-right" style="color:var(--text-secondary);font-size:12px;flex-shrink:0;"></i>
+                        </div>
+                    </div>
+                    <p class="cs-group-label" style="margin-top:4px;">页面动画</p>
+                    <div class="cs-card">
+                        <div class="setting-pill-row" id="cs-anim-chat" onclick="window._uiAnimToggle&&window._uiAnimToggle('Chat','cs-anim-chat')">
+                            <span class="setting-pill-icon"><i class="fas fa-heart"></i></span>
+                            <span class="setting-pill-label">进入聊天页动画 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">打开聊天空间的进入动画</span></span>
+                            <div class="setting-pill-switch"><div class="setting-pill-knob"></div></div>
+                        </div>
+                        <div class="setting-pill-row" id="cs-anim-space" onclick="window._uiAnimToggle&&window._uiAnimToggle('Space','cs-anim-space')" style="border-top:1px solid var(--border-color);">
+                            <span class="setting-pill-icon"><i class="fas fa-home"></i></span>
+                            <span class="setting-pill-label">进入情侣空间动画 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">打开情侣空间的进入动画</span></span>
+                            <div class="setting-pill-switch"><div class="setting-pill-knob"></div></div>
+                        </div>
+                        <div class="setting-pill-row" id="cs-anim-ent" onclick="window._uiAnimToggle&&window._uiAnimToggle('Ent','cs-anim-ent')" style="border-top:1px solid var(--border-color);">
+                            <span class="setting-pill-icon"><i class="fas fa-sparkles"></i></span>
+                            <span class="setting-pill-label">进入娱乐页动画 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">打开娱乐的进入动画</span></span>
+                            <div class="setting-pill-switch"><div class="setting-pill-knob"></div></div>
                         </div>
                     </div>
                 </div>
@@ -3648,13 +3666,18 @@ html[data-theme="dark"] #chat-transition-overlay{
             </div>
             <input type="text" class="modal-input" id="new-song-title" placeholder="歌曲名称 (例如: 这里的风景)">
             <input type="text" class="modal-input" id="new-song-sub" placeholder="歌手/备注 (例如: 你的名字)">
-            <div class="modal-input-row">
-                <input type="text" class="modal-input" id="new-song-url" placeholder="音频链接 (mp3/m4a 链接)">
-                <button type="button" class="modal-btn modal-btn-secondary" id="import-mp3-btn" title="导入本地MP3文件">
-                    <i class="fas fa-folder-open"></i>
-                </button>
+            <input type="text" class="modal-input" id="new-song-url" placeholder="音频链接 (mp3/m4a 链接)">
+            <div class="music-local-divider"><span>或</span></div>
+            <div class="music-local-upload-row">
+                <label class="music-local-upload-btn" id="music-local-upload-label" for="new-song-file">
+                    <i class="fas fa-upload"></i> 从本地选择音频文件（可多选）
+                </label>
+                <input type="file" id="new-song-file" multiple style="display:none;">
+                <button type="button" id="music-local-clear-btn" style="display:none;" class="music-local-clear-btn">✕</button>
             </div>
-            <input type="file" id="mp3-file-input" accept=".mp3,audio/mp3,audio/mpeg" style="display:none">
+            <div style="font-size:10.5px;color:var(--text-secondary);opacity:0.55;margin:-2px 0 8px;line-height:1.4;">支持一次选择多个文件批量导入，多个文件将按文件名作为歌曲名</div>
+            <div class="music-local-filename" id="music-local-filename"></div>
+            <div class="music-local-hint" id="music-local-hint">选择本地音频后即可导入：已配置云端会上传，否则直接保存到本地设备</div>
             <div class="modal-buttons">
                 <button class="modal-btn modal-btn-secondary" id="cancel-add-song">取消</button>
                 <button class="modal-btn modal-btn-primary" id="confirm-add-song">添加播放</button>
@@ -3916,10 +3939,11 @@ html[data-theme="dark"] #chat-transition-overlay{
     <script src="js/features.js"></script> 
     <script src="js/push-notification-bridge.js"></script>
     <script src="js/foreground-bridge.js"></script>
+    <script src="js/media-notification-bridge.js"></script>
     <script src="js/data.js"></script>
     <script src="js/onboarding.js"></script> 
     <script src="js/features/anniversary.js"></script>
-    <script src="js/listeners.js?v=2"></script>
+    <script src="js/listeners.js?v=3"></script>
     <script src="js/listeners-step2.js"></script>
     <script src="js/listeners-voice.js"></script>
     <script src="js/features/voice-recorder.js"></script>
@@ -4079,13 +4103,38 @@ function openChatWithTransition(){
     _chatOpening=false;
     if(window.DesktopTopbar&&typeof window.DesktopTopbar.openChat==='function'){window.DesktopTopbar.openChat();}
   }
-  if(!ov){direct();return;}
+  if(!ov || !(window._uiAnimOn&&window._uiAnimOn('Chat'))){direct();return;}
   ov.classList.add('ct-show');
   requestAnimationFrame(function(){requestAnimationFrame(function(){ov.classList.add('ct-visible');});});
   _chatOpenTimers.push(setTimeout(function(){direct();},2400));
   _chatOpenTimers.push(setTimeout(function(){ov.classList.remove('ct-visible');},2850));
   _chatOpenTimers.push(setTimeout(function(){ov.classList.remove('ct-show');},3400));
 }
+// ── 页面动画开关：聊天/情侣空间/娱乐三个独立进入动画 ──
+window._uiAnimOn=function(which){
+  if(typeof settings!=='object')return false;
+  return settings['anim'+which]!==false;
+};
+window._uiAnimToggle=function(which,id){
+  if(typeof settings!=='object')return;
+  var name='anim'+which;
+  settings[name]=(settings[name]===false);
+  if(typeof throttledSaveData==='function')throttledSaveData();
+  if(window._syncUiAnim)window._syncUiAnim();
+};
+window._syncUiAnim=function(){
+  if(typeof settings!=='object')return;
+  function sync(id,on){
+    var el=document.getElementById(id);
+    if(!el)return;
+    el.classList.toggle('active',!!on);
+    el.style.opacity='';el.style.pointerEvents='';
+  }
+  sync('cs-anim-chat',settings.animChat!==false);
+  sync('cs-anim-space',settings.animSpace!==false);
+  sync('cs-anim-ent',settings.animEnt!==false);
+};
+window._syncUiAnim();
 </script>
 </body>
 </html>

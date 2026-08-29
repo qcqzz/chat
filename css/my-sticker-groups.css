@@ -1,0 +1,225 @@
+/* ══════════════════════════════════════════
+   我的表情库 —— 分组功能样式
+   ══════════════════════════════════════════ */
+
+/* 原来"添加表情"标题是纯CSS伪元素(::before)，天生固定显示在容器最前面，
+   没办法通过调整DOM顺序把它挪到分组行后面。这里关掉伪元素，
+   改成在JS里插入一个真实的DOM标题，插在分组行和表情网格之间，
+   才能真正控制它的位置。（这条规则原本没有跟其他布局逻辑耦合，关掉不影响别的） */
+#user-sticker-picker .combo-content-area.show-title::before {
+    content: none;
+}
+.my-sticker-add-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 4px 10px;
+}
+.my-sticker-add-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    opacity: 0.9;
+}
+.my-sticker-manage-link {
+    border: none;
+    background: none;
+    color: var(--accent-color);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 4px;
+    font-family: inherit;
+}
+
+/* 分组图标行现在整个搬到了滚动区域外面（index.html 里独立的 #my-sticker-group-row-slot），
+   physically 就不在会滚动的容器里了，不用再靠 sticky 硬撑视觉效果——这里给插槽本身
+   补一下左右内边距（跟 combo-content-area 的 16px 对齐）和背景色，视觉上跟原来一样 */
+.my-sticker-group-row-slot {
+    padding: 8px 16px 0;
+    background: var(--secondary-bg);
+    flex-shrink: 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+.my-sticker-group-row-slot:empty { padding: 0; }
+/* JS 里还留着这层包装，纯粹是历史原因（之前 sticky 方案用过），现在只是个透传容器 */
+.my-sticker-group-row-sticky {
+    display: block;
+}
+/* 横向滑动 */
+.my-sticker-group-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 2px 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.my-sticker-group-row::-webkit-scrollbar { display: none; }
+
+.my-sticker-group-add,
+.my-sticker-group-chip {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-color);
+    background: var(--secondary-bg);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    overflow: hidden;
+    font-size: 13px;
+}
+.my-sticker-group-chip.active {
+    border-color: var(--accent-color);
+    border-width: 2px;
+}
+.my-sticker-group-chip img { width: 100%; height: 100%; object-fit: cover; }
+
+/* 长按弹出的小浮窗 */
+.my-sticker-action-popover {
+    position: fixed;
+    z-index: 3050;
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 150px;
+}
+.my-sticker-action-btn {
+    padding: 10px 14px;
+    border: none;
+    background: none;
+    text-align: left;
+    font-size: 13px;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: inherit;
+}
+.my-sticker-action-btn:active { background: var(--primary-bg); }
+.my-sticker-action-btn + .my-sticker-action-btn { border-top: 1px solid var(--border-color); }
+
+/* 移动分组弹窗 / 新建分组多选网格 —— 共用的行/格样式 */
+.my-sticker-move-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: none;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-primary);
+    font-family: inherit;
+    text-align: left;
+}
+.my-sticker-move-row.current { border-color: var(--accent-color); background: rgba(var(--accent-color-rgb), 0.08); }
+
+.my-sticker-pick-item {
+    position: relative;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 0;
+    overflow: hidden;
+    cursor: pointer;
+    background: var(--primary-bg);
+}
+/* aspect-ratio:1 在网格里跟自动行高计算会冲突，格子实际渲染高度算错，
+   缩略图就会超出自己的格子、跟上下行叠在一起——项目里其他地方（styles.css/cinema.css）
+   都是用百分比 padding 撑高度绕开这个坑，这里之前漏了，改成同样的写法 */
+.my-sticker-pick-item::before {
+    content: '';
+    display: block;
+    padding-top: 100%;
+}
+.my-sticker-pick-item img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.my-sticker-pick-item.picked { border-color: var(--accent-color); }
+
+/* 管理界面 */
+.my-sticker-manage-section-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+.my-sticker-manage-group-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+}
+.my-sticker-manage-group-name { flex: 1; font-size: 13px; }
+.my-sticker-manage-rename-input {
+    flex: 1;
+    font-size: 13px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--accent-color);
+    background: var(--primary-bg);
+    color: var(--text-primary);
+    font-family: inherit;
+}
+.my-sticker-manage-mini-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: none;
+    background: var(--primary-bg);
+    color: var(--text-secondary);
+    font-size: 11px;
+    cursor: pointer;
+}
+
+/* 新建分组：预览格右上角的删除小按钮 */
+.my-sticker-preview-remove {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    font-size: 9px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+/* 弹窗底部按钮的安全边距——基础 .modal-content 默认没有留白，
+   按钮会紧贴弹窗边缘，这里给所有表情分组相关的弹窗统一补上 */
+#my-sticker-newgroup-modal .modal-content,
+#my-sticker-manage-modal .modal-content,
+.my-sticker-sub-modal .modal-content {
+    padding-bottom: 22px;
+}
+#my-sticker-newgroup-modal .modal-buttons,
+#my-sticker-manage-modal .modal-buttons,
+.my-sticker-sub-modal .modal-buttons {
+    margin-bottom: 4px;
+}

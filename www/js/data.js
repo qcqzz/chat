@@ -230,6 +230,7 @@
     function estimateValueBytes(v) {
         if (typeof v === 'string') return v.length * 2;
         if (v == null) return 0;
+        if (v instanceof Blob) return v.size || 0; // 本地直存音频等二进制：按实际体积计入，不等同于字符串
         if (typeof v === 'number') return 8;
         if (typeof v === 'boolean') return 1;
         if (Array.isArray(v)) {
@@ -650,6 +651,7 @@ window._sysInfoPopup = {
     wrapEl: null,
     timer: null,
     unread: 0,
+    jumpWorthy: false,
     _ensure: function () {
         if (this.wrapEl) return this.wrapEl;
         var wrap = document.getElementById('sysinfo-popup-wrap');
@@ -672,7 +674,7 @@ window._sysInfoPopup = {
                     'padding:10px 14px','box-shadow:0 8px 30px rgba(0,0,0,.35)',
                     'font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif',
                     'font-size:14px','line-height:1.35','cursor:pointer','-webkit-backdrop-filter:blur(10px)'
-                ].join(';')+'" onclick="window._sysInfoPopup&&window._sysInfoPopup.hide()">',
+                ].join(';')+'" onclick="window._sysInfoPopup&&window._sysInfoPopup.tap()">',
                 '<div style="flex-shrink:0;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;background:rgba(255,255,255,.12)" id="sysinfo-popup-ico">💬</div>',
                 '<div style="flex:1;min-width:0">',
                 '  <div style="font-weight:600;font-size:13px;color:rgba(255,255,255,.82);display:flex;align-items:center;gap:6px" id="sysinfo-popup-title">系统信息</div>',
@@ -691,6 +693,8 @@ window._sysInfoPopup = {
         title = title || '系统信息';
         body = body || '';
         this.unread++;
+        // 点击弹窗是否“收起遮盖并跳回最新消息”：紧急邀请（视频/来电等）跳转可能与邀请自身的浮层冲突，仅普通消息跳回
+        this.jumpWorthy = !options.urgent;
 
         var titleEl = document.getElementById('sysinfo-popup-title');
         var bodyEl  = document.getElementById('sysinfo-popup-body');
@@ -729,6 +733,26 @@ window._sysInfoPopup = {
         this.wrapEl.style.transform = 'translateY(-140%)';
         var self = this;
         setTimeout(function(){ if (self.wrapEl) self.wrapEl.style.transform = 'translateY(-140%)'; self.unread = 0; }, 300);
+        this.jumpWorthy = false;
+    },
+    // 点击系统信息弹窗：收起弹窗；若是普通消息，顺手关掉盖在聊天上的弹窗/情侣空间并跳回最新消息
+    tap: function () {
+        if (!this.jumpWorthy) { this.hide(); return; }
+        this.hide();
+        var self = this;
+        setTimeout(function () {
+            try {
+                document.querySelectorAll('.modal').forEach(function (m) {
+                    if (getComputedStyle(m).display !== 'none' && typeof window.hideModal === 'function') {
+                        window.hideModal(m);
+                    }
+                });
+                if (typeof window.closeCoupleSpace === 'function') window.closeCoupleSpace();
+            } catch (e) {}
+            if (typeof window._backToLatestMessages === 'function') {
+                window._backToLatestMessages();
+            }
+        }, 420);
     }
 };
 window.showSystemInfoPopup = function (title, body, options) {

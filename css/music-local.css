@@ -1,0 +1,84 @@
+/* ══════════════════════════════════════════
+   悬浮音乐播放器 —— 本地文件上传（走云端存储）
+   ══════════════════════════════════════════ */
+
+.music-local-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 11px;
+    margin: 4px 0 10px;
+    opacity: 0.6;
+}
+.music-local-divider::before,
+.music-local-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-color);
+}
+.music-local-divider span { padding: 0 10px; }
+
+.music-local-upload-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.music-local-upload-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 0;
+    border: 1.5px dashed var(--border-color);
+    border-radius: 12px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    text-align: center;
+    transition: opacity 0.2s;
+}
+.music-local-upload-btn:active { opacity: 0.7; }
+.music-local-upload-btn.disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+.music-local-clear-btn {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(var(--accent-color-rgb), 0.1);
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+}
+.music-local-filename {
+    font-size: 12px;
+    color: var(--accent-color);
+    margin-bottom: 6px;
+    word-break: break-all;
+}
+.music-local-hint {
+    font-size: 11px;
+    color: var(--text-secondary);
+    opacity: 0.7;
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
+.music-local-hint.is-blocked { color: #e0a030; opacity: 1; }
+
+/* 这个弹窗内容比一般弹窗多（加了本地上传那一块），底部留白单独加大一点，
+   不改全局 .modal-content/.modal-buttons，避免影响其他弹窗 */
+#add-song-modal .modal-content { padding-bottom: 22px; }
+#add-song-modal .modal-buttons { margin-bottom: 4px; }

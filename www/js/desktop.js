@@ -1,6 +1,6 @@
 /* ── 桌面页（小手机桌面）：顶部栏 ──
    1. 个性签名：左上角，点击编辑，20 字内，持久化
-   2. 两侧头像/昵称：跟随聊天中设置的头像和昵称
+   2. 两侧头像：桌面页独立设置，不再跟随聊天页头像
    3. 顶部栏背景：独立图库，上传按固定比例裁剪后应用到顶部栏 */
 (function () {
     var SIG_KEY = 'tiDesktopSignature';
@@ -55,54 +55,134 @@
         showNotification && showNotification('个性签名已更新', 'success');
     }
 
-    // ── 两侧头像 / 昵称跟随聊天设置 ──
-    var _synced = false;
-    // 缓存上一次写入的值，3s 轮询只在真正变化时才更新 DOM/重解码图片，
-    // 避免 base64 头像每 3 秒被重新 innerHTML 注入造成持续卡顿
-    var _lastAvP = '', _lastAvM = '', _lastNameP = '', _lastNameM = '';
-    function syncTopbarUsers() {
-        var srcP = $('partner-avatar'), dstP = $('dt-avatar-partner');
-        var srcM = $('my-avatar'), dstM = $('dt-avatar-me');
-        function fill(src, dst, lastRef) {
-            if (!src || !dst) return lastRef;
-            var img = src.querySelector('img');
-            var srcVal = (img && img.src) ? img.src : '';
-            if (srcVal === lastRef) return lastRef;   // 未变化：跳过，避免重复注入/解码
-            if (img && img.src) {
-                dst.innerHTML = '<img src="' + img.src + '">';
-            } else {
-                dst.innerHTML = '<i class="fas fa-user"></i>';
-            }
-            return srcVal;
+    // ── 两侧头像：桌面页独立设置，不跟随聊天页 ──
+    // 头像单独存 localStorage（与聊天页头像完全解耦），昵称仍跟随聊天设置
+    var DTAV_P_KEY = 'tiDesktopAvatarPartner';
+    var DTAV_M_KEY = 'tiDesktopAvatarMe';
+    function getDtAvatar(key) {
+        try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
+    }
+    function renderDesktopAvatars() {
+        function render(id, key) {
+            var el = $(id); if (!el) return;
+            var v = getDtAvatar(key);
+            el.innerHTML = v ? '<img src="' + v + '">' : '<i class="fas fa-user"></i>';
         }
-        _lastAvP = fill(srcP, dstP, _lastAvP);
-        _lastAvM = fill(srcM, dstM, _lastAvM);
+        render('dt-avatar-partner', DTAV_P_KEY);
+        render('dt-avatar-me', DTAV_M_KEY);
+    }
+    // 昵称仍跟随聊天设置；缓存上次值，3s 轮询只在真正变化时更新 DOM
+    var _lastNameP = '', _lastNameM = '';
+    function syncTopbarUsers() {
+        // 头像改由桌面页独立管理（读取桌面自己的存储）
+        renderDesktopAvatars();
         _lastNameP = setName('partner-name', 'dt-name-partner', '梦角', _lastNameP);
         _lastNameM = setName('my-name', 'dt-name-me', '我', _lastNameM);
-        _synced = true;
     }
 
-    // ── 头像点击编辑（复用聊天页的头像编辑弹窗）──
+    // ── 头像点击编辑（桌面页独立头像弹窗）──
     var _avatarListenersBound = false;
     function bindAvatarEdit() {
         if (_avatarListenersBound) return;
         var dstP = $('dt-avatar-partner'), dstM = $('dt-avatar-me');
         if (!dstP || !dstM) return;
         _avatarListenersBound = true;
-        // 聊天页头像编辑弹窗尚未初始化时，等待可用
         var enable = function (el, isPartner) {
             el.style.cursor = 'pointer';
             el.addEventListener('click', function () {
-                if (typeof window.openAvatarModal === 'function') {
-                    window.openAvatarModal(isPartner);
-                } else {
-                    showNotification && showNotification('头像编辑暂不可用，请稍后重试', 'info');
-                }
+                openDesktopAvatarModal(isPartner);
             });
         };
         enable(dstP, true);
         enable(dstM, false);
     }
+
+    // ── 桌面页独立头像编辑弹窗 ──
+    var _dtAvTarget = null; // 'partner' | 'me'
+    var _dtAvCurrent = null;
+    var _dtAvModal = null;
+    function getDtAvKey(target) { return target === 'me' ? DTAV_M_KEY : DTAV_P_KEY; }
+    function _dtAvBuild() {
+        if (_dtAvModal) return _dtAvModal;
+        var m = document.createElement('div');
+        m.className = 'modal';
+        m.id = 'dt-avatar-modal';
+        m.innerHTML =
+            '<div class="modal-content">'
+            + '<div class="modal-title"><i class="fas fa-portrait"></i><span>设置桌面页头像</span></div>'
+            + '<div style="margin-bottom:16px;">'
+            +   '<div style="display:flex;gap:10px;margin-bottom:10px;">'
+            +     '<button class="modal-btn modal-btn-secondary" id="dt-av-up" style="flex:1;">选择文件</button>'
+            +     '<button class="modal-btn modal-btn-secondary" id="dt-av-del" style="flex:1;">清除头像</button>'
+            +   '</div>'
+            +   '<input type="file" class="modal-input" id="dt-av-file" accept="image/*" style="display:none;">'
+            +   '<div id="dt-av-preview" style="text-align:center;margin-top:10px;display:none;">'
+            +     '<img id="dt-av-preview-img" style="max-width:100px;max-height:100px;border-radius:50%;border:2px solid var(--border-color);">'
+            +   '</div>'
+            + '</div>'
+            + '<div class="modal-buttons">'
+            +   '<button class="modal-btn modal-btn-secondary" id="dt-av-cancel">取消</button>'
+            +   '<button class="modal-btn modal-btn-primary" id="dt-av-save" disabled>保存</button>'
+            + '</div>'
+            + '</div>';
+        document.body.appendChild(m);
+
+        var fileInput = m.querySelector('#dt-av-file');
+        var upBtn = m.querySelector('#dt-av-up');
+        var delBtn = m.querySelector('#dt-av-del');
+        var previewDiv = m.querySelector('#dt-av-preview');
+        var previewImg = m.querySelector('#dt-av-preview-img');
+        var saveBtn = m.querySelector('#dt-av-save');
+        var cancelBtn = m.querySelector('#dt-av-cancel');
+
+        upBtn.addEventListener('click', function () { fileInput.click(); });
+        cancelBtn.addEventListener('click', function () { hideModal(m); });
+        delBtn.addEventListener('click', function () {
+            try { localStorage.removeItem(getDtAvKey(_dtAvTarget)); } catch (e) {}
+            renderDesktopAvatars();
+            if (typeof showNotification === 'function') showNotification('桌面头像已清除', 'success');
+            hideModal(m);
+        });
+        fileInput.addEventListener('change', function (e) {
+            var file = e.target.files && e.target.files[0];
+            if (!file) return;
+            if (file.size > MAX_AVATAR_SIZE) {
+                showNotification && showNotification('头像图片不能超过2MB', 'error');
+                return;
+            }
+            cropImageToSquare(file, 300).then(function (b64) {
+                _dtAvCurrent = b64;
+                previewImg.src = b64;
+                previewDiv.style.display = 'block';
+                saveBtn.disabled = false;
+            }).catch(function (err) {
+                console.error(err);
+                showNotification && showNotification('图片处理失败', 'error');
+            });
+        });
+        saveBtn.addEventListener('click', function () {
+            if (!_dtAvCurrent) return;
+            try { localStorage.setItem(getDtAvKey(_dtAvTarget), _dtAvCurrent); } catch (e) {}
+            renderDesktopAvatars();
+            if (typeof showNotification === 'function') showNotification('桌面头像已更新', 'success');
+            hideModal(m);
+        });
+        _dtAvModal = m;
+        return m;
+    }
+    function openDesktopAvatarModal(isPartner) {
+        _dtAvTarget = isPartner ? 'partner' : 'me';
+        _dtAvCurrent = null;
+        var m = _dtAvBuild();
+        var previewDiv = m.querySelector('#dt-av-preview');
+        var previewImg = m.querySelector('#dt-av-preview-img');
+        var saveBtn = m.querySelector('#dt-av-save');
+        previewDiv.style.display = 'none';
+        previewImg.src = '';
+        saveBtn.disabled = true;
+        showModal(m);
+    }
+    window.openDesktopAvatarModal = openDesktopAvatarModal;
     function setName(srcId, dstId, fallback, lastRef) {
         var src = $(srcId), dst = $(dstId);
         if (!src || !dst) return lastRef;
@@ -264,22 +344,32 @@
         setTimeout(function () { if (c) c.classList.remove('flip'); }, 450);
     }
 
-    // ── 拍立得设置：三张照片分别上传（排版参考聊天背景） ──
+    // ── 拍立得设置：三个固定位，网格图库排版（样式同聊天背景图库） ──
     var _plSlot = 0;   // 当前正在上传的拍立得位（0/1/2）
+    var _plSlotTitles = ['最上层', '中间', '最底层'];
     function renderPolaroidGallery() {
+        var list = $('polaroid-gallery-list');
+        if (!list) return;
+        list.innerHTML = '';
         for (var i = 0; i < 3; i++) {
-            var list = $('polaroid-gallery-' + (i + 1));
-            if (!list) continue;
-            list.innerHTML = '';
             var v = getPl(i);
             var tile = document.createElement('div');
-            tile.className = 'bg-item' + (v ? '' : '');
+            tile.className = 'bg-item';
             var img = document.createElement('img');
             img.src = v || POLAROID_DEFAULT;
             img.loading = 'lazy';
             img.alt = '拍立得';
             tile.appendChild(img);
-            tile.title = v ? '点击更换第 ' + (i + 1) + ' 张照片' : '点击设置第 ' + (i + 1) + ' 张照片（当前为默认灰底图）';
+
+            // 槽位角标：标注第几张/层级
+            var badge = document.createElement('div');
+            badge.className = 'pl-slot-badge';
+            badge.textContent = String(i + 1) + ' · ' + _plSlotTitles[i];
+            tile.appendChild(badge);
+
+            tile.title = v
+                ? '点击更换第 ' + (i + 1) + ' 张（' + _plSlotTitles[i] + '）'
+                : '点击设置第 ' + (i + 1) + ' 张（' + _plSlotTitles[i] + '，当前为默认灰底图）';
             tile.onclick = (function (slot) {
                 return function () { pickPolaroidFile(slot); };
             })(i);
@@ -289,7 +379,8 @@
                 del.innerHTML = '<i class="fas fa-trash"></i>';
                 del.title = '恢复默认灰底图';
                 del.onclick = (function (slot) {
-                    return function () {
+                    return function (e) {
+                        e.stopPropagation();
                         if (!confirm('确定将这张拍立得恢复为默认灰底图吗？')) return;
                         setPl(slot, '');
                         renderPolaroidGallery();
