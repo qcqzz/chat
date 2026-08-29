@@ -183,9 +183,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }, 1000);
 
-        // ── 后台预定消息通知（仅 APK 原生环境）───────────────────────────────
-        // 进入后台时，把"下一条自动回复"预定为原生闹钟通知；即使 WebView JS 被暂停 / 进程被杀，
-        // 也由 Android 准点弹通知；回到前台取消预定，把控制权交还给 WebView 定时器，避免前台重复弹。
+        // ── 后台消息通知 ───────────────────────────────────────────────
+        // 不再预定原生"虚拟"通知：后台由前台服务 + WakeLock 保活 WebView 持续运行，
+        // JS 定时器到点照常发出真实消息，每条真实消息经 _sendPartnerNotification 各自弹真实通知。
+        // 保留兼容用的取消桥（无副作用），便于旧设置里已保存的预定被清理。
         function nativeMsgAlarmSupport() {
             try {
                 return !!(window.Capacitor && window.Capacitor.Plugins
@@ -193,22 +194,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     && typeof window.Capacitor.Plugins.NotificationPlugin.scheduleMessage === 'function');
             } catch (e) { return false; }
         }
-        window._armNativeMessageAlarm = function () {
-            if (!nativeMsgAlarmSupport()) return;
-            try {
-                if (typeof settings === 'undefined' || !settings.autoSendEnabled) {
-                    window._cancelNativeMessageAlarm();
-                    return;
-                }
-                var intervalMs = (settings.autoSendInterval || 5) * 60 * 1000;
-                var atMs = Date.now() + intervalMs;
-                var title = (settings.partnerName || '对方');
-                var body = '给你发来一条新消息';
-                window.Capacitor.Plugins.NotificationPlugin.scheduleMessage({
-                    title: title, body: body, atMs: atMs, intervalMs: intervalMs
-                }).catch(function () {});
-            } catch (e) {}
-        };
         window._cancelNativeMessageAlarm = function () {
             if (!nativeMsgAlarmSupport()) return;
             try {
@@ -218,8 +203,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
-                // 挂上后台消息闹钟（原生预定下一条消息通知）
-                _armNativeMessageAlarm();
                 try {
                     if (typeof saveTimeout !== 'undefined') clearTimeout(saveTimeout);
                 } catch (e) {}
