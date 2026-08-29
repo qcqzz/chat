@@ -31,6 +31,11 @@
 (function () {
     'use strict';
 
+    // 按对象命名空间取键的公共助手（与 features.js 共用同一 window.dgKey；如未定义则回退）
+    var _dKey = window.dgKey || function(base) {
+        return (typeof window.appSessionKey === 'function') ? window.appSessionKey(base) : ((window.APP_PREFIX || 'CHAT_APP_V3_') + base);
+    };
+
     var _uiState = 'empty'; // 'empty' | 'waiting' | 'watching'
 
     // watching 状态下：true=沉浸全屏剧场模式，false=嵌入普通电影院tab视图
@@ -899,7 +904,7 @@
         if (!replies.length) return [];
         var disabledItems = (function () {
             try {
-                var raw = localStorage.getItem('disabledReplyItems');
+                var raw = localStorage.getItem(_dKey('disabledReplyItems'));
                 return raw ? new Set(JSON.parse(raw)) : new Set();
             } catch (e) { return new Set(); }
         })();

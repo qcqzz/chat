@@ -5,6 +5,11 @@ var _escapeHtml = function(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 };
 
+// 桌面挂件"自定义问候/状态池"键按对象命名空间取的公共助手（与 features.js 共用同一 window.dgKey）
+window.dgKey = window.dgKey || function(base) {
+    return (typeof window.appSessionKey === 'function') ? window.appSessionKey(base) : ((window.APP_PREFIX || 'CHAT_APP_V3_') + base);
+};
+
 // 梦角回复消息的多监听通道（跟 window._onPartnerMessage 单函数钩子并行，互不覆盖）
 // 需要监听"梦角发了消息"这个事件的新模块，用 window._registerPartnerMessageListener(fn) 注册，
 // 不要直接赋值 window._onPartnerMessage，那个是给旧模块（陪伴模块）用的，赋值会覆盖掉它。
@@ -141,8 +146,7 @@ function _appendNewerMessages(startIdx, endIdxExclusive) {
     if (startIdx > 0 && messages.length >= startIdx) {
         const lastRenderedMsg = messages[startIdx - 1];
         if (lastRenderedMsg) {
-            const prevGroupMember = (lastRenderedMsg.sender !== 'user' && typeof getGroupMemberForMessage === 'function') ? getGroupMemberForMessage(lastRenderedMsg.id) : null;
-            lastSenderRef.current = prevGroupMember ? ('group_' + prevGroupMember.name) : lastRenderedMsg.sender;
+            lastSenderRef.current = lastRenderedMsg.sender;
         }
     }
     batch.forEach((msg, i) => {
@@ -1784,24 +1788,11 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
         avatarDiv.style.marginTop = settings.inChatAvatarCustomOffset + 'px';
     }
 
-    const groupMember = (msg.sender !== 'user' && typeof getGroupMemberForMessage === 'function') ? getGroupMemberForMessage(msg.id) : null;
-
     if (settings.inChatAvatarEnabled) {
-        const isSameSenderGroup = groupMember && lastSenderRef.current === 'group_' + (groupMember ? groupMember.name : '');
-        const isSameSenderNormal = !groupMember && msg.sender === lastSenderRef.current;
-        const shouldHide = !settings.alwaysShowAvatar && (isSameSenderGroup || isSameSenderNormal);
+        const isSameSender = msg.sender === lastSenderRef.current;
+        const shouldHide = !settings.alwaysShowAvatar && isSameSender;
         if (shouldHide) {
             avatarDiv.classList.add('hidden');
-        } else if (groupMember) {
-            const groupAvatarShape = settings.partnerAvatarShape || 'circle';
-            ['circle', 'square', 'pentagon', 'heart'].forEach(s => avatarDiv.classList.remove('shape-' + s));
-            if (groupAvatarShape !== 'none') avatarDiv.classList.add('shape-' + groupAvatarShape);
-            if (groupMember.avatar) {
-                avatarDiv.innerHTML = `<img src="${groupMember.avatar}" style="width:100%;height:100%;object-fit:cover;">`;
-            } else {
-                const initials = (groupMember.name || '?').charAt(0).toUpperCase();
-                avatarDiv.innerHTML = `<div style="width:100%;height:100%;background:var(--accent-color);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;">${initials}</div>`;
-            }
         } else {
             const isUser = msg.sender === 'user';
             const avatarElement = isUser ? DOMElements.me.avatar : DOMElements.partner.avatar;
@@ -1820,13 +1811,7 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
     const contentWrapper = document.createElement('div');
     contentWrapper.className = 'message-content-wrapper';
 
-    if (groupMember && groupChatSettings.showName) {
-        const nameLabel = document.createElement('div');
-        nameLabel.className = 'group-sender-name';
-        nameLabel.textContent = groupMember.name;
-        const isSameSenderGroupForName = lastSenderRef.current === 'group_' + groupMember.name;
-        if (!isSameSenderGroupForName) contentWrapper.appendChild(nameLabel);
-    } else if (!groupMember && msg.sender !== 'user' && msg.sender !== null && (settings.showPartnerNameInChat || showPartnerNameInChat)) {
+    if (msg.sender !== 'user' && msg.sender !== null && (settings.showPartnerNameInChat || showPartnerNameInChat)) {
         const isSameSenderForName = lastSenderRef.current === msg.sender;
         if (!isSameSenderForName) {
             const nameLabel = document.createElement('div');
@@ -1966,7 +1951,7 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
     wrapper.appendChild(contentWrapper);
     fragment.appendChild(wrapper);
 
-    lastSenderRef.current = groupMember ? ('group_' + groupMember.name) : msg.sender;
+    lastSenderRef.current = msg.sender;
     return fragment;
 }
 
@@ -2175,8 +2160,7 @@ const addMessage = (message) => {
             }
             let lastSenderRef = { current: null };
             if (prevMsg) {
-                const prevGroupMember = (prevMsg.sender !== 'user' && typeof getGroupMemberForMessage === 'function') ? getGroupMemberForMessage(prevMsg.id) : null;
-                lastSenderRef.current = prevGroupMember ? ('group_' + prevGroupMember.name) : prevMsg.sender;
+                lastSenderRef.current = prevMsg.sender;
             }
             const newMsgFragment = createMessageFragment(message, prevMsg, null, lastSenderRef);
             const spacer = container.querySelector('div[style*="flex: 1"]');
@@ -2223,8 +2207,7 @@ const addMessage = (message) => {
     // --- Append new message ---
     let lastSenderRef = { current: null };
     if (prevMsg) {
-        const prevGroupMember = (prevMsg.sender !== 'user' && typeof getGroupMemberForMessage === 'function') ? getGroupMemberForMessage(prevMsg.id) : null;
-        lastSenderRef.current = prevGroupMember ? ('group_' + prevGroupMember.name) : prevMsg.sender;
+        lastSenderRef.current = prevMsg.sender;
     }
     
     const newMsgFragment = createMessageFragment(message, prevMsg, null, lastSenderRef);
@@ -2769,7 +2752,7 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
             }
             const disabledItemsOnce = (() => {
                 try {
-                    const raw = localStorage.getItem('disabledReplyItems');
+                    const raw = localStorage.getItem(window.dgKey('disabledReplyItems'));
                     return raw ? new Set(JSON.parse(raw)) : new Set();
                 } catch (e) { return new Set(); }
             })();
@@ -2785,7 +2768,7 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
         const vcEnabledReply = (typeof voiceCardEnabled !== 'undefined') ? !!voiceCardEnabled : true;
         let disabledVoiceIdsOnce = new Set();
         try {
-            const raw = localStorage.getItem('disabledVoiceCards');
+            const raw = localStorage.getItem(window.dgKey('disabledVoiceCards'));
             if (raw) disabledVoiceIdsOnce = new Set(JSON.parse(raw));
         } catch (e) {}
         const enabledVoicePool = vcEnabledReply ? (voiceCards || []).filter(v => v && v.audio && !disabledVoiceIdsOnce.has(v.id)) : [];
@@ -2870,7 +2853,7 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
 
                     let disabledStickerItems = new Set();
                     try {
-                        const raw = localStorage.getItem('disabledStickerItems');
+                        const raw = localStorage.getItem(window.dgKey('disabledStickerItems'));
                         if (raw) disabledStickerItems = new Set(JSON.parse(raw));
                     } catch (e) {}
                     const enabledStickerPool = (stickerLibrary || []).filter(s => !disabledStickerItems.has(s));
@@ -3189,8 +3172,8 @@ function showModal(modalElement, focusElement = null) {
                 try {
                     let dgCustomData = null, dgStatusPool = null, customWeatherMap = {};
                     if (inclSettings) {
-                        try { dgCustomData = JSON.parse(localStorage.getItem('dg_custom_data') || 'null'); } catch(e2) {}
-                        try { dgStatusPool = JSON.parse(localStorage.getItem('dg_status_pool') || 'null'); } catch(e2) {}
+                        try { dgCustomData = JSON.parse(localStorage.getItem(window.dgKey('dg_custom_data')) || 'null'); } catch(e2) {}
+                        try { dgStatusPool = JSON.parse(localStorage.getItem(window.dgKey('dg_status_pool')) || 'null'); } catch(e2) {}
                         try {
                             Object.keys(localStorage).forEach(kk => {
                                 if (kk && kk.startsWith('customWeather_')) {
@@ -3375,9 +3358,9 @@ function showModal(modalElement, focusElement = null) {
                             converted.exportModules.push('settings');
                         }
                         // 额外的 localStorage 设置字段
-                        const dgCustomData = parseVal(ls['dg_custom_data'] !== undefined ? ls['dg_custom_data'] : null);
+                        const dgCustomData = parseVal(ls[window.dgKey('dg_custom_data')] !== undefined ? ls[window.dgKey('dg_custom_data')] : null);
                         if (dgCustomData) converted.dgCustomData = dgCustomData;
-                        const dgStatusPool = parseVal(ls['dg_status_pool'] !== undefined ? ls['dg_status_pool'] : null);
+                        const dgStatusPool = parseVal(ls[window.dgKey('dg_status_pool')] !== undefined ? ls[window.dgKey('dg_status_pool')] : null);
                         if (dgStatusPool) converted.dgStatusPool = dgStatusPool;
                         const customWeatherMap = {};
                         for (const wk of Object.keys(ls)) {
@@ -3520,8 +3503,8 @@ function showModal(modalElement, focusElement = null) {
                                     if (settings.customGlobalCss) applyGlobalThemeCss(settings.customGlobalCss);
                                 } catch(e2) { console.warn('导入后样式应用失败', e2); }
                             }
-                            if (importedData.dgCustomData) { try { localStorage.setItem('dg_custom_data', JSON.stringify(importedData.dgCustomData)); } catch(e2) {} }
-                            if (importedData.dgStatusPool) { try { localStorage.setItem('dg_status_pool', JSON.stringify(importedData.dgStatusPool)); } catch(e2) {} }
+                            if (importedData.dgCustomData) { try { localStorage.setItem(window.dgKey('dg_custom_data'), JSON.stringify(importedData.dgCustomData)); } catch(e2) {} }
+                            if (importedData.dgStatusPool) { try { localStorage.setItem(window.dgKey('dg_status_pool'), JSON.stringify(importedData.dgStatusPool)); } catch(e2) {} }
                             if (importedData.customWeatherMap) { try { Object.keys(importedData.customWeatherMap).forEach(wk => localStorage.setItem(wk, importedData.customWeatherMap[wk])); } catch(e2) {} }
                         }
                         if (doReplies  && importedData.customReplies)  customReplies  = importedData.customReplies;

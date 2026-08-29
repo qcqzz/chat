@@ -4,6 +4,20 @@
     var MY_CUST_KEY  = 'pokeSym_my_custom';
     var PTR_CUST_KEY = 'pokeSym_partner_custom';
 
+    // 按对象(梦角/SESSION_ID)隔离戳一戳符号：统一经 _k 取当前对象命名空间键
+    function _k(base) {
+        return (typeof window.appSessionKey === 'function') ? window.appSessionKey(base) : ((window.APP_PREFIX || 'CHAT_APP_V3_') + base);
+    }
+
+    // 桌面挂件"自定义问候/状态池/运势"键按对象命名空间取的公共助手
+    window.dgKey = window.dgKey || function(base) {
+        return (typeof window.appSessionKey === 'function') ? window.appSessionKey(base) : ((window.APP_PREFIX || 'CHAT_APP_V3_') + base);
+    };
+    // 一次性把旧"全局裸键"迁移进当前对象命名空间（内部有一性标记，只跑一次）
+    if (typeof window.migrateGlobalKeysToSession === 'function') {
+        window.migrateGlobalKeysToSession(['dg_custom_data', 'dg_status_pool', 'weekly_fortune', 'daily_fortune']);
+    }
+
     // 发图挑选器里贴纸网格的滚动加载处理器，重渲染时先解绑，避免重复叠加
     var _comboStickerScrollHandler = null;
 
@@ -20,6 +34,7 @@
     ];
 
     function _getSym(key, customKey) {
+        key = _k(key); customKey = _k(customKey);
         var v = localStorage.getItem(key) || 'star4';
         if (v === 'custom') return localStorage.getItem(customKey) || '✦';
         var p = PRESETS.find(function(x){ return x.value === v; });
@@ -54,10 +69,10 @@
         var old = document.getElementById('poke-sym-modal');
         if (old) old.remove();
 
-        var mySel    = localStorage.getItem(MY_SYM_KEY) || 'star4';
-        var ptrSel   = localStorage.getItem(PTR_SYM_KEY) || 'star4';
-        var myCustom = localStorage.getItem(MY_CUST_KEY) || '';
-        var ptrCustom= localStorage.getItem(PTR_CUST_KEY) || '';
+        var mySel    = localStorage.getItem(_k(MY_SYM_KEY)) || 'star4';
+        var ptrSel   = localStorage.getItem(_k(PTR_SYM_KEY)) || 'star4';
+        var myCustom = localStorage.getItem(_k(MY_CUST_KEY)) || '';
+        var ptrCustom= localStorage.getItem(_k(PTR_CUST_KEY)) || '';
 
         function opts(sel) {
             return PRESETS.map(function(p){
@@ -124,10 +139,10 @@
         document.getElementById('psm-save').addEventListener('click', function(){
             var mv = document.getElementById('psm-my').value;
             var pv = document.getElementById('psm-ptr').value;
-            localStorage.setItem(MY_SYM_KEY, mv);
-            localStorage.setItem(PTR_SYM_KEY, pv);
-            if(mv==='custom') localStorage.setItem(MY_CUST_KEY, document.getElementById('psm-my-ci').value.trim());
-            if(pv==='custom') localStorage.setItem(PTR_CUST_KEY, document.getElementById('psm-ptr-ci').value.trim());
+            localStorage.setItem(_k(MY_SYM_KEY), mv);
+            localStorage.setItem(_k(PTR_SYM_KEY), pv);
+            if(mv==='custom') localStorage.setItem(_k(MY_CUST_KEY), document.getElementById('psm-my-ci').value.trim());
+            if(pv==='custom') localStorage.setItem(_k(PTR_CUST_KEY), document.getElementById('psm-ptr-ci').value.trim());
             close();
             if(window._syncPokeDesc) window._syncPokeDesc();
             if(typeof showNotification==='function') showNotification('戳一戳符号已保存 ✓','success',1800);
@@ -135,8 +150,8 @@
     };
 
     function _syncPokeDesc() {
-        var ms = localStorage.getItem(MY_SYM_KEY)||'star4';
-        var ps = localStorage.getItem(PTR_SYM_KEY)||'star4';
+        var ms = localStorage.getItem(_k(MY_SYM_KEY))||'star4';
+        var ps = localStorage.getItem(_k(PTR_SYM_KEY))||'star4';
         var ml = (PRESETS.find(function(p){return p.value===ms;})||{}).label||ms;
         var pl = (PRESETS.find(function(p){return p.value===ps;})||{}).label||ps;
         var d = document.getElementById('poke-symbol-desc');
@@ -145,6 +160,13 @@
     window._syncPokeDesc = _syncPokeDesc;
     document.addEventListener('DOMContentLoaded', _syncPokeDesc);
     setTimeout(_syncPokeDesc, 600);
+
+    // 戳一戳符号按对象隔离：旧版全局裸键一次性迁入当前对象命名空间
+    (function() {
+        if (typeof window.migrateGlobalKeysToSession === 'function') {
+            window.migrateGlobalKeysToSession(['pokeSym_my', 'pokeSym_partner', 'pokeSym_my_custom', 'pokeSym_partner_custom']);
+        }
+    })();
 })();
 
 (function() {
@@ -1193,7 +1215,7 @@ var statusPool = [
 
     // 混合系统预设 + 用户自定义状态池
     var userStatusPool = [];
-    try { userStatusPool = JSON.parse(localStorage.getItem('dg_status_pool') || '[]'); } catch(e) {}
+    try { userStatusPool = JSON.parse(localStorage.getItem(window.dgKey('dg_status_pool')) || '[]'); } catch(e) {}
     var userStatusTexts = userStatusPool.map(function(item) { return item.status || item; }).filter(Boolean);
     var mixedStatusPool = statusPool.concat(userStatusTexts);
     var status = mixedStatusPool[Math.floor(seededRandDg(seed, 1) * mixedStatusPool.length)];
@@ -1241,7 +1263,7 @@ function _buildDailyGreeting() {
         var noteText = festival ? festival.note : '今天也要元气满满，我在这里陪着你 ✦';
 
         var customData = {};
-        try { customData = JSON.parse(localStorage.getItem('dg_custom_data') || '{}'); } catch(e2) {}
+        try { customData = JSON.parse(localStorage.getItem(window.dgKey('dg_custom_data')) || '{}'); } catch(e2) {}
         
         var now2 = new Date();
         var dailySeed = now2.getFullYear() * 10000 + (now2.getMonth()+1) * 100 + now2.getDate();
@@ -1283,7 +1305,7 @@ function _buildDailyGreeting() {
         setEl('dg-partner-mood-note', partnerMoodNote || (todayMood && todayMood.partner ? pName + ' 记录了今天的心情 ☆' : ''));
 
         var statusPoolData = [];
-        try { statusPoolData = JSON.parse(localStorage.getItem('dg_status_pool') || '[]'); } catch(e2) {}
+        try { statusPoolData = JSON.parse(localStorage.getItem(window.dgKey('dg_status_pool')) || '[]'); } catch(e2) {}
         // 将系统预设 + 用户自定义混合后，按今日种子选取
         var systemStatusItems = (function() {
             var sysPool = [];
@@ -1425,7 +1447,7 @@ window.openDailyGreetingEditor = function() {
     var modal = document.getElementById('dg-editor-modal');
     if (!modal) return;
     var customData = {};
-    try { customData = JSON.parse(localStorage.getItem('dg_custom_data') || '{}'); } catch(e) {}
+    try { customData = JSON.parse(localStorage.getItem(window.dgKey('dg_custom_data')) || '{}'); } catch(e) {}
     var titleEl = document.getElementById('dg-edit-title');
     var noteEl = document.getElementById('dg-edit-note');
     if (titleEl) titleEl.value = (customData.titles && customData.titles.length) ? customData.titles.join('\n') : (customData.title || '');
@@ -1446,7 +1468,7 @@ window.closeDailyGreetingEditor = function() {
 };
 window.saveDailyGreetingCustom = function() {
     var customData = {};
-    try { customData = JSON.parse(localStorage.getItem('dg_custom_data') || '{}'); } catch(e) {}
+    try { customData = JSON.parse(localStorage.getItem(window.dgKey('dg_custom_data')) || '{}'); } catch(e) {}
     var titleEl = document.getElementById('dg-edit-title');
     var noteEl = document.getElementById('dg-edit-note');
     if (titleEl && titleEl.value.trim()) {
@@ -1459,16 +1481,16 @@ window.saveDailyGreetingCustom = function() {
         customData.notes = notes;
         customData.note = notes[0]; 
     } else { delete customData.notes; delete customData.note; }
-    localStorage.setItem('dg_custom_data', JSON.stringify(customData));
+    localStorage.setItem(window.dgKey('dg_custom_data'), JSON.stringify(customData));
     closeDailyGreetingEditor();
     if (typeof _buildDailyGreeting === 'function') _buildDailyGreeting();
     if (typeof showNotification === 'function') showNotification('公告已保存 ✦', 'success');
 };
 window.clearDgDecoImg = function() {
     var customData = {};
-    try { customData = JSON.parse(localStorage.getItem('dg_custom_data') || '{}'); } catch(e) {}
+    try { customData = JSON.parse(localStorage.getItem(window.dgKey('dg_custom_data')) || '{}'); } catch(e) {}
     delete customData.decoImg;
-    localStorage.setItem('dg_custom_data', JSON.stringify(customData));
+    localStorage.setItem(window.dgKey('dg_custom_data'), JSON.stringify(customData));
     var prev = document.getElementById('dg-deco-preview');
     if (prev) prev.style.display = 'none';
     var wrap = document.getElementById('dg-deco-img-wrap');
@@ -1587,7 +1609,7 @@ window.switchToAnnouncementPanel = function() {
     if (addBtn) addBtn.style.display = 'none';
     if (titleEl) titleEl.textContent = '今日公告配置';
     var customData = {};
-    try { customData = JSON.parse(localStorage.getItem('dg_custom_data') || '{}'); } catch(e2) {}
+    try { customData = JSON.parse(localStorage.getItem(window.dgKey('dg_custom_data')) || '{}'); } catch(e2) {}
     var titleInput = document.getElementById('dg-edit-title');
     var noteInput = document.getElementById('dg-edit-note');
     if (titleInput) titleInput.value = (customData.titles && customData.titles.length) ? customData.titles.join('\n') : (customData.title || '');
@@ -1610,7 +1632,7 @@ window.renderAnnStatusPool = function() {
     var listEl = document.getElementById('ann-status-pool-list');
     if (!listEl) return;
     var pool = [];
-    try { pool = JSON.parse(localStorage.getItem('dg_status_pool') || '[]'); } catch(e2) {}
+    try { pool = JSON.parse(localStorage.getItem(window.dgKey('dg_status_pool')) || '[]'); } catch(e2) {}
     listEl.innerHTML = '';
     if (pool.length === 0) {
         listEl.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);text-align:center;padding:10px 0;opacity:0.6;">暂无条目，添加后将随机抽取</div>';
@@ -1642,11 +1664,11 @@ window.addAnnStatusPoolItem = function() {
     var iconImg = iconInput ? (iconInput.dataset.imgSrc || '') : '';
     if (!status && !label) { if (typeof showNotification === 'function') showNotification('请至少填写状态或标签', 'warning'); return; }
     var pool = [];
-    try { pool = JSON.parse(localStorage.getItem('dg_status_pool') || '[]'); } catch(e2) {}
+    try { pool = JSON.parse(localStorage.getItem(window.dgKey('dg_status_pool')) || '[]'); } catch(e2) {}
     var entry = { status: status, label: label, icon: icon || '✦' };
     if (iconImg) entry.iconImg = iconImg;
     pool.push(entry);
-    localStorage.setItem('dg_status_pool', JSON.stringify(pool));
+    localStorage.setItem(window.dgKey('dg_status_pool'), JSON.stringify(pool));
     if (statusInput) statusInput.value = '';
     if (labelInput) labelInput.value = '';
     if (iconInput) { iconInput.value = ''; delete iconInput.dataset.imgSrc; }
@@ -1671,9 +1693,9 @@ window.handleAnnStatusIconUpload = function(input) {
 
 window.removeAnnStatusPoolItem = function(idx) {
     var pool = [];
-    try { pool = JSON.parse(localStorage.getItem('dg_status_pool') || '[]'); } catch(e2) {}
+    try { pool = JSON.parse(localStorage.getItem(window.dgKey('dg_status_pool')) || '[]'); } catch(e2) {}
     pool.splice(idx, 1);
-    localStorage.setItem('dg_status_pool', JSON.stringify(pool));
+    localStorage.setItem(window.dgKey('dg_status_pool'), JSON.stringify(pool));
     renderAnnStatusPool();
 };
 
@@ -1702,9 +1724,9 @@ document.addEventListener('DOMContentLoaded', function() {
             reader.onload = function(ev) {
                 var data = ev.target.result;
                 var customData = {};
-                try { customData = JSON.parse(localStorage.getItem('dg_custom_data') || '{}'); } catch(ex) {}
+                try { customData = JSON.parse(localStorage.getItem(window.dgKey('dg_custom_data')) || '{}'); } catch(ex) {}
                 customData.decoImg = data;
-                localStorage.setItem('dg_custom_data', JSON.stringify(customData));
+                localStorage.setItem(window.dgKey('dg_custom_data'), JSON.stringify(customData));
                 var prev = document.getElementById('dg-deco-preview');
                 var prevImg = document.getElementById('dg-deco-preview-img');
                 if (prev && prevImg) { prevImg.src = data; prev.style.display = 'block'; }

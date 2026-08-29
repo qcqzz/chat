@@ -15,6 +15,37 @@ function safeGetItem(key) {
             catch (e) { console.error('Error removing item:', e); }
         }
 
+        // ── 会话级(按对象)存储键助手：APP_PREFIX + SESSION_ID + '_' + base ──
+        // 与 core.js getStorageKey 同构，供需要按梦角隔离的模块复用。
+        // 用开则写入该对象命名空间，且能被"按角色备份"(onlySession 前缀)涵盖。
+        window.appSessionKey = function (base) {
+            var sid = (typeof SESSION_ID !== 'undefined' && SESSION_ID) ? String(SESSION_ID) : 'default';
+            var p = (typeof APP_PREFIX !== 'undefined' && APP_PREFIX) ? APP_PREFIX : 'CHAT_APP_V3_';
+            return p + sid + '_' + base;
+        };
+
+        // 一次性把旧版"全局裸键"迁移进当前对象命名空间，迁完删除旧键（防串对象）。
+        // mapper: (base)=>新键; 若 base 未命中映射则此键无需迁移。
+        window.migrateGlobalKeysToSession = function (bases, keyMapper) {
+            var done = false;
+            try { done = localStorage.getItem(window.appSessionKey('MG_MIG_') + 'done') === '1'; } catch (e) {}
+            if (done) return;
+            for (var i = 0; i < bases.length; i++) {
+                var base = bases[i];
+                var oldKey = base;                       // 旧全局键名
+                var newKey = null;
+                try { newKey = keyMapper ? keyMapper(base) : window.appSessionKey(base); } catch (e) {}
+                if (!newKey || newKey === oldKey) continue;
+                try {
+                    var ov = localStorage.getItem(oldKey);
+                    if (ov == null) continue;
+                    if (localStorage.getItem(newKey) == null) localStorage.setItem(newKey, ov);
+                    localStorage.removeItem(oldKey);
+                } catch (e) {}
+            }
+            try { localStorage.setItem(window.appSessionKey('MG_MIG_') + 'done', '1'); } catch (e) {}
+        };
+
 function getRandomItem(arr) {
     if (!arr || arr.length === 0) return null;
     return arr[Math.floor(Math.random() * arr.length)];
@@ -811,24 +842,27 @@ async function importAllData(file) {
         }
         if (!confirm('导入全量备份将按你的选择覆盖对应数据。\n\n头像/背景等如勾选导入会写入备份中的内容。\n\n确定继续吗？')) return;
 
+        // 桌面挂件"自定义问候/状态池/运势"键按当前对象命名空间取值（中途迁移后为对象键）
+        const _dgKey = (base) => (typeof window.appSessionKey === 'function') ? window.appSessionKey(base) : ((typeof APP_PREFIX !== 'undefined' && APP_PREFIX) ? APP_PREFIX : 'CHAT_APP_V3_') + base;
+
         const categories = [
             {
                 id: 'chat',
                 label: '聊天记录 / 会话 / 红包',
                 indexedDBNeedles: ['chatMessages', 'sessionList', 'chatSettings', 'showPartnerNameInChat', 'envelopeData', 'pending_envelope'],
-                localStorageNeedles: ['groupChatSettings']
+                localStorageNeedles: []
             },
             {
                 id: 'replies',
                 label: '回复 / 拍一拍 / 氛围',
                 indexedDBNeedles: ['customReplies', 'customPokes', 'customStatuses', 'customMottos', 'customIntros', 'customEmojis', 'customReplyGroups', 'customPokeGroups', 'customStatusGroups', 'customVoiceCards', 'customVoiceGroups', 'voiceCardEnabled'],
-                localStorageNeedles: ['disabledReplyItems', 'pokeSym_my', 'pokeSym_partner', 'pokeSym_my_custom', 'pokeSym_partner_custom']
+                localStorageNeedles: [_dgKey('disabledReplyItems'), _dgKey('pokeSym_my'), _dgKey('pokeSym_partner'), _dgKey('pokeSym_my_custom'), _dgKey('pokeSym_partner_custom')]
             },
             {
                 id: 'stickers',
                 label: '表情库（贴纸）',
                 indexedDBNeedles: ['stickerLibrary', 'myStickerLibrary'],
-                localStorageNeedles: ['disabledStickerItems']
+                localStorageNeedles: [_dgKey('disabledStickerItems')]
             },
             {
                 id: 'ann',
@@ -864,7 +898,7 @@ async function importAllData(file) {
                 id: 'dg',
                 label: '每日公告 / 运势 / 天气',
                 indexedDBNeedles: [],
-                localStorageNeedles: ['dg_custom_data', 'dg_status_pool', 'weekly_fortune', 'daily_fortune'],
+                localStorageNeedles: [_dgKey('dg_custom_data'), _dgKey('dg_status_pool'), _dgKey('weekly_fortune'), _dgKey('daily_fortune')],
                 localStoragePrefixes: ['customWeather_']
             },
             {

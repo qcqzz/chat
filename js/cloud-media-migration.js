@@ -19,6 +19,10 @@
     'use strict';
 
     var APP_PREFIX_STR = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_');
+    // 按对象命名空间取键的公共助手（与 features.js 共用同一 window.dgKey；如未定义则回退）
+    var _dKey = window.dgKey || function(base) {
+        return (typeof window.appSessionKey === 'function') ? window.appSessionKey(base) : ((window.APP_PREFIX || 'CHAT_APP_V3_') + base);
+    };
     var COMPANION_MODES = ['study', 'work', 'exercise', 'sleep'];
     var COMPANION_MEDIA_TYPES = [
         { field: 'backgrounds', category: 'companion-backgrounds' },
@@ -180,7 +184,7 @@
         // 读取屏蔽集合
         var disabledSet = null;
         try {
-            var raw = localStorage.getItem('disabledStickerItems');
+            var raw = localStorage.getItem(_dKey('disabledStickerItems'));
             if (raw) disabledSet = new Set(JSON.parse(raw));
         } catch (e) {}
 
@@ -220,7 +224,7 @@
 
         if (disabledSet !== null) {
             try {
-                localStorage.setItem('disabledStickerItems', JSON.stringify(Array.from(disabledSet)));
+                localStorage.setItem(_dKey('disabledStickerItems'), JSON.stringify(Array.from(disabledSet)));
             } catch (e) {}
         }
     }

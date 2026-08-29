@@ -209,6 +209,8 @@
     function buildModuleSkipPatterns(flags) {
         flags = flags || {};
         var p = [];
+        // 桌面挂件"自定义问候/状态池/运势"键当前为按对象命名空间命名，跳过时按其对应对象键模式匹配
+        var sKey = function (base) { return (typeof window.appSessionKey === 'function') ? window.appSessionKey(base) : ((typeof window !== 'undefined' && window.APP_PREFIX) ? window.APP_PREFIX : 'CHAT_APP_V3_') + base; };
         if (!flags.inclStickers) p.push('stickerLibrary', 'myStickerLibrary');
         if (!flags.inclThemes) p.push('backgroundGallery', 'chatBackground', 'partnerAvatar', 'myAvatar', 'playerCover');
         if (!flags.inclMsgs) p.push('chatMessages');
@@ -216,7 +218,7 @@
         if (!flags.inclCustom) p.push('customReplies', 'customPokes', 'customStatuses', 'customMottos', 'customIntros', 'customEmojis', 'customReplyGroups', 'customPokeGroups', 'customStatusGroups');
         if (!flags.inclAnn) p.push('anniversaries');
         if (!flags.inclThemes) p.push('customThemes', 'themeSchemes');
-        if (!flags.inclDg) p.push('dg_custom_data', 'dg_status_pool', 'weekly_fortune', 'daily_fortune', 'customWeather_');
+        if (!flags.inclDg) p.push(sKey('dg_custom_data'), sKey('dg_status_pool'), sKey('weekly_fortune'), sKey('daily_fortune'), 'customWeather_');
         // 空间：动态 / 相册 / 壁纸 / 纪念日封面与设置（默认纳入，勾选关闭时排除）
         if (flags.inclCS === false) p.push('momentsData', 'albumData', 'csSpaceSettings', 'csWallpaper', 'csWallpaperGallery', 'annMeetOverride', 'annPinnedId', 'annCoverBg_');
         // 娱乐：影院 / 音乐厅 / 自定义音乐（默认纳入，勾选关闭时排除）
@@ -239,10 +241,16 @@
             inclThemes: true, inclDg: true, inclStickers: true, inclCS: true,
             inclEnt: true
         };
+        // 指定 onlySession 时只导出该对象命名空间（按角色备份）：${APP_PREFIX}${sid}_ 前缀
+        var onlyPfx = null;
+        if (flags.onlySession) {
+            onlyPfx = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_') + String(flags.onlySession) + '_';
+        }
         var lfData = {};
         var keys = await localforage.keys();
         for (var i = 0; i < keys.length; i++) {
             var key = keys[i];
+            if (onlyPfx && key.indexOf(onlyPfx) !== 0) continue;
             if (shouldSkipKeyGroupChat(key, flags)) continue;
             try {
                 var rawVal = await localforage.getItem(key);
@@ -255,7 +263,7 @@
         var lsData = {};
         for (var j = 0; j < localStorage.length; j++) {
             var lk = localStorage.key(j);
-            if (!lk || shouldSkipKeyGroupChat(lk, flags)) continue;
+            if (!lk || (onlyPfx && lk.indexOf(onlyPfx) !== 0) || shouldSkipKeyGroupChat(lk, flags)) continue;
             try {
                 lsData[lk] = localStorage.getItem(lk);
             } catch (e2) {}
@@ -595,7 +603,9 @@
         var payload = await buildBackupPayload(flags);
         report(35, '数据读取完成，正在打包 ZIP…');
         var dateStr = new Date().toISOString().slice(0, 10);
-        var fileNameZip = 'chatapp-backup-' + dateStr + '.zip';
+        var fileNameBase = flags.fileNameBase || 'chatapp-backup';
+        var shareTitle = flags.shareTitle || '传讯全量备份';
+        var fileNameZip = fileNameBase + '-' + dateStr + '.zip';
 
         if (typeof JSZip !== 'undefined') {
             try {
@@ -662,7 +672,7 @@
                         if (navigator.canShare && navigator.canShare({ files: [shareFile] })) {
                             await navigator.share({
                                 files: [shareFile],
-                                title: '传讯全量备份',
+                                title: shareTitle,
                                 text: 'ZIP 备份：' + new Date().toLocaleDateString()
                             });
                             report(100, '备份导出成功');
@@ -689,7 +699,7 @@
 
         var str = serializeBackupV4(payload);
         var blob = new Blob([str], { type: 'application/json;charset=utf-8' });
-        var fileName = 'chatapp-backup-' + dateStr + '.json';
+        var fileName = fileNameBase + '-' + dateStr + '.json';
         // Capacitor 环境：直接保存到手机「下载/ChuanXun」目录（文件管理器可见）
         if (_isCapacitorEnv()) {
             report(92, '正在保存到手机「下载/ChuanXun」…');

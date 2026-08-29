@@ -9,7 +9,10 @@
 (function (global) {
     'use strict';
 
-    var REC_KEY = 'chat_gameRecords';
+    function recordsKey() {
+        if (typeof window.appSessionKey === 'function') return window.appSessionKey('chat_gameRecords');
+        return ((typeof APP_PREFIX !== 'undefined' && APP_PREFIX) ? APP_PREFIX : 'CHAT_APP_V3_') + 'chat_gameRecords';
+    }
     var BOARD_PX = 320;        // 画布内部像素
     var MARGIN = 18;           // 画布边距
     var DIRS = [[1, 0], [0, 1], [1, 1], [1, -1]];
@@ -113,7 +116,7 @@
 
     function getRecords() {
         try {
-            var raw = (typeof safeGetItem === 'function') ? safeGetItem(REC_KEY) : null;
+            var raw = (typeof safeGetItem === 'function') ? safeGetItem(recordsKey()) : null;
             var data = raw ? JSON.parse(raw) : {};
             if (!data.gomoku) data.gomoku = [];
             if (!data.go) data.go = [];
@@ -123,7 +126,7 @@
         } catch (e) { return { gomoku: [], go: [], '2048': [], guessnum: [] }; }
     }
     function saveRecords(data) {
-        try { if (typeof safeSetItem === 'function') safeSetItem(REC_KEY, JSON.stringify(data)); }
+        try { if (typeof safeSetItem === 'function') safeSetItem(recordsKey(), JSON.stringify(data)); }
         catch (e) { console.warn('[games] 保存记录失败', e); }
     }
     function notify(msg, type) {
@@ -1358,4 +1361,11 @@
         resolveHearts(userWon);
         renderScreen();
     }
+
+    // 迁移：把旧"全局裸键"迁入当前对象(梦角/SESSION_ID)命名空间
+    (function () {
+        if (typeof window.migrateGlobalKeysToSession === 'function') {
+            window.migrateGlobalKeysToSession(['chat_gameRecords']);
+        }
+    })();
 })(window);

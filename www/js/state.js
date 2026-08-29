@@ -107,7 +107,6 @@
             },
             favoritesModal: {
                 modal: document.getElementById('stats-modal'),
-                favoritesBtn: document.getElementById('group-chat-btn'),
                 list: document.getElementById('favorites-list'),
                 cancel: document.getElementById('close-stats')
             },

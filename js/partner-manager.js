@@ -288,9 +288,34 @@
     }
 
     window.exportPartnerBackup = async function () {
-        if (typeof showNotification === 'function') showNotification('正在打包当前对象数据…', 'info', 1500);
         var sid = (typeof SESSION_ID !== 'undefined' && SESSION_ID) ? SESSION_ID : 'default';
         var nm = currentPartner().partnerName || '对象';
+        var safe = (nm || '对象').replace(/[\\/:*?"<>|]/g, '_').slice(0, 20);
+        // 与全量备份一致的进度条弹窗
+        var prog = (typeof window.showBackupProgress === 'function') ? window.showBackupProgress() : null;
+        var onProgress = function (pct, label) {
+            if (prog && typeof prog.update === 'function') prog.update(pct, label);
+        };
+        try {
+            if (window.ChatBackup && window.ChatBackup.exportBackupToFile) {
+                await window.ChatBackup.exportBackupToFile({
+                    inclMsgs: true, inclSet: true, inclCustom: true, inclAnn: true,
+                    inclThemes: true, inclDg: true, inclStickers: true, inclCS: true,
+                    onlySession: sid,          // 仅当前对象命名空间
+                    fileNameBase: '按角色备份_' + safe,
+                    shareTitle: '传讯·按角色备份'
+                }, onProgress);
+                if (prog && typeof prog.done === 'function') prog.done();
+                return;
+            }
+        } catch (e) {
+            console.error('[partner-manager] 按角色 ZIP 备份失败', e);
+            if (prog && typeof prog.close === 'function') prog.close();
+            if (typeof showNotification === 'function') showNotification('备份失败：' + ((e && e.message) || e), 'error');
+            return;
+        }
+        // 极端回退：旧式单字段 JSON
+        if (typeof showNotification === 'function') showNotification('正在打包当前对象数据…', 'info', 1500);
         var data = await collectPartnerKeys(sid);
         var sessionList = [];
         try { var sl = await localforage.getItem(P + 'sessionList'); sessionList = Array.isArray(sl) ? sl : []; } catch (e) {}
@@ -304,30 +329,49 @@
             data: data,
             sessionList: sessionList
         };
-        var safe = (nm || '对象').replace(/[\\/:*?"<>|]/g, '_').slice(0, 20);
         downloadText('按角色备份_' + safe + '_' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify(payload));
+        if (prog && typeof prog.done === 'function') prog.done();
         if (typeof showNotification === 'function') showNotification('已导出当前对象备份', 'success');
     };
 
-    // 从备份文件导入：源前缀 → 当前对象前缀重映射，仅写入当前对象命名空间，覆盖前自动快照可回滚
+    // 从备份文件导入：支持 ZIP(v5，与全量备份同格式) 与旧版单 JSON(pairtBackup)
+    // ZIP 仅含当前对象命名空间，经 applyBackupToStorage 还原到当前对象；旧 JSON 源前缀→当前对象前缀重映射。
     window.importPartnerBackup = function () {
         var inp = document.createElement('input');
         inp.type = 'file';
-        inp.accept = '.json,application/json';
+        inp.accept = '.json,application/json,application/zip,application/x-zip-compressed,.zip';
         inp.style.display = 'none';
         document.body.appendChild(inp);
         inp.onchange = async function () {
             var file = inp.files && inp.files[0];
             if (!file) { inp.remove(); return; }
             try {
-                var payload = JSON.parse(await file.text());
+                var arrBuff = await file.arrayBuffer();
+                var isZip = arrBuff && arrBuff.byteLength >= 4 &&
+                    arrBuff[0] === 0x50 && arrBuff[1] === 0x4B; // 'PK'
+                var sid = (typeof SESSION_ID !== 'undefined' && SESSION_ID) ? SESSION_ID : 'default';
+
+                if (isZip) {
+                    if (!(window.ChatBackup && window.ChatBackup.loadBackupFromFile)) {
+                        if (typeof showNotification === 'function') showNotification('解析 ZIP 所需组件未加载', 'error');
+                        inp.remove(); return;
+                    }
+                    var data = await window.ChatBackup.loadBackupFromFile(file);
+                    await window.ChatBackup.applyBackupToStorage(data, {});
+                    if (typeof showNotification === 'function') showNotification('已导入当前对象 ZIP 备份', 'success');
+                    inp.remove();
+                    setTimeout(function () { window.location.reload(); }, 800);
+                    return;
+                }
+
+                // 旧版单 JSON（partnerBackup）
+                var payload = JSON.parse(new TextDecoder('utf-8', { fatal: false }).decode(arrBuff));
                 if (!payload || payload.type !== 'partnerBackup') {
                     if (typeof showNotification === 'function') showNotification('不是有效的按角色备份文件', 'error');
                     inp.remove(); return;
                 }
-                var sid = (typeof SESSION_ID !== 'undefined' && SESSION_ID) ? SESSION_ID : 'default';
                 var prefix = P + sid + '_';
-                var data = payload.data || {};
+                var data2 = payload.data || {};
 
                 // 覆盖前快照（保险丝，可回滚）
                 if (window.ChatBackup && window.ChatBackup.makeRollbackSnapshot) {
@@ -335,7 +379,7 @@
                 }
 
                 var count = 0;
-                for (var k in data) {
+                for (var k in data2) {
                     var newKey = k;
                     // 源前缀 → 当前对象前缀（只换对象段，其余键名原样）
                     if (payload.sourcePrefix && newKey.indexOf(payload.sourcePrefix) === 0) {
@@ -343,7 +387,7 @@
                     }
                     // 只写当前对象命名空间，绝不触碰其它对象/系统全局键
                     if (newKey.indexOf(prefix) !== 0) continue;
-                    await localforage.setItem(newKey, data[k]);
+                    await localforage.setItem(newKey, data2[k]);
                     count++;
                 }
 
@@ -375,8 +419,8 @@
             + '从文件导入会覆盖当前对象数据，导入前自动留一份「恢复上一步」快照，可随时回滚。'
             + '</div>'
             + '<div style="padding:12px 18px;display:flex;flex-direction:column;gap:10px;">'
-            + '<button class="dm-drawer-action-btn primary" id="pb-export" style="width:100%;"><div class="dm-drawer-btn-icon"><i class="fas fa-download"></i></div><div class="dm-drawer-btn-text"><div class="dm-drawer-btn-title">导出当前对象</div><div class="dm-drawer-btn-desc">保存为 JSON 文件</div></div></button>'
-            + '<button class="dm-drawer-action-btn" id="pb-import" style="width:100%;"><div class="dm-drawer-btn-icon"><i class="fas fa-upload"></i></div><div class="dm-drawer-btn-text"><div class="dm-drawer-btn-title">从文件导入</div><div class="dm-drawer-btn-desc">还原到当前对象（覆盖，可回滚）</div></div></button>'
+            + '<button class="dm-drawer-action-btn primary" id="pb-export" style="width:100%;"><div class="dm-drawer-btn-icon"><i class="fas fa-download"></i></div><div class="dm-drawer-btn-text"><div class="dm-drawer-btn-title">导出当前对象</div><div class="dm-drawer-btn-desc">保存为 ZIP 文件（含媒体与进度）</div></div></button>'
+            + '<button class="dm-drawer-action-btn" id="pb-import" style="width:100%;"><div class="dm-drawer-btn-icon"><i class="fas fa-upload"></i></div><div class="dm-drawer-btn-text"><div class="dm-drawer-btn-title">从文件导入</div><div class="dm-drawer-btn-desc">支持 ZIP / JSON，还原当前对象（可回滚）</div></div></button>'
             + '</div>'
             + '<div style="padding:10px 18px;border-top:1px solid var(--border-color);display:flex;justify-content:flex-end;"><button class="modal-btn modal-btn-secondary" id="pb-close" style="padding:8px 20px;">关闭</button></div>'
             + '</div>';

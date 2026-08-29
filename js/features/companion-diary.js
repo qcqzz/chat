@@ -15,6 +15,11 @@
 (function() {
     'use strict';
 
+    // 按对象命名空间取键的公共助手（与 features.js 共用同一 window.dgKey；如未定义则回退）
+    var _dKey = window.dgKey || function(base) {
+        return (typeof window.appSessionKey === 'function') ? window.appSessionKey(base) : ((window.APP_PREFIX || 'CHAT_APP_V3_') + base);
+    };
+
     // ─── 全局状态 ──────────────────────────────────
     let _diaryEntries = [];          // 内存中的所有记录（按 ts 倒序）
     let _curYear = new Date().getFullYear();
@@ -189,7 +194,7 @@
             // 过滤掉被禁用的字卡（兼容 listeners.js 的 disabledReplyItems）
             let disabledItems = new Set();
             try {
-                const raw = localStorage.getItem('disabledReplyItems');
+                const raw = localStorage.getItem(_dKey('disabledReplyItems'));
                 if (raw) disabledItems = new Set(JSON.parse(raw));
             } catch (e) {}
 

@@ -457,57 +457,72 @@
     function renderPolaroidGallery() {
         var list = $('polaroid-gallery-list');
         if (!list) return;
-        list.className = 'pl-list';   // 竖列：每行一个拍立得位
+        list.className = 'pl-list';   // 外层：竖列，每张拍立得一个设置栏
         list.innerHTML = '';
         for (var i = 0; i < 3; i++) {
             var v = getPl(i);
-            var row = document.createElement('div');
-            row.className = 'pl-row';
 
-            // 行头：第几张 + 层级标注
+            // 设置栏：标题 + 内嵌网格(排版完全同聊天背景图库 .bg-gallery/.bg-item)
+            var slot = document.createElement('div');
+            slot.className = 'pl-slot';
+
             var head = document.createElement('div');
-            head.className = 'pl-row-head';
+            head.className = 'pl-slot-head';
             var name = document.createElement('span');
-            name.className = 'pl-row-name';
+            name.className = 'pl-slot-name';
             name.textContent = _plOrdinal[i] + ' · ' + _plSlotTitles[i];
             head.appendChild(name);
             if (v) {
-                var del = document.createElement('span');
-                del.className = 'pl-reset-btn';
-                del.innerHTML = '<i class="fas fa-undo-alt"></i><span>恢复默认</span>';
-                del.title = '恢复默认（移除这张拍立得）';
-                del.onclick = (function (slot) {
-                    return function (e) {
-                        e.stopPropagation();
+                var reset = document.createElement('span');
+                reset.className = 'pl-reset-btn';
+                reset.innerHTML = '<i class="fas fa-undo-alt"></i><span>恢复默认</span>';
+                reset.title = '恢复默认（移除这张拍立得）';
+                reset.onclick = (function (slotIdx) {
+                    return function () {
                         if (!confirm('确定将这张拍立得恢复为默认吗？')) return;
-                        setPl(slot, '');
+                        setPl(slotIdx, '');
                         renderPolaroidGallery();
                         renderPolaroid();
                     };
                 })(i);
-                head.appendChild(del);
+                head.appendChild(reset);
             }
-            row.appendChild(head);
+            slot.appendChild(head);
 
-            // 设置格：与聊天背景图像选择格完全一致（圆形缩略图 / ＋添加格）
-            var body = document.createElement('div');
-            body.className = 'pl-row-body';
+            // 内嵌网格：与聊天背景设置完全同款(.bg-gallery grid / .bg-item 圆格 / .bg-delete-btn)
+            var gal = document.createElement('div');
+            gal.className = 'bg-gallery';
             var cell = document.createElement('div');
             if (v) {
                 cell.className = 'bg-item active';
                 cell.innerHTML = '<img src="' + v + '" loading="lazy" alt="拍立得">';
+                var del = document.createElement('div');
+                del.className = 'bg-delete-btn';
+                del.innerHTML = '<i class="fas fa-trash"></i>';
+                del.style.cssText = 'opacity:1;transform:scale(1);'; // 手机无 hover，始终显示
+                del.title = '点击删除，恢复默认';
+                del.onclick = (function (slotIdx) {
+                    return function (e) {
+                        e.stopPropagation();
+                        if (!confirm('确定将这张拍立得恢复为默认吗？')) return;
+                        setPl(slotIdx, '');
+                        renderPolaroidGallery();
+                        renderPolaroid();
+                    };
+                })(i);
+                cell.appendChild(del);
             } else {
                 cell.className = 'bg-item bg-add-btn';
                 cell.innerHTML = '<i class="fas fa-plus"></i><span></span>';
             }
             cell.title = '点击' + (v ? '更换' : '设置') + _plOrdinal[i] + '（' + _plSlotTitles[i] + '）';
-            cell.onclick = (function (slot) {
-                return function () { pickPolaroidFile(slot); };
+            cell.onclick = (function (slotIdx) {
+                return function () { pickPolaroidFile(slotIdx); };
             })(i);
-            body.appendChild(cell);
-            row.appendChild(body);
+            gal.appendChild(cell);
+            slot.appendChild(gal);
 
-            list.appendChild(row);
+            list.appendChild(slot);
         }
     }
     function pickPolaroidFile(slot) {

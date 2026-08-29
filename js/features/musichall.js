@@ -9,13 +9,21 @@
 (function () {
     'use strict';
 
-    var LS_PLAYLIST = 'CHAT_APP_V3__mhSongs';
-    var LS_SETTINGS = 'CHAT_APP_V3__mhSettings';
-    var LS_INVITE   = 'CHAT_APP_V3__mhInvite';
-    var LS_MSGS     = 'CHAT_APP_V3__mhMessages';
+    // 存储键：按梦角隔离，与 getStorageKey 同构(APP_PREFIX+SESSION_ID+'_'+base)。
+    // 旧版用 CHAT_APP_V3__* 全局裸键跨对象共享，先一次性迁入当前对象命名空间。
+    function mhKey(base) {
+        return (typeof window.appSessionKey === 'function') ? window.appSessionKey(base) : ('CHAT_APP_V3_' + base);
+    }
+    (function () {
+        if (typeof window.migrateGlobalKeysToSession === 'function') {
+            window.migrateGlobalKeysToSession(
+                ['CHAT_APP_V3__mhSongs', 'CHAT_APP_V3__mhSettings', 'CHAT_APP_V3__mhInvite', 'CHAT_APP_V3__mhMessages'],
+                function (oldKey) { return mhKey(oldKey.replace(/^CHAT_APP_V3__/, '')); }
+            );
+        }
+    }());
     // 歌单本体(可能含音频 base64)改走 IndexedDB(localforage)：容量远大于 localStorage，
     // 结构化克隆不产生超长单字符串，避免大歌单 stringify 造成的 OOM/闪退，也不受配额限制丢歌。
-    var LF_SONGS    = 'CHAT_APP_V3__mhSongs_lf';
 
     function lsGet(k, fb) {
         try { var s = localStorage.getItem(k); return s ? JSON.parse(s) : fb; } catch (e) { return fb; }
@@ -27,11 +35,11 @@
     function partnerName() { return (typeof settings !== 'undefined' && settings.partnerName) || '梦角'; }
 
     // ── 状态 ──────────────────────────────────────────────
-    var songs = lsGet(LS_PLAYLIST, []);
-    var conf = Object.assign({ hbColor: '#ff9f9d', progColor: '#c5a47e', ctrlColor: '#7a9cc6', vinylLabel: null, playMode: 'list', bubbleStyle: 'standard', mhCss: '' }, lsGet(LS_SETTINGS, {}));
+    var songs = lsGet(mhKey('mhSongs'), []);
+    var conf = Object.assign({ hbColor: '#ff9f9d', progColor: '#c5a47e', ctrlColor: '#7a9cc6', vinylLabel: null, playMode: 'list', bubbleStyle: 'standard', mhCss: '' }, lsGet(mhKey('mhSettings'), {}));
     var cur = -1, playing = false, mode = conf.playMode || 'list'; // list(歌单循环) | single(单曲循环) | shuffle(随机播放)
-    var messages = lsGet(LS_MSGS, []); // 音乐厅聊天记录：落盘保留，重启不丢
-    var invite = lsGet(LS_INVITE, { next: 0, missed: 0, active: null });
+    var messages = lsGet(mhKey('mhMessages'), []); // 音乐厅聊天记录：落盘保留，重启不丢
+    var invite = lsGet(mhKey('mhInvite'), { next: 0, missed: 0, active: null });
     var audio = null, _booted = false, _rendered = false;
     // 音乐厅本地引发、待梦角回复的计数：只把音乐厅里的对话镜像进来，聊天页引发的对话不混入
     var mhReplyPending = 0, _mhPendingTimer = null;
@@ -48,19 +56,19 @@
             if (songs[i].url && songs[i].url.indexOf('data:') === 0) { hasEmbedded = true; break; }
         }
         if (typeof localforage !== 'undefined') {
-            localforage.setItem(LF_SONGS, songs).catch(function (e) {
+            localforage.setItem(mhKey('mhSongs_lf'), songs).catch(function (e) {
                 console.warn('[musichall] IndexedDB 歌单写入失败:', e);
             });
         }
         // 纯链接小歌单镜像 localStorage 兼容老版本读取；含音频本体的歌单跳过（防 stringify OOM）
         if (!hasEmbedded && songs.length <= 50) {
-            try { localStorage.setItem(LS_PLAYLIST, JSON.stringify(songs)); } catch (e) {}
+            try { localStorage.setItem(mhKey('mhSongs'), JSON.stringify(songs)); } catch (e) {}
         }
     }
-    function saveConf() { lsSet(LS_SETTINGS, conf); }
-    function saveInvite() { lsSet(LS_INVITE, invite); }
+    function saveConf() { lsSet(mhKey('mhSettings'), conf); }
+    function saveInvite() { lsSet(mhKey('mhInvite'), invite); }
     function saveMessages() {
-        lsSet(LS_MSGS, messages);
+        lsSet(mhKey('mhMessages'), messages);
     }
 
     // 找到播放中的歌曲（供邀请卡"现在听"按名字定位）
@@ -1263,7 +1271,18 @@
         // 启动后异步以 IndexedDB 歌单为准覆盖同步种子（localStorage 种子兼容老版本/纯链接小歌单）。
         // 音乐文件上传量多时只存 IndexedDB，重进也能完整恢复，不再被配额清空。
         if (typeof localforage !== 'undefined') {
-            localforage.getItem(LF_SONGS).then(function (v) {
+            // 先把旧版全局 IndexedDB 歌单(CHAT_APP_V3__mhSongs_lf)懒迁移到当前对象命名空间
+            var oldLfKey = 'CHAT_APP_V3__mhSongs_lf', newLfKey = mhKey('mhSongs_lf');
+            if (oldLfKey !== newLfKey) {
+                localforage.getItem(oldLfKey).then(function (oldVal) {
+                    if (oldVal != null) {
+                        return localforage.getItem(newLfKey).then(function (cur) {
+                            if (cur == null) return localforage.setItem(newLfKey, oldVal);
+                        }).then(function(){ return localforage.removeItem(oldLfKey); });
+                    }
+                }).catch(function () {});
+            }
+            localforage.getItem(newLfKey).then(function (v) {
                 if (!v || !Array.isArray(v)) return;
                 if (JSON.stringify(v) !== JSON.stringify(songs)) {
                     songs = v;

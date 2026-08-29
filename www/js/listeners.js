@@ -570,9 +570,6 @@ fileInput.addEventListener('change', function(e) {
                     showModal(DOMElements.settingsModal.modal);
                 });
             }
-            DOMElements.favoritesModal.favoritesBtn.addEventListener('click', () => {
-                showModal(document.getElementById('group-chat-modal'));
-            });
 
 
 window.setReadReceiptStyle = function(style) {

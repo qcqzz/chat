@@ -306,7 +306,6 @@ html[data-theme="dark"] #chat-transition-overlay{
             <div class="header-actions">
                 <button id="dt-back-btn" class="action-btn" title="返回桌面" onclick="window.DesktopTopbar&&DesktopTopbar.showDesktop&&DesktopTopbar.showDesktop()"><i class="fas fa-home"></i></button>
                 <button id="session-manager-btn" class="action-btn" title="会话管理"><i class="fas fa-comments"></i></button>
-                <button id="group-chat-btn" class="action-btn" title="群聊设置"><i class="fas fa-users"></i></button>
                 <button id="envelope-header-btn" class="action-btn" title="信箱" style="position:relative;">
                     <i class="fas fa-envelope-open-text"></i>
                     <span id="env-entry-badge" style="display:none;position:absolute;top:3px;right:3px;width:7px;height:7px;background:var(--accent-color);border-radius:50%;border:1.5px solid var(--primary-bg);pointer-events:none;"></span>
@@ -1264,82 +1263,7 @@ html[data-theme="dark"] #chat-transition-overlay{
     </div>
     </div>
 </div>
-<div class="modal" id="group-chat-modal">
-    <div class="modal-content">
-        <div class="modal-title">
-            <i class="fas fa-users"></i><span>群聊设置</span>
-        </div>
-
-        <div class="settings-section">
-            <div class="settings-section-title"><i class="fas fa-toggle-on"></i>群聊模式</div>
-            <div id="group-mode-toggle" style="display:flex;align-items:center;gap:12px;background:var(--primary-bg);border:1px solid var(--border-color);border-radius:12px;padding:12px 14px;cursor:pointer;transition:all 0.2s;">
-                <div style="width:36px;height:36px;border-radius:50%;background:rgba(var(--accent-color-rgb),0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                    <i id="group-mode-icon" class="fas fa-users" style="font-size:18px;color:var(--accent-color);"></i>
-                </div>
-                <div style="flex:1;">
-                    <div style="font-size:13px;font-weight:600;color:var(--text-primary);">群聊模式</div>
-                    <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;" id="group-mode-status">已关闭 — 点击开启</div>
-                </div>
-                <div id="group-mode-pill" style="width:44px;height:24px;border-radius:24px;background:var(--border-color);position:relative;transition:background 0.3s;flex-shrink:0;">
-                    <div id="group-mode-knob" style="position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:3px;transition:left 0.25s;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="settings-section" id="group-display-section" style="display:none;">
-            <div class="settings-section-title"><i class="fas fa-eye"></i>显示选项</div>
-            <div style="display:flex;flex-direction:column;gap:8px;">
-                <div id="group-show-name-toggle" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--primary-bg);border:1px solid var(--border-color);border-radius:10px;cursor:pointer;">
-                    <i class="fas fa-tag" style="color:var(--accent-color);width:18px;"></i>
-                    <span style="flex:1;font-size:13px;">显示成员名称</span>
-                    <div id="group-show-name-pill" style="width:36px;height:20px;border-radius:20px;background:var(--accent-color);position:relative;transition:background 0.3s;">
-                        <div id="group-show-name-knob" style="position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:3px;right:3px;transition:right 0.25s;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="settings-section" id="group-members-section" style="display:none;">
-            <div class="settings-section-title" style="display:flex;align-items:center;justify-content:space-between;">
-                <span><i class="fas fa-users"></i>群成员</span>
-                <button onclick="openAddGroupMember()" class="modal-btn modal-btn-primary" style="padding:5px 12px;font-size:12px;"><i class="fas fa-plus"></i> 添加</button>
-            </div>
-            <div id="group-members-list" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;"></div>
-        </div>
-
-        <div class="modal-buttons">
-            <button class="modal-btn modal-btn-secondary" id="close-group-chat">关闭</button>
-        </div>
-    </div>
-</div>
-
-<div class="modal" id="group-member-edit-modal" style="z-index:2200;">
-    <div class="modal-content" style="max-width:320px;">
-        <div class="modal-title">
-            <i class="fas fa-user-edit"></i><span id="group-member-edit-title">添加成员</span>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:12px;padding:4px 0;">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-                <div id="group-member-avatar-preview" onclick="document.getElementById('group-member-avatar-input').click()" style="width:64px;height:64px;border-radius:50%;background:var(--primary-bg);border:2px dashed var(--border-color);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-shrink:0;">
-                    <i class="fas fa-camera" style="font-size:20px;color:var(--text-secondary);"></i>
-                </div>
-                <span style="font-size:11px;color:var(--text-secondary);">点击上传头像</span>
-                <input type="file" id="group-member-avatar-input" accept="image/*" style="display:none;" onchange="previewGroupMemberAvatar(this)">
-            </div>
-            <div>
-                <label style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;display:block;">成员名字</label>
-                <input type="text" id="group-member-name-input" placeholder="输入名字" maxlength="10" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:10px;background:var(--primary-bg);color:var(--text-primary);font-size:14px;box-sizing:border-box;">
-            </div>
-        </div>
-        <input type="hidden" id="group-member-edit-index">
-        <div class="modal-buttons">
-            <button class="modal-btn modal-btn-secondary" onclick="closeGroupMemberEdit()">取消</button>
-            <button class="modal-btn modal-btn-primary" onclick="saveGroupMember()">保存</button>
-        </div>
-    </div>
-</div>
-
-    <div class="modal" id="cs-settings-modal">
+<div class="modal" id="cs-settings-modal">
         <div class="modal-content">
             <div class="modal-title">
                 <i class="fas fa-cog"></i><span>空间设置</span>
@@ -3994,7 +3918,7 @@ html[data-theme="dark"] #chat-transition-overlay{
     <script src="js/cloud-sync-ui.js"></script>
     <script src="js/partner-manager.js"></script>
     <script src="js/app.js"></script>
-    <script src="js/desktop.js?v=3"></script>
+    <script src="js/desktop.js?v=5"></script>
     <script src="js/features/cinema.js"></script>
     <script src="js/features/musichall.js?v=2"></script>
     <script src="js/features/game-room.js"></script>

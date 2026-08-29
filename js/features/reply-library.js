@@ -3,6 +3,18 @@ if (typeof replyGroupsEnabled === 'undefined') window.replyGroupsEnabled = false
 if (typeof customPokeGroups === 'undefined') window.customPokeGroups = [];
 if (typeof customStatusGroups === 'undefined') window.customStatusGroups = [];
 
+// 桌面挂件"自定义问候/状态池"键按对象命名空间取的公共助手（与 features.js 共用同一 window.dgKey）
+window.dgKey = window.dgKey || function(base) {
+    return (typeof window.appSessionKey === 'function') ? window.appSessionKey(base) : ((window.APP_PREFIX || 'CHAT_APP_V3_') + base);
+};
+
+// 一次性把旧版"全局裸键"disabledReplyItems/disabledStickerItems/disabledVoiceCards 迁移进当前对象命名空间
+(function() {
+    if (typeof window.migrateGlobalKeysToSession === 'function') {
+        window.migrateGlobalKeysToSession(['disabledReplyItems', 'disabledStickerItems', 'disabledVoiceCards']);
+    }
+})();
+
 // 根据当前 tab 返回对应的分组上下文 {groups, items, itemLabel}
 function _getGroupCtx(tab) {
     tab = tab || currentSubTab;
@@ -59,13 +71,13 @@ function _itemInGroup(group, item) {
 
 function _getDisabledVoiceSet() {
     try {
-        const raw = localStorage.getItem('disabledVoiceCards');
+        const raw = localStorage.getItem(window.dgKey('disabledVoiceCards'));
         return raw ? new Set(JSON.parse(raw)) : new Set();
     } catch { return new Set(); }
 }
 
 function _saveDisabledVoiceSet(set) {
-    localStorage.setItem('disabledVoiceCards', JSON.stringify([...set]));
+    localStorage.setItem(window.dgKey('disabledVoiceCards'), JSON.stringify([...set]));
 }
 
 function _toggleVoiceDisable(vc) {
@@ -1595,20 +1607,20 @@ function _openVoiceBatchEditor(batch) {
 
 function _getDisabledItemsSet() {
     try {
-        const raw = localStorage.getItem('disabledReplyItems');
+        const raw = localStorage.getItem(window.dgKey('disabledReplyItems'));
         return raw ? new Set(JSON.parse(raw)) : new Set();
     } catch { return new Set(); }
 }
 
 function _getDisabledStickerItemsSet() {
     try {
-        const raw = localStorage.getItem('disabledStickerItems');
+        const raw = localStorage.getItem(window.dgKey('disabledStickerItems'));
         return raw ? new Set(JSON.parse(raw)) : new Set();
     } catch { return new Set(); }
 }
 
 function _saveDisabledStickerItemsSet(set) {
-    localStorage.setItem('disabledStickerItems', JSON.stringify([...set]));
+    localStorage.setItem(window.dgKey('disabledStickerItems'), JSON.stringify([...set]));
 }
 
 function _batchToggleDisableVoices() {
@@ -1627,7 +1639,7 @@ function _batchToggleDisableVoices() {
 }
 
 function _saveDisabledItemsSet(set) {
-    localStorage.setItem('disabledReplyItems', JSON.stringify([...set]));
+    localStorage.setItem(window.dgKey('disabledReplyItems'), JSON.stringify([...set]));
 }
 
 function _toggleItemDisable(itemText) {
@@ -2129,8 +2141,8 @@ function _showExportUI() {
     // 读取公告数据（localStorage）
     let _annCustomData = {};
     let _annStatusPool = [];
-    try { _annCustomData = JSON.parse(localStorage.getItem('dg_custom_data') || '{}'); } catch(e) {}
-    try { _annStatusPool = JSON.parse(localStorage.getItem('dg_status_pool') || '[]'); } catch(e) {}
+    try { _annCustomData = JSON.parse(localStorage.getItem(window.dgKey('dg_custom_data')) || '{}'); } catch(e) {}
+    try { _annStatusPool = JSON.parse(localStorage.getItem(window.dgKey('dg_status_pool')) || '[]'); } catch(e) {}
     const _annTextCount = (_annCustomData.titles || []).length + (_annCustomData.notes || []).length;
     const _annPoolCount = _annStatusPool.length;
     const _annTotalCount = _annTextCount + _annPoolCount;
@@ -2274,8 +2286,8 @@ function _doExport(selectedModules) {
         else if (m.key === 'customStatusGroups') { libraryData.customStatusGroups = window.customStatusGroups || []; libraryData.modules.push('statusGroups'); }
         else if (m.key === 'announcementConfig') {
             let _acd = {}; let _asp = [];
-            try { _acd = JSON.parse(localStorage.getItem('dg_custom_data') || '{}'); } catch(e) {}
-            try { _asp = JSON.parse(localStorage.getItem('dg_status_pool') || '[]'); } catch(e) {}
+            try { _acd = JSON.parse(localStorage.getItem(window.dgKey('dg_custom_data')) || '{}'); } catch(e) {}
+            try { _asp = JSON.parse(localStorage.getItem(window.dgKey('dg_status_pool')) || '[]'); } catch(e) {}
             libraryData.announcementConfig = { customData: _acd, statusPool: _asp };
             libraryData.modules.push('announcementConfig');
         }
@@ -2371,8 +2383,8 @@ function _showGroupExportPicker(type) {
 function _showAnnouncementExportPicker() {
     let annCustomData = {};
     let annStatusPool = [];
-    try { annCustomData = JSON.parse(localStorage.getItem('dg_custom_data') || '{}'); } catch(e) {}
-    try { annStatusPool = JSON.parse(localStorage.getItem('dg_status_pool') || '[]'); } catch(e) {}
+    try { annCustomData = JSON.parse(localStorage.getItem(window.dgKey('dg_custom_data')) || '{}'); } catch(e) {}
+    try { annStatusPool = JSON.parse(localStorage.getItem(window.dgKey('dg_status_pool')) || '[]'); } catch(e) {}
     const textCount = (annCustomData.titles || []).length + (annCustomData.notes || []).length;
     const poolCount = annStatusPool.length;
 
@@ -2521,16 +2533,16 @@ function _showImportUI(data) {
                     else if (m.key === 'customPokeGroups')   { window.customPokeGroups   = data.customPokeGroups; }
                     else if (m.key === 'customStatusGroups') { window.customStatusGroups = data.customStatusGroups; }
                     else if (m.key === 'announcementConfig') {
-                        if (_annCfg.customData) localStorage.setItem('dg_custom_data', JSON.stringify(_annCfg.customData));
-                        if (_annCfg.statusPool) localStorage.setItem('dg_status_pool', JSON.stringify(_annCfg.statusPool));
+                        if (_annCfg.customData) localStorage.setItem(window.dgKey('dg_custom_data'), JSON.stringify(_annCfg.customData));
+                        if (_annCfg.statusPool) localStorage.setItem(window.dgKey('dg_status_pool'), JSON.stringify(_annCfg.statusPool));
                     }
                     else if (m.key === 'announcementText') {
-                        let cur = {}; try { cur = JSON.parse(localStorage.getItem('dg_custom_data') || '{}'); } catch(e) {}
+                        let cur = {}; try { cur = JSON.parse(localStorage.getItem(window.dgKey('dg_custom_data')) || '{}'); } catch(e) {}
                         cur.titles = _annText.titles || []; cur.notes = _annText.notes || [];
-                        localStorage.setItem('dg_custom_data', JSON.stringify(cur));
+                        localStorage.setItem(window.dgKey('dg_custom_data'), JSON.stringify(cur));
                     }
                     else if (m.key === 'announcementStatusPool') {
-                        localStorage.setItem('dg_status_pool', JSON.stringify(_annPool));
+                        localStorage.setItem(window.dgKey('dg_status_pool'), JSON.stringify(_annPool));
                     }
                 });
             } else {
@@ -2583,28 +2595,28 @@ function _showImportUI(data) {
                         });
                     } else if (m.key === 'announcementConfig') {
                         // 追加：合并 titles/notes，pool 去重追加
-                        let cur = {}; try { cur = JSON.parse(localStorage.getItem('dg_custom_data') || '{}'); } catch(e) {}
+                        let cur = {}; try { cur = JSON.parse(localStorage.getItem(window.dgKey('dg_custom_data')) || '{}'); } catch(e) {}
                         if (_annCfg.customData) {
                             cur.titles = [...new Set([...(cur.titles||[]), ...(_annCfg.customData.titles||[])])];
                             cur.notes  = [...new Set([...(cur.notes||[]),  ...(_annCfg.customData.notes||[])])];
-                            localStorage.setItem('dg_custom_data', JSON.stringify(cur));
+                            localStorage.setItem(window.dgKey('dg_custom_data'), JSON.stringify(cur));
                         }
                         if (_annCfg.statusPool) {
-                            let pool = []; try { pool = JSON.parse(localStorage.getItem('dg_status_pool') || '[]'); } catch(e) {}
+                            let pool = []; try { pool = JSON.parse(localStorage.getItem(window.dgKey('dg_status_pool')) || '[]'); } catch(e) {}
                             const existStatuses = new Set(pool.map(p => p.status));
                             _annCfg.statusPool.forEach(p => { if (!existStatuses.has(p.status)) pool.push(p); });
-                            localStorage.setItem('dg_status_pool', JSON.stringify(pool));
+                            localStorage.setItem(window.dgKey('dg_status_pool'), JSON.stringify(pool));
                         }
                     } else if (m.key === 'announcementText') {
-                        let cur = {}; try { cur = JSON.parse(localStorage.getItem('dg_custom_data') || '{}'); } catch(e) {}
+                        let cur = {}; try { cur = JSON.parse(localStorage.getItem(window.dgKey('dg_custom_data')) || '{}'); } catch(e) {}
                         cur.titles = [...new Set([...(cur.titles||[]), ...(_annText.titles||[])])];
                         cur.notes  = [...new Set([...(cur.notes||[]),  ...(_annText.notes||[])])];
-                        localStorage.setItem('dg_custom_data', JSON.stringify(cur));
+                        localStorage.setItem(window.dgKey('dg_custom_data'), JSON.stringify(cur));
                     } else if (m.key === 'announcementStatusPool') {
-                        let pool = []; try { pool = JSON.parse(localStorage.getItem('dg_status_pool') || '[]'); } catch(e) {}
+                        let pool = []; try { pool = JSON.parse(localStorage.getItem(window.dgKey('dg_status_pool')) || '[]'); } catch(e) {}
                         const existStatuses = new Set(pool.map(p => p.status));
                         _annPool.forEach(p => { if (!existStatuses.has(p.status)) pool.push(p); });
-                        localStorage.setItem('dg_status_pool', JSON.stringify(pool));
+                        localStorage.setItem(window.dgKey('dg_status_pool'), JSON.stringify(pool));
                     }
                 });
             }

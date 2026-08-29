@@ -96,14 +96,26 @@
 
     // 3) localStorage 中的文字类键
     var TEXT_LS_KEYS = [
-        'groupChatSettings',
-        'disabledReplyItems', 'pokeSym_my', 'pokeSym_partner',
-        'pokeSym_my_custom', 'pokeSym_partner_custom',
+        'disabledReplyItems',
         'disabledStickerItems',
-        'dg_custom_data', 'dg_status_pool', 'weekly_fortune', 'daily_fortune',
         'voiceTtsConfig'
     ];
     var TEXT_LS_PREFIXES = ['customWeather_'];
+
+    // 桌面挂件"自定义问候/状态池/运势"键 + "禁用卡片"键 + "戳一戳符号"键按对象命名空间命名的文字键（精确匹配，走 appSessionKey）
+    var DG_SESSION_BASES = ['dg_custom_data', 'dg_status_pool', 'weekly_fortune', 'daily_fortune',
+        'disabledReplyItems', 'disabledStickerItems', 'disabledVoiceCards',
+        'pokeSym_my', 'pokeSym_partner', 'pokeSym_my_custom', 'pokeSym_partner_custom'];
+    function _dgLSSessionKey(base) {
+        return (typeof window.appSessionKey === 'function') ? window.appSessionKey(base) : (APP_PREFIX_STR + base);
+    }
+    function isDgSessionLSKey(lk) {
+        if (!lk) return false;
+        for (var i = 0; i < DG_SESSION_BASES.length; i++) {
+            if (lk === _dgLSSessionKey(DG_SESSION_BASES[i])) return true;
+        }
+        return false;
+    }
 
     // 同步状态（内存）
     var _state = {
@@ -352,7 +364,7 @@
                 var lk = localStorage.key(j);
                 if (!lk) continue;
                 var match = false;
-                if (TEXT_LS_KEYS.indexOf(lk) !== -1) match = true;
+                if (TEXT_LS_KEYS.indexOf(lk) !== -1 || isDgSessionLSKey(lk)) match = true;
                 else {
                     for (var p = 0; p < TEXT_LS_PREFIXES.length; p++) {
                         if (lk.indexOf(TEXT_LS_PREFIXES[p]) === 0) { match = true; break; }
@@ -530,7 +542,7 @@
                         localStorage.removeItem(lsKeys[m]);
                         continue;
                     }
-                    if (TEXT_LS_KEYS.indexOf(lsKeys[m]) !== -1) {
+                    if (TEXT_LS_KEYS.indexOf(lsKeys[m]) !== -1 || isDgSessionLSKey(lsKeys[m])) {
                         localStorage.removeItem(lsKeys[m]);
                         continue;
                     }
@@ -717,7 +729,7 @@
             var origRemove = proto.removeItem;
 
             function _matchLS(k) {
-                if (TEXT_LS_KEYS.indexOf(k) !== -1) return true;
+                if (TEXT_LS_KEYS.indexOf(k) !== -1 || isDgSessionLSKey(k)) return true;
                 for (var p = 0; p < TEXT_LS_PREFIXES.length; p++) {
                     if (k.indexOf(TEXT_LS_PREFIXES[p]) === 0) return true;
                 }

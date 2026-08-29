@@ -7,6 +7,31 @@
     const KEY_PILL_POS = 'callPillPos';
     const BG_LF_KEY    = 'callBgImageData';
 
+    // 存储键：按梦角(SESSION_ID)隔离，与 utils.js 的 appSessionKey 同构(APP_PREFIX+SESSION_ID+'_'+base)。
+    function bgKey() {
+        return (typeof window.appSessionKey === 'function')
+            ? window.appSessionKey(BG_LF_KEY)
+            : ((window.APP_PREFIX || 'CHAT_APP_V3_') + BG_LF_KEY);
+    }
+    // 一次性把旧版全局键 'callBgImageData'(IndexedDB/localforage)迁入当前对象命名空间：
+    // 旧键存在且新键为空则复制，随后删除旧键（防串对象）。
+    function migrateBgKey() {
+        if (!window.localforage) return;
+        var newKey = bgKey();
+        if (newKey === BG_LF_KEY) return;
+        localforage.getItem(BG_LF_KEY).then(function (v) {
+            if (v == null) return;
+            localforage.getItem(newKey).then(function (nv) {
+                if (nv == null) {
+                    localforage.setItem(newKey, v).then(function () {
+                        if (!S.bgImage) { S.bgImage = v; applyBg(); }
+                    }).catch(function () {});
+                }
+                localforage.removeItem(BG_LF_KEY).catch(function () {});
+            }).catch(function () {});
+        }).catch(function () {});
+    }
+
     function _safeParse(str, fallback) {
         try {
             // JSON.parse(null) 不会抛错，而是返回 null（"null" 是合法 JSON）
@@ -42,11 +67,11 @@
 
     function loadBg() {
         if (!window.localforage) return;
-        localforage.getItem(BG_LF_KEY).then(v => { if (v) { S.bgImage = v; applyBg(); } }).catch(() => {});
+        localforage.getItem(bgKey()).then(v => { if (v) { S.bgImage = v; applyBg(); } }).catch(() => {});
     }
     function saveBg(d) {
         if (!d || !window.localforage) return;
-        localforage.setItem(BG_LF_KEY, d).catch(() => {});
+        localforage.setItem(bgKey(), d).catch(() => {});
     }
 
     const SVG_HU = `<svg viewBox="0 0 24 24" fill="none" style="display:block;width:100%;height:100%;">
@@ -1032,6 +1057,7 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         injectHTML();
         bindEvents();
         bindVideocallBtn();
+        migrateBgKey();
         loadBg();
 
         const late = () => {
