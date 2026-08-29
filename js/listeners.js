@@ -2720,6 +2720,11 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
             MediaNotif.cancel();
             return;
         }
+        // 未播放时收起通知栏媒体横幅，避免暂停/停止后残留上一次的歌名
+        if (!playing) {
+            MediaNotif.cancel();
+            return;
+        }
         const song = songs[currentIndex] || {};
         const dur = isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
         MediaNotif.show({

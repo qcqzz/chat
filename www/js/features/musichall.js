@@ -316,6 +316,8 @@
         if (typeof MediaNotif === 'undefined' || !MediaNotif.isSupported()) return;
         var s = _mhSong();
         if (!s) { MediaNotif.cancel(); return; }
+        // 未播放时收起通知栏媒体横幅，避免暂停/停止后残留上一次的歌名
+        if (!nowPlaying) { MediaNotif.cancel(); return; }
         MediaNotif.show({
             title: s.title || '未知歌曲',
             sub: s.sub || '',
