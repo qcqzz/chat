@@ -307,6 +307,43 @@
     // 避免设备 localStorage 配额被应急备份/背景图库占满后第 3 张静默存不上。
     // localStorage 镜像仅作兼容读取用，配额不足时自动忽略，不再静默阻断保存。
     var _plCache = ['', '', ''];
+    // ── 每格多图库（体验同聊天背景图库）：每格可上传多张，勾选一张作为该格应用显示 ──
+    var _plGal = [[], [], []];        // 每格：[{ id, value }] 全部已上传图
+    var _plActive = ['', '', ''];     // 每格：当前勾选应用那张的 id（空=未设置该格）
+    function plGalLfKey() {
+        if (typeof getStorageKey === 'function' && typeof SESSION_ID !== 'undefined' && SESSION_ID) {
+            try { return getStorageKey('POLAROID_GALLERY'); } catch (e) {}
+        }
+        return 'POLAROID_GALLERY';
+    }
+    function plGalLsKey() {
+        if (typeof getStorageKey === 'function' && typeof SESSION_ID !== 'undefined' && SESSION_ID) {
+            try { return getStorageKey('tiDesktopPlGallery'); } catch (e) {}
+        }
+        return 'tiDesktopPlGallery';
+    }
+    function persistPlGal() {
+        var data = { g: _plGal, a: _plActive };
+        if (typeof localforage !== 'undefined') {
+            localforage.setItem(plGalLfKey(), data).catch(function (e) {
+                console.warn('[Polaroid] 图库 IndexedDB 写入失败:', e);
+            });
+        }
+        // 尽力镜像一份到 localStorage（兼容旧版本/外部读取；配额满时自动忽略）
+        try { localStorage.setItem(plGalLsKey(), JSON.stringify(data)); } catch (e) {}
+    }
+    // 旧版每格单图值 → 迁入该格图库首张（并默认应用），保留用户旧数据
+    function seedPlGalFromLegacy() {
+        var changed = false;
+        for (var i = 0; i < 3; i++) {
+            if ((!_plGal[i] || !_plGal[i].length) && _plCache[i]) {
+                _plGal[i] = [{ id: 'pl' + i + '_' + Date.now() + Math.floor(Math.random() * 1e6), value: _plCache[i] }];
+                _plActive[i] = _plGal[i][0].id;
+                changed = true;
+            }
+        }
+        if (changed) persistPlGal();
+    }
     // 未设置拍立得 / 图片缺失时，照片区显示的灰色占位图片
     var _plPlaceholder = 'data:image/svg+xml;utf8,' + encodeURIComponent(
         '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">' +
@@ -331,7 +368,16 @@
     function plLegacyLfKey(i) { return 'POLAROID_LF_' + (i + 1); }
     function plLegacyLsKey(i) { return 'tiDesktopPl' + (i + 1); }
 
-    function getPl(i) { return _plCache[i] || ''; }
+    function getPl(i) {
+        // 优先：该格图库中"勾选应用"的那一张（体验同聊天背景）
+        var a = _plActive[i];
+        var items = _plGal[i] || [];
+        for (var k = 0; k < items.length; k++) {
+            if (items[k].id === a) return items[k].value;
+        }
+        // 兜底：未设置 / 迁移期旧单图值
+        return _plCache[i] || '';
+    }
     function setPl(i, v) {
         v = v || '';
         _plCache[i] = v;                                     // 先同步更新内存缓存，界面立即生效
@@ -387,14 +433,36 @@
     // 避免用空 SESSION_ID 读/写旧共享 key 造成跨对象污染。
     function plLoadAll() {
         _plCache = ['', '', ''];
+        _plGal = [[], [], []];
+        _plActive = ['', '', ''];
         if (typeof SESSION_ID === 'undefined' || !SESSION_ID) {
             setTimeout(plLoadAll, 150);
             return;
         }
         var lfKeys = [plLfKey(0), plLfKey(1), plLfKey(2)];
         var lsKeys = [plLsKey(0), plLsKey(1), plLsKey(2)];
+        // 读取每格多图库（IndexedDB 维护，localStorage 镜像兜底）
+        var loadGallery = function (cb) {
+            var apply = function (d) {
+                if (d && Array.isArray(d.g)) {
+                    for (var i = 0; i < 3; i++) {
+                        if (Array.isArray(d.g[i])) _plGal[i] = d.g[i];
+                        if (d.a && d.a[i]) _plActive[i] = d.a[i];
+                    }
+                }
+                cb();
+            };
+            if (typeof localforage !== 'undefined') {
+                localforage.getItem(plGalLfKey()).then(apply).catch(function () {
+                    try { var raw = localStorage.getItem(plGalLsKey()); if (raw) apply(JSON.parse(raw)); else apply(null); } catch (e) { apply(null); }
+                });
+            } else {
+                try { var raw = localStorage.getItem(plGalLsKey()); if (raw) apply(JSON.parse(raw)); else apply(null); } catch (e) { apply(null); }
+            }
+        };
         var done = function () {
             migrateLegacyPl(lfKeys, lsKeys).then(function () {
+                seedPlGalFromLegacy();
                 renderPolaroidGallery(); renderPolaroid();
             });
         };
@@ -405,10 +473,10 @@
             Promise.all(lfKeys.map(function (k) { return localforage.getItem(k); }))
                 .then(function (vals) {
                     for (var j = 0; j < 3; j++) { if (vals[j] && _plCache[j] !== vals[j]) _plCache[j] = vals[j]; }
-                    done();
-                }).catch(done);
+                    loadGallery(done);
+                }).catch(function () { loadGallery(done); });
         } else {
-            done();
+            loadGallery(done);
         }
     }
 
@@ -450,17 +518,18 @@
         setTimeout(function () { if (c) c.classList.remove('flip'); }, 450);
     }
 
-    // ── 拍立得设置：三个固定位，网格图库排版（样式同聊天背景图库） ──
+    // ── 拍立得设置：三格，每格一个多图库（同类聊天背景，上传多张、勾选一张应用） ──
     var _plSlot = 0;   // 当前正在上传的拍立得位（0/1/2）
     var _plSlotTitles = ['最上层', '中间', '最底层'];
     var _plOrdinal = ['第一张', '第二张', '第三张'];
     function renderPolaroidGallery() {
         var list = $('polaroid-gallery-list');
         if (!list) return;
-        list.className = 'pl-list';   // 外层：竖列，每张拍立得一个设置栏
+        list.className = 'pl-list';   // 外层：竖列，每格一个设置栏
         list.innerHTML = '';
         for (var i = 0; i < 3; i++) {
-            var v = getPl(i);
+            var items = _plGal[i] || [];
+            var activeId = _plActive[i];
 
             // 设置栏：标题 + 内嵌网格(排版完全同聊天背景图库 .bg-gallery/.bg-item)
             var slot = document.createElement('div');
@@ -470,17 +539,20 @@
             head.className = 'pl-slot-head';
             var name = document.createElement('span');
             name.className = 'pl-slot-name';
-            name.textContent = _plOrdinal[i] + ' · ' + _plSlotTitles[i];
+            name.textContent = _plOrdinal[i] + ' · ' + _plSlotTitles[i] + (activeId ? '' : '（未应用）');
             head.appendChild(name);
-            if (v) {
+            if (items.length) {
                 var reset = document.createElement('span');
                 reset.className = 'pl-reset-btn';
-                reset.innerHTML = '<i class="fas fa-undo-alt"></i><span>恢复默认</span>';
-                reset.title = '恢复默认（移除这张拍立得）';
+                reset.innerHTML = '<i class="fas fa-undo-alt"></i><span>清空</span>';
+                reset.title = '清空这一格的全部图片';
                 reset.onclick = (function (slotIdx) {
                     return function () {
-                        if (!confirm('确定将这张拍立得恢复为默认吗？')) return;
+                        if (!confirm('确定清空这一格的全部拍立得图片吗？')) return;
+                        _plGal[slotIdx] = [];
+                        _plActive[slotIdx] = '';
                         setPl(slotIdx, '');
+                        persistPlGal();
                         renderPolaroidGallery();
                         renderPolaroid();
                     };
@@ -492,36 +564,57 @@
             // 内嵌网格：与聊天背景设置完全同款(.bg-gallery grid / .bg-item 圆格 / .bg-delete-btn)
             var gal = document.createElement('div');
             gal.className = 'bg-gallery';
-            var cell = document.createElement('div');
-            if (v) {
-                cell.className = 'bg-item active';
-                cell.innerHTML = '<img src="' + v + '" loading="lazy" alt="拍立得">';
+
+            // 添加按钮：可继续往这一格里加上传的图（支持多张）
+            var addBtn = document.createElement('div');
+            addBtn.className = 'bg-item bg-add-btn';
+            addBtn.innerHTML = '<i class="fas fa-plus"></i><span></span>';
+            addBtn.title = '上传图片到' + _plOrdinal[i] + '（可多张）';
+            addBtn.onclick = (function (slotIdx) { return function () { pickPolaroidFile(slotIdx); }; })(i);
+            gal.appendChild(addBtn);
+
+            // 已上传的多张：点击勾选应用，右上角可删除
+            items.forEach(function (item, idx) {
+                var cell = document.createElement('div');
+                cell.className = 'bg-item' + (item.id === activeId ? ' active' : '');
+                cell.innerHTML = '<img src="' + item.value + '" loading="lazy" alt="拍立得">';
+                cell.title = '点击应用这一张';
+                cell.onclick = (function (slotIdx, it) {
+                    return function (e) {
+                        if (e.target.closest('.bg-delete-btn')) return;
+                        _plActive[slotIdx] = it.id;
+                        setPl(slotIdx, it.value);
+                        persistPlGal();
+                        renderPolaroidGallery();
+                        renderPolaroid();
+                        showNotification && showNotification('已应用' + _plOrdinal[slotIdx], 'success');
+                    };
+                })(i, item);
                 var del = document.createElement('div');
                 del.className = 'bg-delete-btn';
                 del.innerHTML = '<i class="fas fa-trash"></i>';
                 del.style.cssText = 'opacity:1;transform:scale(1);'; // 手机无 hover，始终显示
-                del.title = '点击删除，恢复默认';
-                del.onclick = (function (slotIdx) {
+                del.title = '删除这一张';
+                del.onclick = (function (slotIdx, it, itemIdx) {
                     return function (e) {
                         e.stopPropagation();
-                        if (!confirm('确定将这张拍立得恢复为默认吗？')) return;
-                        setPl(slotIdx, '');
+                        if (!confirm('确定删除这一张拍立得吗？')) return;
+                        _plGal[slotIdx].splice(itemIdx, 1);
+                        if (_plActive[slotIdx] === it.id) {
+                            // 删的是正在应用的那张：改用同格第一张（若无则清空）
+                            _plActive[slotIdx] = _plGal[slotIdx].length ? _plGal[slotIdx][0].id : '';
+                            setPl(slotIdx, _plActive[slotIdx] ? _plGal[slotIdx][0].value : '');
+                        }
+                        persistPlGal();
                         renderPolaroidGallery();
                         renderPolaroid();
                     };
-                })(i);
+                })(i, item, idx);
                 cell.appendChild(del);
-            } else {
-                cell.className = 'bg-item bg-add-btn';
-                cell.innerHTML = '<i class="fas fa-plus"></i><span></span>';
-            }
-            cell.title = '点击' + (v ? '更换' : '设置') + _plOrdinal[i] + '（' + _plSlotTitles[i] + '）';
-            cell.onclick = (function (slotIdx) {
-                return function () { pickPolaroidFile(slotIdx); };
-            })(i);
-            gal.appendChild(cell);
-            slot.appendChild(gal);
+                gal.appendChild(cell);
+            });
 
+            slot.appendChild(gal);
             list.appendChild(slot);
         }
     }
@@ -538,18 +631,26 @@
     }
     function resetAllPolaroid() {
         setPl(0, ''); setPl(1, ''); setPl(2, '');
+        _plGal = [[], [], []];
+        _plActive = ['', '', ''];
+        persistPlGal();
         renderPolaroidGallery();
         renderPolaroid();
         showNotification && showNotification('已恢复默认灰底图', 'success');
     }
-    // 拍立得裁剪结果接收（与 DesktopBg/DesktopTopbar.accept 同规则）
+    // 拍立得裁剪结果接收（与 DesktopBg/DesktopTopbar.accept 同规则）：作为新一图加入该格并应用
     window.Polaroid = {
         accept: function (dataURL) {
             if (!dataURL || dataURL.indexOf('data:') !== 0) return;
+            var it = { id: 'pl' + _plSlot + '_' + Date.now() + Math.floor(Math.random() * 1e6), value: dataURL };
+            if (!_plGal[_plSlot]) _plGal[_plSlot] = [];
+            _plGal[_plSlot].push(it);
+            _plActive[_plSlot] = it.id;
             setPl(_plSlot, dataURL);
+            persistPlGal();
             renderPolaroidGallery();
             renderPolaroid();
-            showNotification && showNotification('拍立得第 ' + (_plSlot + 1) + ' 张已更新', 'success');
+            showNotification && showNotification('已添加并应用第 ' + (_plSlot + 1) + ' 张', 'success');
         },
         refresh: function () { renderPolaroidGallery(); renderPolaroid(); }
     };
