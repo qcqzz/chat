@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    音乐厅（娱乐板块）：
    · 上半：旋转唱片播放器卡片（可自定义唱片图、心跳线/进度线颜色、播放模式）
-   · 下半：聊天框，边听歌边聊天，记录同步主聊天
+   · 下半：聊天框，边听歌边聊天，记录独立于主聊天页（音乐厅对话不进入主聊天）
    · 歌单页：左歌单 / 右设置（音乐导入、自定义唱片、线条颜色）
    · 梦角音乐邀请：MUSIC 卡片（现在听 / 拒绝），1~2 天检查一次 70% 触发，
      连续 2 次没触发第 3 次必触发；触发后 75% 指定歌单曲目、25% 不指定
@@ -375,21 +375,9 @@
             saveMessages();
             input.value = '';
             if (emojiPanel) emojiPanel.classList.remove('open');
-            if (typeof addMessage === 'function') {
-                    addMessage({
-                        id: Date.now() + Math.random(),
-                        sender: 'user',
-                        text: text,
-                        timestamp: new Date(),
-                        status: 'sent',
-                        type: 'normal',
-                        favorited: false,
-                        note: null
-                    });
-                }
-                // 与陪伴页消息规则一致：真实用户消息后触发梦角回复
-                mhTriggerReply();
-            }
+            // 只留在音乐厅本地（不写主聊天页），随后触发音乐厅本地回复
+            mhTriggerReply();
+        }
         if (send) send.addEventListener('click', doSend);
         if (input) input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); doSend(); } });
         if (emojiBtn && emojiPanel) {
@@ -429,27 +417,72 @@
         if (typeof stickerLibrary !== 'undefined' && Array.isArray(stickerLibrary)) out = out.concat(stickerLibrary);
         return out;
     }
-    // 触发梦角回复：与陪伴页/主聊天同一回复引擎，保证消息规则一致（含 readNoReply、清陪伴静默标志）
-    function mhTriggerReply() {
-        if (typeof window._triggerDelayedReply === 'function') {
-            window._triggerDelayedReply(true);
+    // 触发梦角回复：完全独立的本地回复——复用主聊天同一套「自定义回复」语料与规则，
+    // 但只把回复写入音乐厅自己的聊天区（messages/mhMessages），不进入主聊天页。
+    function mhBuildReplyPool() {
+        var text = [], voice = [];
+        try {
+            var disabledReplies = new Set();
+            try { var raw = localStorage.getItem(window.dgKey('disabledReplyItems')); if (raw) disabledReplies = new Set(JSON.parse(raw)); } catch (e) {}
+            var disabledGroup = new Set();
+            (window.customReplyGroups || []).forEach(function (g) {
+                if (g.disabled && Array.isArray(g.items)) g.items.forEach(function (it) { disabledGroup.add(it); });
+            });
+            var cr = window._customReplies || [];
+            text = cr.filter(function (r) { return !disabledReplies.has(r) && !disabledGroup.has(r); })
+                .map(function (r) { return String(r || '').trim(); }).filter(Boolean);
+            var disabledVoice = new Set();
+            try { var vraw = localStorage.getItem(window.dgKey('disabledVoiceCards')); if (vraw) disabledVoice = new Set(JSON.parse(vraw)); } catch (e) {}
+            (window.voiceCards || []).forEach(function (v) { if (v && v.audio && !disabledVoice.has(v.id)) voice.push(v); });
+        } catch (e) {}
+        return { text: text, voice: voice };
+    }
+    function mhSimulateReply() {
+        var s = (typeof settings !== 'undefined') ? settings : window.settings;
+        var cfg = s || {};
+        if (cfg.replyEnabled === false) return; // 在线回复关闭：不回
+        var chance = Math.max(0, Math.min(1, Number(cfg.readNoReplyChance) || 0));
+        if (cfg.allowReadNoReply && Math.random() < chance) return; // 已读不回
+        var pool = mhBuildReplyPool();
+        if (!pool.text.length && !pool.voice.length) {
+            if (typeof showNotification === 'function') showNotification('回复库可用内容为空，请到「自定义回复」中调整', 'info', 3500);
             return;
         }
-        if (typeof simulateReply !== 'function') return;
-        var dmin = (typeof settings !== 'undefined' && settings.replyDelayMin) ? settings.replyDelayMin : 700;
-        var dmax = (typeof settings !== 'undefined' && settings.replyDelayMax) ? settings.replyDelayMax : 1500;
-        setTimeout(simulateReply, dmin + Math.random() * (dmax - dmin));
+        var dmin = Number(cfg.replyDelayMin) || 700;
+        var dmax = Number(cfg.replyDelayMax) || 1500;
+        if (dmin > dmax) dmax = dmin;
+        var replyCount = Math.random() < 0.75 ? 1 : (Math.random() < 0.95 ? 2 : 3); // 与陪伴同一规则
+        var delay = 0;
+        for (var i = 0; i < replyCount; i++) {
+            delay += dmin + Math.random() * (dmax - dmin);
+            (function (d) {
+                setTimeout(function () {
+                    var slotIsVoice = pool.voice.length > 0 && (pool.text.length === 0 || Math.random() < 0.35);
+                    var msg;
+                    if (slotIsVoice) {
+                        var vc = pool.voice[Math.floor(Math.random() * pool.voice.length)];
+                        msg = { sender: 'partner', content: '', image: vc.audio, ts: Date.now() };
+                    } else {
+                        msg = { sender: 'partner', content: pool.text[Math.floor(Math.random() * pool.text.length)], image: null, ts: Date.now() };
+                    }
+                    messages.push(msg);
+                    appendMsg(messages[messages.length - 1]);
+                    saveMessages();
+                    if (typeof playSound === 'function') { try { playSound('message'); } catch (e) {} }
+                }, d);
+            })(delay);
+        }
     }
-    // 发送表情包图片（同步主聊天并触发梦角回复）
+    function mhTriggerReply() {
+        mhSimulateReply();
+    }
+    // 发送表情包图片（只留在音乐厅本地，不写主聊天页）
     function mhSendImage(src) {
         var s = String(src || '');
         if (!s) return;
         messages.push({ sender: 'user', content: '', image: s, ts: Date.now() });
         appendMsg(messages[messages.length - 1]);
         saveMessages();
-        if (typeof addMessage === 'function') {
-            addMessage({ id: Date.now() + Math.random(), sender: 'user', text: '', image: s, timestamp: new Date(), status: 'sent', type: 'normal', favorited: false, note: null });
-        }
         if (typeof playSound === 'function') playSound('send');
         var panel = document.getElementById('mh-emoji-panel');
         if (panel) panel.classList.remove('open');
@@ -519,21 +552,8 @@
         }
     }
 
-    // 镜像梦角消息（文字/表情包图片）进音乐厅聊天区，规则与陪伴页一致（复用同一回复引擎）。
-    // 同步主聊天的所有普通梦角消息（含主动聊天与对本厅消息的回复），记录与主聊天保持一致。
-    if (window._registerPartnerMessageListener && !window._mhPartnerMirrorBound) {
-        window._mhPartnerMirrorBound = true;
-        window._registerPartnerMessageListener(function (m) {
-            try {
-                if (!m || m.type !== 'normal') return;
-                if (m.sender === 'user') return;
-                if (!m.text && !m.image) return;
-                messages.push({ sender: 'partner', content: m.text || '', image: m.image || null, ts: Date.now() });
-                appendMsg(messages[messages.length - 1]);
-                saveMessages();
-            } catch (e) { console.warn('[musichall] mirror partner msg failed', e); }
-        });
-    }
+    // 音乐厅聊天完全独立：不复用主聊天的梦角消息监听，也不镜像主聊天消息进来。
+    // 音乐厅只显示自己本地的对话（用户发 + 音乐厅本地回复）。
 
     // ── 播放指定（供邀请卡"现在听"） ────────────────────
     window._menuPlaySong = function (title) {
