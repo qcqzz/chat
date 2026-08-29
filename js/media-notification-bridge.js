@@ -4,7 +4,7 @@
  * 把 WebView 里 <audio> 的播放信息（歌名/歌手/封面/时长/进度/播停）投送到原生
  * MediaNotificationPlugin，在 Android 系统通知栏渲染一条类似网易云音乐的媒体播放条。
  * 用户点通知栏的 播放/暂停、上一首、下一首 时，原生通过 mediaAction 事件回调到这里，
- * 由上层注册的 controlHandler 继续驱动 <audio>。
+ * 由上层注册的 controlHandler（可注册多个播放源）继续驱动 <audio>。
  */
 (function (global) {
     'use strict';
@@ -18,7 +18,10 @@
         return null;
     }
 
-    var controlHandler = null;
+    // 允许注册多个控制处理器（悬浮播放器、音乐厅各自注册，self-guard 自己是否在播）。
+    // 原生 mediaAction 一次性分发给所有处理器，由各处理器判断自己是不是当前真正在播的那一方。
+    var controlHandlers = [];
+    var nativeBound = false;
     var lastPing = 0;
 
     function log() {
@@ -93,15 +96,20 @@
 
         /**
          * 注册通知栏按钮回调：play / pause / next / prev
+         * 可被多个播放源重复调用；原生监听只绑定一次，事件分发给所有回调。
          */
         setControlHandler: function (fn) {
-            controlHandler = typeof fn === 'function' ? fn : null;
+            if (typeof fn === 'function' && controlHandlers.indexOf(fn) === -1) {
+                controlHandlers.push(fn);
+            }
             var p = getPlugin();
-            if (!p) return;
+            if (!p || nativeBound) return;
+            nativeBound = true;
             try {
                 p.addListener('mediaAction', function (data) {
-                    if (controlHandler && data && data.action) {
-                        controlHandler(data.action);
+                    if (!data || !data.action) return;
+                    for (var i = 0; i < controlHandlers.length; i++) {
+                        try { controlHandlers[i](data.action); } catch (e) { console.warn(LOG_PREFIX + ' 处理器异常:', e); }
                     }
                 }).catch(function (e) {
                     console.warn(LOG_PREFIX + ' 监听失败:', e);
@@ -113,7 +121,9 @@
 
         /** 手动触发（供单元/调试用）。 */
         _dispatch: function (action) {
-            if (controlHandler) controlHandler(action);
+            for (var i = 0; i < controlHandlers.length; i++) {
+                try { controlHandlers[i](action); } catch (e) {}
+            }
         }
     };
 

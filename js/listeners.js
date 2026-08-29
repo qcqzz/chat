@@ -2731,11 +2731,14 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
     }
 
     if (typeof MediaNotif !== 'undefined' && MediaNotif.isSupported()) {
-        // 预先读取用户自定义封面，作为通知栏大图标
-        localforage.getItem(APP_PREFIX + 'playerCover').then(cover => {
-            if (cover) _cachedMediaCover = cover;
-        }).catch(() => {});
+            // preload cover...
+            localforage.getItem(APP_PREFIX + 'playerCover').then(cover => {
+                if (cover) _cachedMediaCover = cover;
+            }).catch(() => {});
         MediaNotif.setControlHandler((action) => {
+            // 同一系统横幅可能被多个播放源驱动（音乐厅/悬浮播放器）。
+            // 只有"当前真正在播的来源"才响应通知栏按钮，避免误操作到另一路播放。
+            if (window.__sysMediaOwner !== 'floating') return;
             if (action === 'play') { if (!isPlaying) togglePlay(); }
             else if (action === 'pause') { if (isPlaying) togglePlay(); }
             else if (action === 'next') nextSong();
@@ -2854,6 +2857,7 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
 
     function _markPlaying(playing) {
         isPlaying = playing;
+        if (playing && window) window.__sysMediaOwner = 'floating';
         document.getElementById('icon-play').style.display = playing ? 'none' : 'block';
         document.getElementById('icon-pause').style.display = playing ? 'block' : 'none';
         player.classList.toggle('playing', playing);

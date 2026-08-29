@@ -18,8 +18,25 @@ function safeGetItem(key) {
         // ── 会话级(按对象)存储键助手：APP_PREFIX + SESSION_ID + '_' + base ──
         // 与 core.js getStorageKey 同构，供需要按梦角隔离的模块复用。
         // 用开则写入该对象命名空间，且能被"按角色备份"(onlySession 前缀)涵盖。
+        // 同步解析"当前对象 SESSION_ID"（不依赖异步的 initializeSession）。
+        // 优先级：已初始化的 SESSION_ID > location.hash（切换/新建后始终存在）> lastSessionId 同步镜像 > 'default'。
+        // 这样在模块 同步加载（此时 SESSION_ID 尚未被 initializeSession 赋值）时也能取到当前对象命名空间，
+        // 避免音乐厅等模块把数据读/写到 'default' 命名空间导致刷新即丢失。
+        function resolveSessionIdSync() {
+            if (typeof SESSION_ID !== 'undefined' && SESSION_ID) return String(SESSION_ID);
+            try {
+                var h = String(window.location.hash || '').replace(/^#/, '');
+                if (h) return h;
+            } catch (e) {}
+            try {
+                var pfx = (typeof APP_PREFIX !== 'undefined' && APP_PREFIX) ? APP_PREFIX : 'CHAT_APP_V3_';
+                var last = localStorage.getItem(pfx + 'lastSessionId');
+                if (last) return last;
+            } catch (e) {}
+            return 'default';
+        }
         window.appSessionKey = function (base) {
-            var sid = (typeof SESSION_ID !== 'undefined' && SESSION_ID) ? String(SESSION_ID) : 'default';
+            var sid = resolveSessionIdSync();
             var p = (typeof APP_PREFIX !== 'undefined' && APP_PREFIX) ? APP_PREFIX : 'CHAT_APP_V3_';
             return p + sid + '_' + base;
         };

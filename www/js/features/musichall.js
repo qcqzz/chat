@@ -94,11 +94,12 @@
         audio = panel.querySelector('#mh-audio');
         audio.addEventListener('timeupdate', onTimeUpdate);
         audio.addEventListener('ended', onEnded);
-        audio.addEventListener('play', function () { setPlay(true); });
-        audio.addEventListener('pause', function () { setPlay(false); });
+        audio.addEventListener('play', function () { setPlay(true); _mhClaimOwner(); _mhPushNotif(true); });
+        audio.addEventListener('pause', function () { setPlay(false); _mhPushNotif(false); });
 
         bindControls(panel);
         bindChat(panel);
+        _mhRegisterControl();
 
         applyMhCustomCss(conf.mhCss);
 
@@ -288,6 +289,7 @@
         if (fill && audio.duration) fill.style.width = (audio.currentTime / audio.duration * 100) + '%';
         if (ct) ct.textContent = fmt(audio.currentTime);
         if (dt && audio.duration) dt.textContent = fmt(audio.duration);
+        _mhUpdateNotif();
     }
     function onEnded() {
         if (mode === 'single') { audio.currentTime = 0; playCur(); return; }
@@ -299,6 +301,45 @@
         if (isNaN(sec)) return '0:00';
         var m = Math.floor(sec / 60), s = Math.floor(sec % 60);
         return m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    // ── 系统通知栏媒体条：音乐厅播放时也把自己的歌曲信息投送上去 ──
+    // 否则通知栏会一直残留"悬浮播放器"那首（它单独驱动了 MediaNotification），
+    // 造成"在音乐厅听还显示悬浮播放器歌名"的错位。
+    var _sysOwnerKey = '__sysMediaOwner';
+    var _mhControlRegistered = false;
+    function _mhSong() { return songs.length ? songs[cur >= 0 ? cur : 0] : null; }
+    function _mhDurMs() { return audio && isFinite(audio.duration) && audio.duration > 0 ? Math.round(audio.duration * 1000) : 0; }
+    function _mhPosMs() { return audio ? Math.round((audio.currentTime || 0) * 1000) : 0; }
+    function _mhClaimOwner() { if (typeof window !== 'undefined') window[_sysOwnerKey] = 'mh'; }
+    function _mhPushNotif(nowPlaying) {
+        if (typeof MediaNotif === 'undefined' || !MediaNotif.isSupported()) return;
+        var s = _mhSong();
+        if (!s) { MediaNotif.cancel(); return; }
+        MediaNotif.show({
+            title: s.title || '未知歌曲',
+            sub: s.sub || '',
+            duration: _mhDurMs(),
+            position: _mhPosMs(),
+            playing: !!nowPlaying
+        });
+    }
+    function _mhUpdateNotif() {
+        if (typeof MediaNotif === 'undefined' || !MediaNotif.isSupported()) return;
+        MediaNotif.update(_mhPosMs(), _mhDurMs(), playing);
+    }
+    function _mhRegisterControl() {
+        if (typeof MediaNotif === 'undefined' || !MediaNotif.isSupported() || typeof MediaNotif.setControlHandler !== 'function') return;
+        if (_mhControlRegistered) return; // renderPanel 可能多次调用，只注册一次，避免切歌重复触发
+        _mhControlRegistered = true;
+        MediaNotif.setControlHandler(function (action) {
+            // 只在音乐厅是"当前真正在播的来源"时才响应通知栏按钮，避免误控悬浮播放器
+            if (typeof window !== 'undefined' && window[_sysOwnerKey] !== 'mh') return;
+            if (action === 'play') { if (!playing) playCur(); }
+            else if (action === 'pause') { if (playing && audio) audio.pause(); }
+            else if (action === 'next') { if (playing) { var n = nextIdx(); if (n >= 0) loadSong(n, _playAfterLoad); } }
+            else if (action === 'prev') { if (playing && songs.length) loadSong(cur - 1, _playAfterLoad); }
+        });
     }
     function bindControls(panel) {
         var play = panel.querySelector('#mh-play');
@@ -1213,7 +1254,12 @@
     function checkInvite() {
         if (!_booted) return;
         var now = Date.now();
-        if (invite.next && now < invite.next) return;
+        if (!invite.next) {
+            // 首次进入 / 新角色（尚未排过邀请）：先排下一次检查，避免一切入角色就立刻弹音乐邀请
+            scheduleNext(false);
+            return;
+        }
+        if (now < invite.next) return;
         if (invite.active && invite.active.ts && (now - invite.active.ts) < 4 * 3600000) {
             // 上一条邀请还在有效期且尚未被用户操作，先不重复发
             scheduleNext(true);

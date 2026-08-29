@@ -15,7 +15,8 @@
     };
     // 一次性把旧"全局裸键"迁移进当前对象命名空间（内部有一性标记，只跑一次）
     if (typeof window.migrateGlobalKeysToSession === 'function') {
-        window.migrateGlobalKeysToSession(['dg_custom_data', 'dg_status_pool', 'weekly_fortune', 'daily_fortune']);
+        window.migrateGlobalKeysToSession(['dg_custom_data', 'dg_status_pool', 'weekly_fortune', 'daily_fortune',
+            'dg_header_bg', 'dg_overlay_bg', 'dg_overlay_bg_tint', 'immersive_mode']);
     }
 
     // 发图挑选器里贴纸网格的滚动加载处理器，重渲染时先解绑，避免重复叠加
@@ -1350,14 +1351,14 @@ function _buildDailyGreeting() {
         var months = ['一','二','三','四','五','六','七','八','九','十','十一','十二'];
         setEl('dg-date-stamp', now.getFullYear() + ' · ' + months[now.getMonth()] + '月' + now.getDate() + '日');
 
-        var headerBg = localStorage.getItem('dg_header_bg');
+        var headerBg = localStorage.getItem(_k('dg_header_bg'));
         var bgEl = document.getElementById('dg-header-band-bg');
         if (bgEl && headerBg) {
             bgEl.style.backgroundImage = 'url(' + headerBg + ')';
             bgEl.classList.add('has-img');
         }
 
-        var overlayBg = localStorage.getItem('dg_overlay_bg');
+        var overlayBg = localStorage.getItem(_k('dg_overlay_bg'));
         if (overlayBg) { applyDgOverlayBg(overlayBg); }
 
         var decoImg = customData.decoImg;
@@ -1379,7 +1380,7 @@ window.toggleImmersiveMode = function(force) {
     document.body.classList.toggle('immersive-mode', isOn);
     var toggle = document.getElementById('immersive-toggle');
     if (toggle) toggle.classList.toggle('active', isOn);
-    try { localStorage.setItem('immersive_mode', isOn ? '1' : '0'); } catch(e) {}
+    try { localStorage.setItem(_k('immersive_mode'), isOn ? '1' : '0'); } catch(e) {}
     if (!isOn && typeof showNotification === 'function') showNotification('已退出沉浸式模式', 'info');
 };
 
@@ -1435,7 +1436,7 @@ window.toggleImmersiveMode = function(force) {
 })();
 (function() {
     try {
-        if (localStorage.getItem('immersive_mode') === '1') {
+        if (localStorage.getItem(_k('immersive_mode')) === '1') {
             document.body.classList.add('immersive-mode');
             var t = document.getElementById('immersive-toggle');
             if (t) t.classList.add('active');
@@ -1497,14 +1498,14 @@ window.clearDgDecoImg = function() {
     if (wrap) wrap.style.display = 'none';
 };
 window.clearDgHeaderBg = function() {
-    localStorage.removeItem('dg_header_bg');
+    localStorage.removeItem(_k('dg_header_bg'));
     var bgEl = document.getElementById('dg-header-band-bg');
     if (bgEl) { bgEl.style.backgroundImage = ''; bgEl.classList.remove('has-img'); }
 };
 
 window.onDgOverlayOpacityChange = function(val) {
     var tint = parseInt(val) / 100;
-    localStorage.setItem('dg_overlay_bg_tint', tint);
+    localStorage.setItem(_k('dg_overlay_bg_tint'), tint);
     var valEl = document.getElementById('dg-overlay-opacity-val');
     if (valEl) valEl.textContent = val + '%';
     var tintLayer = document.getElementById('dg-card-tint-overlay');
@@ -1517,14 +1518,14 @@ window.handleDgOverlayBgUpload = function(input) {
     var reader = new FileReader();
     reader.onload = function(ev) {
         var data = ev.target.result;
-        localStorage.setItem('dg_overlay_bg', data);
+        localStorage.setItem(_k('dg_overlay_bg'), data);
         applyDgOverlayBg(data);
         var prev = document.getElementById('dg-overlay-bg-preview');
         var prevImg = document.getElementById('dg-overlay-bg-preview-img');
         if (prev && prevImg) { prevImg.src = data; prev.style.display = 'block'; }
         var opRow = document.getElementById('dg-overlay-opacity-row');
         if (opRow) opRow.style.display = 'block';
-        var savedTint = parseFloat(localStorage.getItem('dg_overlay_bg_tint'));
+        var savedTint = parseFloat(localStorage.getItem(_k('dg_overlay_bg_tint')));
         var pct = isNaN(savedTint) ? 25 : Math.round(savedTint * 100);
         var slider = document.getElementById('dg-overlay-opacity-slider');
         var valEl = document.getElementById('dg-overlay-opacity-val');
@@ -1535,7 +1536,7 @@ window.handleDgOverlayBgUpload = function(input) {
 };
 
 window.clearDgOverlayBg = function() {
-    localStorage.removeItem('dg_overlay_bg');
+    localStorage.removeItem(_k('dg_overlay_bg'));
     applyDgOverlayBg(null);
     var prev = document.getElementById('dg-overlay-bg-preview');
     if (prev) prev.style.display = 'none';
@@ -1550,7 +1551,7 @@ function applyDgOverlayBg(data, tintOpacity) {
     var tintLayer = document.getElementById('dg-card-tint-overlay');
     if (!card || !bgLayer) return;
     if (tintOpacity === undefined || tintOpacity === null) {
-        var saved = parseFloat(localStorage.getItem('dg_overlay_bg_tint'));
+        var saved = parseFloat(localStorage.getItem(_k('dg_overlay_bg_tint')));
         tintOpacity = isNaN(saved) ? 0.25 : saved;
     }
     if (data) {
@@ -1571,7 +1572,7 @@ function applyDgOverlayBg(data, tintOpacity) {
 }
 
 (function() {
-    var savedOverlayBg = localStorage.getItem('dg_overlay_bg');
+    var savedOverlayBg = localStorage.getItem(_k('dg_overlay_bg'));
     if (savedOverlayBg) {
         document.addEventListener('DOMContentLoaded', function() {
             applyDgOverlayBg(savedOverlayBg);
@@ -1580,7 +1581,7 @@ function applyDgOverlayBg(data, tintOpacity) {
             if (prev && prevImg) { prevImg.src = savedOverlayBg; prev.style.display = 'block'; }
             var opRow = document.getElementById('dg-overlay-opacity-row');
             if (opRow) opRow.style.display = 'block';
-            var savedOp = parseFloat(localStorage.getItem('dg_overlay_bg_tint'));
+            var savedOp = parseFloat(localStorage.getItem(_k('dg_overlay_bg_tint')));
             var pct = isNaN(savedOp) ? 25 : Math.round(savedOp * 100);
             var slider = document.getElementById('dg-overlay-opacity-slider');
             var valEl = document.getElementById('dg-overlay-opacity-val');
@@ -1619,7 +1620,7 @@ window.switchToAnnouncementPanel = function() {
         var prevImg = document.getElementById('dg-deco-preview-img');
         if (prev && prevImg) { prevImg.src = customData.decoImg; prev.style.display = 'block'; }
     }
-    var savedOverlayBg2 = localStorage.getItem('dg_overlay_bg');
+    var savedOverlayBg2 = localStorage.getItem(_k('dg_overlay_bg'));
     if (savedOverlayBg2) {
         var overlayPrev = document.getElementById('dg-overlay-bg-preview');
         var overlayPrevImg = document.getElementById('dg-overlay-bg-preview-img');
@@ -1708,7 +1709,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var reader = new FileReader();
             reader.onload = function(ev) {
                 var data = ev.target.result;
-                localStorage.setItem('dg_header_bg', data);
+                localStorage.setItem(_k('dg_header_bg'), data);
                 var bgEl = document.getElementById('dg-header-band-bg');
                 if (bgEl) { bgEl.style.backgroundImage = 'url(' + data + ')'; bgEl.classList.add('has-img'); }
             };

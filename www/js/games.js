@@ -8,6 +8,32 @@ let _wcCache = { rev: -1, partnerMsgs: null, myMsgs: null, pFreq: null, mFreq: n
 // 收藏缓存：避免每次切到收藏 tab 都全量 filter 消息数组
 let _favCache = { rev: -1, list: null };
 
+// ── 运势记录按对象(梦角/SESSION_ID)隔离 ──
+// 旧版把周主牌/每日运势写进全局 localforage 键(漏 SESSION_ID)，导致不同角色串数据。
+// 这里改走 appSessionKey 会话命名空间，并把旧全局键一次性迁入当前对象命名空间。
+function _sessionKeyFor(base) {
+    return (typeof window.appSessionKey === 'function') ? window.appSessionKey(base)
+        : ((typeof APP_PREFIX !== 'undefined' && APP_PREFIX) ? APP_PREFIX : 'CHAT_APP_V3_') + base;
+}
+async function _migrateFortuneToSession() {
+    try {
+        const flagKey = _sessionKeyFor('FORTUNE_MIG') + 'done';
+        try { if (localStorage.getItem(flagKey) === '1') return; } catch (e) {}
+        for (const base of ['weekly_fortune', 'daily_fortune_3']) {
+            const oldKey = ((typeof APP_PREFIX !== 'undefined' && APP_PREFIX) ? APP_PREFIX : 'CHAT_APP_V3_') + base;
+            const newKey = _sessionKeyFor(base);
+            if (oldKey === newKey) continue;
+            try {
+                const hasNew = await localforage.getItem(newKey);
+                if (hasNew != null) continue;
+                const ov = await localforage.getItem(oldKey);
+                if (ov != null) await localforage.setItem(newKey, ov);
+            } catch (e) {}
+        }
+        try { localStorage.setItem(flagKey, '1'); } catch (e) {}
+    } catch (e) {}
+}
+
 function renderStatsContent() {
             const statsContent = DOMElements.statsModal.content;
             const dataRev = (typeof window._getChatDataRev === 'function') ? window._getChatDataRev() : messages.length;
@@ -203,7 +229,8 @@ async function generateFortune() {
     const weekNum = Math.floor(diff / (1000 * 60 * 60 * 24) / 7);
     const weekKey = today.getFullYear() + '-W' + weekNum;
 
-    const storageKey = `${APP_PREFIX}weekly_fortune`;
+    await _migrateFortuneToSession();
+    const storageKey = _sessionKeyFor('weekly_fortune');
     let fortuneData = null;
 
     try {
@@ -319,7 +346,9 @@ async function renderDailyFortune(todayKey) {
     const el = document.getElementById('fortune-sub-daily');
     if (!el) return;
 
-    const storageKey = `${APP_PREFIX}daily_fortune_3`;
+    await _migrateFortuneToSession();
+    const storageKey = _sessionKeyFor('daily_fortune_3');
+    const noteKey = _sessionKeyFor('dailyFortuneNotes_' + todayKey); // 运势笔记按对象隔离
     let dailyData = null;
 
     try {
@@ -379,9 +408,9 @@ async function renderDailyFortune(todayKey) {
         </div>
       <div style="margin-bottom:10px;">
             <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;font-weight:500;">✍️ 今日解读</div>
-            <textarea id="daily-fortune-notes" placeholder="写下你对今日牌阵的感悟..." style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:10px;background:var(--primary-bg);color:var(--text-primary);font-size:12px;font-family:var(--font-family);resize:vertical;min-height:72px;outline:none;transition:border 0.18s;line-height:1.6;" onfocus="this.style.borderColor='var(--accent-color)'" onblur="this.style.borderColor='var(--border-color)'">${(function(){try{return localStorage.getItem('dailyFortuneNotes_'+todayKey)||''}catch(e){return ''}}())}</textarea>
+            <textarea id="daily-fortune-notes" placeholder="写下你对今日牌阵的感悟..." style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:10px;background:var(--primary-bg);color:var(--text-primary);font-size:12px;font-family:var(--font-family);resize:vertical;min-height:72px;outline:none;transition:border 0.18s;line-height:1.6;" onfocus="this.style.borderColor='var(--accent-color)'" onblur="this.style.borderColor='var(--border-color)'">${(function(){try{return localStorage.getItem(noteKey)||''}catch(e){return ''}}())}</textarea>
             <div style="display:flex;justify-content:flex-end;margin-top:4px;">
-                <button onclick="(function(){var t=document.getElementById('daily-fortune-notes');try{localStorage.setItem('dailyFortuneNotes_'+'${todayKey}',t.value);}catch(e){}this.textContent='已保存 ✓';var self=this;setTimeout(function(){self.textContent='保存';},1500);}).call(this)" style="font-size:11px;padding:4px 12px;border:1.5px solid var(--accent-color);border-radius:8px;background:transparent;color:var(--accent-color);cursor:pointer;font-family:var(--font-family);">保存</button>
+                <button onclick="(function(){var t=document.getElementById('daily-fortune-notes');try{localStorage.setItem('${noteKey}',t.value);}catch(e){}this.textContent='已保存 ✓';var self=this;setTimeout(function(){self.textContent='保存';},1500);}).call(this)" style="font-size:11px;padding:4px 12px;border:1.5px solid var(--accent-color);border-radius:8px;background:transparent;color:var(--accent-color);cursor:pointer;font-family:var(--font-family);">保存</button>
             </div>
         </div>
         <div style="font-size:11px;color:var(--text-secondary);text-align:center;padding:8px;background:rgba(var(--accent-color-rgb),0.05);border-radius:8px;">
@@ -759,11 +788,28 @@ document.addEventListener('click', function(e) {
     }
 });
 
-const DIVI_HISTORY_KEY = 'diviHistory_v1';
 const DIVI_HISTORY_MAX = 50;
+// 占卜记录按对象(梦角/SESSION_ID)隔离：旧版用全局裸键'diviHistory_v1'，会跨角色串记录。
+// 这里改走会话命名空间，并把旧全局键一次性迁入当前对象命名空间。
+const DIVI_HISTORY_BASE = 'diviHistory_v1';
+let _diviMigrated = false;
+function _diviKey() {
+    return _sessionKeyFor(DIVI_HISTORY_BASE);
+}
+function _migrateDiviOnce() {
+    if (_diviMigrated) return;
+    _diviMigrated = true;
+    try {
+        const oldKey = DIVI_HISTORY_BASE, newKey = _diviKey();
+        if (oldKey === newKey) return;
+        const ov = localStorage.getItem(oldKey);
+        if (ov != null && localStorage.getItem(newKey) == null) localStorage.setItem(newKey, ov);
+    } catch(e) {}
+}
 
 function getDiviHistory() {
-    try { return JSON.parse(localStorage.getItem(DIVI_HISTORY_KEY) || '[]'); } catch(e) { return []; }
+    _migrateDiviOnce();
+    try { return JSON.parse(localStorage.getItem(_diviKey()) || '[]'); } catch(e) { return []; }
 }
 
 function saveDiviHistory(entry) {
@@ -772,12 +818,12 @@ function saveDiviHistory(entry) {
     entry.time = new Date().toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
     history.unshift(entry);
     if (history.length > DIVI_HISTORY_MAX) history.splice(DIVI_HISTORY_MAX);
-    localStorage.setItem(DIVI_HISTORY_KEY, JSON.stringify(history));
+    localStorage.setItem(_diviKey(), JSON.stringify(history));
 }
 
 function clearDiviHistory() {
     if (!confirm('确定要清空所有占卜记录吗？')) return;
-    localStorage.removeItem(DIVI_HISTORY_KEY);
+    localStorage.removeItem(_diviKey());
     renderDiviHistory();
 }
 

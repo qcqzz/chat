@@ -3675,6 +3675,8 @@ window.initializeSession = async function() {
     }
 
     await localforage.setItem(`${APP_PREFIX}lastSessionId`, SESSION_ID);
+    // 同步镜像一份到 localStorage，供模块在 initializeSession 完成前同步解析当前对象
+    try { localStorage.setItem(APP_PREFIX + 'lastSessionId', SESSION_ID); } catch (e) {}
 }
 
 // ── 夜间模式：手动切换按钮 + 默认跟随系统 ──

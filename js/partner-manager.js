@@ -138,6 +138,12 @@
         list.push(sess);
 
         var seed = Object.assign({}, currentPartner(), { partnerName: nm, partnerStatus: '在线' });
+        // 头像/外观字段不随人设克隆，避免新对象沿用原对象的头像、配色与样式。
+        // partnerColor 未显式传色时置空，各对象头像由渲染层按 SESSION_ID 派生独立渐变。
+        ['partnerAvatar', 'myAvatar',
+         'partnerAvatarFrame', 'myAvatarFrame',
+         'partnerAvatarShape', 'myAvatarShape',
+         'partnerColor'].forEach(function (k) { delete seed[k]; });
         if (color) seed.partnerColor = color;
         try {
             await localforage.setItem(P + 'sessionList', list);

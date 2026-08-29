@@ -7,6 +7,7 @@
     display: none;
     flex-direction: column;
     overflow: hidden;
+    height: 100%; /* 撑满面板，使播放横幅固定在顶部、聊天区独立滚动，不与消息一起被卷走 */
 }
 #cs-panel-musichall.cs-panel-active {
     display: flex !important;

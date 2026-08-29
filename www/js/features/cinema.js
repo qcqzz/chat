@@ -77,12 +77,11 @@
     async function _apptGetKey() {
         if (_apptStorageKey) return _apptStorageKey;
         try {
-            var allKeys = await localforage.keys();
-            var found = allKeys.find(function (k) { return k.indexOf('_cinemaAppt') !== -1; });
-            if (found) { _apptStorageKey = found; return found; }
-            var msgKey = allKeys.find(function (k) { return k.indexOf('chatMessages') !== -1; });
-            var prefix = msgKey ? msgKey.replace('chatMessages', '') : 'CHAT_APP_V3_';
-            _apptStorageKey = prefix + '_cinemaAppt';
+            // 用 appSessionKey 生成属于"当前对象"的命名空间键，
+            // 避免之前用 allKeys.find 命中其他对象同名 key 造成数据被继承。
+            _apptStorageKey = (typeof window.appSessionKey === 'function')
+                ? window.appSessionKey('_cinemaAppt')
+                : ('CHAT_APP_V3__cinemaAppt');
         } catch (e) {
             _apptStorageKey = 'CHAT_APP_V3__cinemaAppt';
         }
@@ -1375,12 +1374,9 @@
     async function _wlGetKey() {
         if (_wlStorageKey) return _wlStorageKey;
         try {
-            var allKeys = await localforage.keys();
-            var found = allKeys.find(function (k) { return k.indexOf('_cinemaWatchlist') !== -1; });
-            if (found) { _wlStorageKey = found; return found; }
-            var msgKey = allKeys.find(function (k) { return k.indexOf('chatMessages') !== -1; });
-            var prefix = msgKey ? msgKey.replace('chatMessages', '') : 'CHAT_APP_V3_';
-            _wlStorageKey = prefix + '_cinemaWatchlist';
+            _wlStorageKey = (typeof window.appSessionKey === 'function')
+                ? window.appSessionKey('_cinemaWatchlist')
+                : ('CHAT_APP_V3__cinemaWatchlist');
         } catch (e) {
             _wlStorageKey = 'CHAT_APP_V3__cinemaWatchlist';
         }
@@ -1500,12 +1496,9 @@
     async function _histGetKey() {
         if (_histStorageKey) return _histStorageKey;
         try {
-            var allKeys = await localforage.keys();
-            var found = allKeys.find(function (k) { return k.indexOf('_cinemaHistory') !== -1; });
-            if (found) { _histStorageKey = found; return found; }
-            var msgKey = allKeys.find(function (k) { return k.indexOf('chatMessages') !== -1; });
-            var prefix = msgKey ? msgKey.replace('chatMessages', '') : 'CHAT_APP_V3_';
-            _histStorageKey = prefix + '_cinemaHistory';
+            _histStorageKey = (typeof window.appSessionKey === 'function')
+                ? window.appSessionKey('_cinemaHistory')
+                : ('CHAT_APP_V3__cinemaHistory');
         } catch (e) {
             _histStorageKey = 'CHAT_APP_V3__cinemaHistory';
         }
@@ -2078,12 +2071,9 @@
     async function _negoGetKey() {
         if (_negoStorageKey) return _negoStorageKey;
         try {
-            var allKeys = await localforage.keys();
-            var found = allKeys.find(function (k) { return k.indexOf('_cinemaNego') !== -1; });
-            if (found) { _negoStorageKey = found; return found; }
-            var msgKey = allKeys.find(function (k) { return k.indexOf('chatMessages') !== -1; });
-            var prefix = msgKey ? msgKey.replace('chatMessages', '') : 'CHAT_APP_V3_';
-            _negoStorageKey = prefix + '_cinemaNego';
+            _negoStorageKey = (typeof window.appSessionKey === 'function')
+                ? window.appSessionKey('_cinemaNego')
+                : ('CHAT_APP_V3__cinemaNego');
         } catch (e) {
             _negoStorageKey = 'CHAT_APP_V3__cinemaNego';
         }
@@ -2512,12 +2502,9 @@
     async function _partnerInviteGetKey() {
         if (_partnerInviteStorageKey) return _partnerInviteStorageKey;
         try {
-            var allKeys = await localforage.keys();
-            var found = allKeys.find(function (k) { return k.indexOf('_cinemaPartnerInvite') !== -1; });
-            if (found) { _partnerInviteStorageKey = found; return found; }
-            var msgKey = allKeys.find(function (k) { return k.indexOf('chatMessages') !== -1; });
-            var prefix = msgKey ? msgKey.replace('chatMessages', '') : 'CHAT_APP_V3_';
-            _partnerInviteStorageKey = prefix + '_cinemaPartnerInvite';
+            _partnerInviteStorageKey = (typeof window.appSessionKey === 'function')
+                ? window.appSessionKey('_cinemaPartnerInvite')
+                : ('CHAT_APP_V3__cinemaPartnerInvite');
         } catch (e) {
             _partnerInviteStorageKey = 'CHAT_APP_V3__cinemaPartnerInvite';
         }
