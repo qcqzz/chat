@@ -265,7 +265,7 @@
     position: relative;
     height: 100%;
     border-radius: 4px;
-    background: linear-gradient(90deg, #8cc0f5, #4a8ad0);
+    background: var(--mh-prog-c, linear-gradient(90deg, #8cc0f5, #4a8ad0));
     transition: width .25s linear;
 }
 .mh-progress-thumb {
@@ -276,7 +276,7 @@
     height: 10px;
     border-radius: 50%;
     background: #fff;
-    border: 2px solid #4a8ad0;
+    border: 2px solid var(--mh-prog-c, #4a8ad0);
     box-shadow: 0 1px 3px rgba(0,0,0,.2);
     transform: translateY(-50%);
 }

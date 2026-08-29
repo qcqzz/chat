@@ -41,13 +41,6 @@
     var messages = lsGet(mhKey('mhMessages'), []); // 音乐厅聊天记录：落盘保留，重启不丢
     var invite = lsGet(mhKey('mhInvite'), { next: 0, missed: 0, active: null });
     var audio = null, _booted = false, _rendered = false;
-    // 音乐厅本地引发、待梦角回复的计数：只把音乐厅里的对话镜像进来，聊天页引发的对话不混入
-    var mhReplyPending = 0, _mhPendingTimer = null;
-    function mhMarkReplyPending() {
-        mhReplyPending++;
-        if (_mhPendingTimer) clearTimeout(_mhPendingTimer);
-        _mhPendingTimer = setTimeout(function () { mhReplyPending = 0; _mhPendingTimer = null; }, 15000);
-    }
 
     function saveSongs() {
         // 含音频本体(data: 前缀)的歌单 → 只写 IndexedDB；纯链接小歌单同时镜像 localStorage
@@ -396,7 +389,6 @@
                 }
                 // 与陪伴页消息规则一致：真实用户消息后触发梦角回复
                 mhTriggerReply();
-                mhMarkReplyPending();
             }
         if (send) send.addEventListener('click', doSend);
         if (input) input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); doSend(); } });
@@ -462,7 +454,6 @@
         var panel = document.getElementById('mh-emoji-panel');
         if (panel) panel.classList.remove('open');
         mhTriggerReply();
-        mhMarkReplyPending();
     }
     function buildEmojiPanel(panel) {
         panel.innerHTML = '';
@@ -528,8 +519,8 @@
         }
     }
 
-    // 镜像梦角消息（文字/表情包图片）进音乐厅聊天区，规则与陪伴页一致（复用同一回复引擎）
-    // 只镜像 live 消息，避免重复渲染用户自己的消息
+    // 镜像梦角消息（文字/表情包图片）进音乐厅聊天区，规则与陪伴页一致（复用同一回复引擎）。
+    // 同步主聊天的所有普通梦角消息（含主动聊天与对本厅消息的回复），记录与主聊天保持一致。
     if (window._registerPartnerMessageListener && !window._mhPartnerMirrorBound) {
         window._mhPartnerMirrorBound = true;
         window._registerPartnerMessageListener(function (m) {
@@ -537,9 +528,6 @@
                 if (!m || m.type !== 'normal') return;
                 if (m.sender === 'user') return;
                 if (!m.text && !m.image) return;
-                // 只镜像音乐厅本地引发、等待中的梦角回复；聊天页引发的对话不混入音乐厅
-                if (mhReplyPending <= 0) return;
-                mhReplyPending--;
                 messages.push({ sender: 'partner', content: m.text || '', image: m.image || null, ts: Date.now() });
                 appendMsg(messages[messages.length - 1]);
                 saveMessages();
