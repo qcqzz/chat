@@ -908,8 +908,8 @@ async function importAllData(file) {
             {
                 id: 'themes',
                 label: '主题 / 外观 / 图库',
-                indexedDBNeedles: ['customThemes', 'themeSchemes', 'backgroundGallery', 'chatBackground', 'partnerAvatar', 'myAvatar', 'partnerPersonas'],
-                localStorageNeedles: []
+                indexedDBNeedles: ['customThemes', 'themeSchemes', 'backgroundGallery', 'chatBackground', 'partnerAvatar', 'myAvatar', 'partnerPersonas', 'POLAROID'],
+                localStorageNeedles: ['tiDesktop']
             },
             {
                 id: 'dg',

@@ -352,7 +352,9 @@
             var file = inp.files && inp.files[0];
             if (!file) { inp.remove(); return; }
             try {
-                var arrBuff = await file.arrayBuffer();
+                // ArrayBuffer 不可按下标取值（arrBuff[0] 恒为 undefined），必须先包成 Uint8Array，
+                // 否则 ZIP 文件会被误判为 JSON，解成二进制后 JSON.parse 抛错 → “导入失败”。
+                var arrBuff = new Uint8Array(await file.arrayBuffer());
                 var isZip = arrBuff && arrBuff.byteLength >= 4 &&
                     arrBuff[0] === 0x50 && arrBuff[1] === 0x4B; // 'PK'
                 var sid = (typeof SESSION_ID !== 'undefined' && SESSION_ID) ? SESSION_ID : 'default';

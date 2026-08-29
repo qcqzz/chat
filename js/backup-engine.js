@@ -179,7 +179,12 @@
         if (typeof str !== 'string') return str;
         try {
             var parsed = JSON.parse(str);
-            return JSON.stringify(inlineMediaTree(parsed, store));
+            var inlined = inlineMediaTree(parsed, store);
+            // 原值为"裸 data URL 字符串"（非 JSON，例如桌面/顶部栏背景的 active 值、桌面头像）时，
+            // 导出被包成 {"__mRef":id}，这里应还原为裸字符串。若再 JSON.stringify 会多加一层引号，
+            // 使 `value.indexOf('data:')===0` 之类的判定失效，导致恢复后背景/头像显示不出来。
+            if (typeof inlined === 'string' && /^data:(image|video|audio)\//.test(inlined)) return inlined;
+            return JSON.stringify(inlined);
         } catch (e) {
             return str;
         }
