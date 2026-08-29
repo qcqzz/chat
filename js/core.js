@@ -1471,6 +1471,8 @@ function manageAutoSendTimer() {
         const intervalMs = interval * 60 * 1000;
         autoSendTimer = setInterval(function() {
             if (document.body.classList.contains('batch-favorite-mode')) return;
+            // 后台时交给原生闹钟通知，这里跳过，避免与原生预定通知重复弹出
+            if (document.hidden) return;
             // 防止切回前台时浏览器批量回调导致洪水：检查距离上次回复是否已过足够间隔
             var now = Date.now();
             if (window._lastReplyTs && (now - window._lastReplyTs) < (intervalMs - 2000)) {

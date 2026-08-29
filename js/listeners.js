@@ -1546,6 +1546,9 @@ autoSendToggle.addEventListener('click', () => {
     settings.autoSendEnabled = !settings.autoSendEnabled;
     updateAutoSendUI();
     manageAutoSendTimer(); 
+    if (!settings.autoSendEnabled && typeof window._cancelNativeMessageAlarm === 'function') {
+        window._cancelNativeMessageAlarm();
+    }
     throttledSaveData();
     showNotification(`主动发送已${settings.autoSendEnabled ? '开启' : '关闭'}`, 'success');
 });

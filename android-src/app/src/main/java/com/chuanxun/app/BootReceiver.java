@@ -43,5 +43,27 @@ public class BootReceiver extends BroadcastReceiver {
         } catch (Exception e) {
             Log.e(TAG, "续调闹钟失败: " + e.getMessage());
         }
+
+        // 恢复"后台预定消息通知"闹钟：如果设备重启前已预定过下一条消息，则按原时刻重新调度；
+        // 若原时刻已过期（关机期间到达），则顺延一个间隔，避免开机后一次也不弹。
+        try {
+            android.content.SharedPreferences prefs =
+                    context.getSharedPreferences("chuanxun_scheduled_msg", Context.MODE_PRIVATE);
+            if (prefs.contains("nextAtMs")) {
+                String title = prefs.getString("title", "传讯");
+                String body = prefs.getString("body", "给你发来一条新消息");
+                long intervalMs = prefs.getLong("intervalMs", 5 * 60 * 1000L);
+                long nextAtMs = prefs.getLong("nextAtMs", 0L);
+                if (nextAtMs > 0) {
+                    if (nextAtMs <= System.currentTimeMillis()) {
+                        nextAtMs = System.currentTimeMillis() + intervalMs;
+                    }
+                    MessageAlarmReceiver.schedule(context, title, body, nextAtMs, intervalMs);
+                    Log.i(TAG, "已恢复后台消息通知闹钟: at=" + nextAtMs);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "恢复消息通知闹钟失败: " + e.getMessage());
+        }
     }
 }

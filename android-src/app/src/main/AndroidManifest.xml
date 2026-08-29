@@ -46,6 +46,11 @@
             android:name=".KeepAliveReceiver"
             android:exported="false" />
 
+        <!-- 到点弹消息通知接收器（后台预定消息闹钟） -->
+        <receiver
+            android:name=".MessageAlarmReceiver"
+            android:exported="false" />
+
         <!-- 开机自启动接收器：覆盖正常开机 + 厂商快速开机(快启卡片) + App 升级后恢复 -->
         <receiver
             android:name=".BootReceiver"

@@ -183,8 +183,43 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }, 1000);
 
+        // ── 后台预定消息通知（仅 APK 原生环境）───────────────────────────────
+        // 进入后台时，把"下一条自动回复"预定为原生闹钟通知；即使 WebView JS 被暂停 / 进程被杀，
+        // 也由 Android 准点弹通知；回到前台取消预定，把控制权交还给 WebView 定时器，避免前台重复弹。
+        function nativeMsgAlarmSupport() {
+            try {
+                return !!(window.Capacitor && window.Capacitor.Plugins
+                    && window.Capacitor.Plugins.NotificationPlugin
+                    && typeof window.Capacitor.Plugins.NotificationPlugin.scheduleMessage === 'function');
+            } catch (e) { return false; }
+        }
+        window._armNativeMessageAlarm = function () {
+            if (!nativeMsgAlarmSupport()) return;
+            try {
+                if (typeof settings === 'undefined' || !settings.autoSendEnabled) {
+                    window._cancelNativeMessageAlarm();
+                    return;
+                }
+                var intervalMs = (settings.autoSendInterval || 5) * 60 * 1000;
+                var atMs = Date.now() + intervalMs;
+                var title = (settings.partnerName || '对方');
+                var body = '给你发来一条新消息';
+                window.Capacitor.Plugins.NotificationPlugin.scheduleMessage({
+                    title: title, body: body, atMs: atMs, intervalMs: intervalMs
+                }).catch(function () {});
+            } catch (e) {}
+        };
+        window._cancelNativeMessageAlarm = function () {
+            if (!nativeMsgAlarmSupport()) return;
+            try {
+                window.Capacitor.Plugins.NotificationPlugin.cancelScheduledMessage({}).catch(function () {});
+            } catch (e) {}
+        };
+
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
+                // 挂上后台消息闹钟（原生预定下一条消息通知）
+                _armNativeMessageAlarm();
                 try {
                     if (typeof saveTimeout !== 'undefined') clearTimeout(saveTimeout);
                 } catch (e) {}
@@ -206,6 +241,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     console.error('[visibilitychange] 保存失败:', e);
                 }
             } else if (document.visibilityState === 'visible') {
+                // 回到前台：取消后台消息闹钟，把控制权交还给 WebView 定时器，避免前台重复弹通知
+                _cancelNativeMessageAlarm();
                 // 回到前台时：如果距离上次回复已超过自动发送间隔，立即补发一条消息
                 // 不需要重启定时器，setInterval 在后台也会持续触发（只是可能被节流）
                 try {

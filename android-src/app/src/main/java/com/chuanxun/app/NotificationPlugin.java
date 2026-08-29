@@ -44,13 +44,16 @@ public class NotificationPlugin extends Plugin {
     private static final String CHANNEL_DESC = "对方发来消息时的系统通知";
     private static final String TAG = "NotificationPlugin";
 
-    private void createChannel() {
+    /**
+     * 创建/更新"消息通知"频道，供本插件与 MessageAlarmReceiver 复用。
+     */
+    public static void ensureChannel(Context context, String channelId) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationManager manager = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
-            NotificationChannel existing = manager.getNotificationChannel(CHANNEL_ID);
+            NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            NotificationChannel existing = manager.getNotificationChannel(channelId);
             if (existing == null) {
                 NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
+                    channelId,
                     CHANNEL_NAME,
                     NotificationManager.IMPORTANCE_HIGH
                 );
@@ -61,7 +64,7 @@ public class NotificationPlugin extends Plugin {
                 channel.setBypassDnd(true);
                 channel.setShowBadge(true);
                 manager.createNotificationChannel(channel);
-                Log.i(TAG, "Notification channel created: " + CHANNEL_ID);
+                Log.i(TAG, "Notification channel created: " + channelId);
             } else {
                 // 确保已有 channel 也启用了振动、免打扰绕过和锁屏显示
                 if (existing.getImportance() < NotificationManager.IMPORTANCE_HIGH) {
@@ -73,9 +76,13 @@ public class NotificationPlugin extends Plugin {
                 existing.setBypassDnd(true);
                 existing.setShowBadge(true);
                 manager.createNotificationChannel(existing);
-                Log.i(TAG, "Notification channel updated: " + CHANNEL_ID);
+                Log.i(TAG, "Notification channel updated: " + channelId);
             }
         }
+    }
+
+    private void createChannel() {
+        ensureChannel(getContext(), CHANNEL_ID);
     }
 
     @PluginMethod
@@ -174,6 +181,38 @@ public class NotificationPlugin extends Plugin {
             NotificationManagerCompat.from(getContext()).cancel(id);
             Log.i(TAG, "Notification cancelled: id=" + id);
         }
+        call.resolve();
+    }
+
+    /**
+     * 预定"下一条自动消息"的原生通知：由 AlarmManager 到点弹通知，供 JS 在进入后台时调用，
+     * 使得即使 WebView JS 被暂停 / 进程被杀，后台仍能准点收到消息通知。
+     * 会先取消旧的预定再按新时刻调度（替换式）。
+     */
+    @PluginMethod
+    public void scheduleMessage(PluginCall call) {
+        String title = call.getString("title", "传讯");
+        String body = call.getString("body", "给你发来一条新消息");
+        Long at = call.getLong("atMs");
+        long atMs = (at == null) ? 0L : at.longValue();
+        Long interval = call.getLong("intervalMs");
+        long intervalMs = (interval == null) ? 5 * 60 * 1000L : interval.longValue();
+        if (atMs <= 0) {
+            call.resolve();
+            return;
+        }
+        MessageAlarmReceiver.cancel(getContext());
+        MessageAlarmReceiver.schedule(getContext(), title, body, atMs, intervalMs);
+        Log.i(TAG, "scheduleMessage: at=" + atMs + " interval=" + intervalMs);
+        call.resolve();
+    }
+
+    /**
+     * 取消已预定的后台消息通知（例如回到前台时由 JS 调用，把控制权交还给 WebView 定时器）。
+     */
+    @PluginMethod
+    public void cancelScheduledMessage(PluginCall call) {
+        MessageAlarmReceiver.cancel(getContext());
         call.resolve();
     }
 
