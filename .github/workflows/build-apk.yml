@@ -62,9 +62,9 @@ jobs:
       - name: 设置版本号
         run: |
           # 更新 versionCode 和 versionName（覆盖 Capacitor 默认值）
-          sed -i 's/versionCode 1/versionCode 20/' android/app/build.gradle
-          sed -i 's/versionName "1.0"/versionName "2.3.3"/' android/app/build.gradle
-          echo "Updated versionCode to 20, versionName to 2.3.3"
+          sed -i 's/versionCode 1/versionCode 30/' android/app/build.gradle
+          sed -i 's/versionName "1.0"/versionName "3.0.0"/' android/app/build.gradle
+          echo "Updated versionCode to 30, versionName to 3.0.0"
 
       - name: 注入前台服务保活代码
         run: |
@@ -169,13 +169,13 @@ jobs:
           $ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose android/app/build/outputs/apk/release/app-release.apk
           rm release.keystore
 
-      - name: 覆盖发布到 Release v2.3.3
+      - name: 覆盖发布到 Release v3.0.0
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # 若 v2.3.3 release 不存在则先创建，存在则用 --clobber 覆盖同名 APK
-          gh release view v2.3.3 >/dev/null 2>&1 || gh release create v2.3.3 --title "v2.3.3" --notes "传讯 v2.3.3"
-          gh release upload v2.3.3 android/app/build/outputs/apk/release/app-release.apk --clobber
+          # 若 v3.0.0 release 不存在则先创建，存在则用 --clobber 覆盖同名 APK
+          gh release view v3.0.0 >/dev/null 2>&1 || gh release create v3.0.0 --title "v3.0.0" --notes "传讯 v3.0.0"
+          gh release upload v3.0.0 android/app/build/outputs/apk/release/app-release.apk --clobber
 
       - name: 上传 APK
         uses: actions/upload-artifact@v4
