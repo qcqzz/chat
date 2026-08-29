@@ -253,7 +253,7 @@ public class MediaNotificationPlugin extends Plugin {
             default: name = sPlaying ? "pause" : "play"; break;
         }
         final String actName = name;
-        final Plugin inst = sInstance;
+        final MediaNotificationPlugin inst = sInstance;
         if (inst == null) return;
         inst.getBridge().executeOnMainThread(() -> {
             try {
