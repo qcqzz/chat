@@ -854,6 +854,13 @@
             var title = (it.title || it.name || '').trim();
             var sub = (it.author || it.artist || '').trim();
             var url = it.url || it.audio || '';
+            // 网易云：meting 镜像(type=url)或其返回的播放端点常已失效(404)，而官方接口也不回 mp3Url。
+            // 只要能拿到歌曲 id，就拼装网易云标准外链 music.163.com/song/media/outer/url?id=.. 更稳定可播。
+            var idMatch = /[?&]id=(\d+)/.exec(url);
+            var netId = idMatch ? idMatch[1] : (it.id != null ? String(it.id) : '');
+            if (netId && (!url || /(type=url|song\/media\/outer)/.test(url) || /^https?:\/\/api\.i-meto\.com|qjqq\.cn/i.test(url))) {
+                url = 'https://music.163.com/song/media/outer/url?id=' + netId + '.mp3';
+            }
             if (!title || titleSet[title]) continue;
             titleSet[title] = true;
             songs.push({ title: title, sub: sub || '网易云音乐', url: url || '' });
