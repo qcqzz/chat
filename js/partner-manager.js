@@ -16,7 +16,9 @@
     var P = (typeof APP_PREFIX !== 'undefined' ? APP_PREFIX : 'CHAT_APP_V3_');
 
     function currentPartner() {
-        return (typeof window.settings !== 'undefined' && window.settings) ? window.settings : {};
+        // settings 是 state.js 里顶层 `let`，全局可通过裸标识符访问，但不会挂到 window 上
+        // （window.settings 恒为 undefined）。必须用裸 settings，否则取不到当前对象名字/状态。
+        return (typeof settings !== 'undefined' && settings) ? settings : {};
     }
 
     function firstLetter(nm) {

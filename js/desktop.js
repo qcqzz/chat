@@ -95,14 +95,18 @@
     function getDtAvatar(key) {
         try { return dsGet(key) || ''; } catch (e) { return ''; }
     }
+    var _dtAvHtmlP = null, _dtAvHtmlM = null;   // 缓存上次渲染的 HTML，3s 轮询里内容未变则跳过
     function renderDesktopAvatars() {
-        function render(id, key) {
-            var el = $(id); if (!el) return;
+        function render(id, key, lastRef) {
+            var el = $(id); if (!el) return lastRef;
             var v = getDtAvatar(key);
-            el.innerHTML = v ? '<img src="' + v + '">' : '<i class="fas fa-user"></i>';
+            var html = v ? '<img src="' + v + '">' : '<i class="fas fa-user"></i>';
+            if (html === lastRef) return lastRef; // 未变化：跳过，避免每 3s 重建 <img> 反复解码大图造成闪烁
+            el.innerHTML = html;
+            return html;
         }
-        render('dt-avatar-partner', DTAV_P_KEY);
-        render('dt-avatar-me', DTAV_M_KEY);
+        _dtAvHtmlP = render('dt-avatar-partner', DTAV_P_KEY, _dtAvHtmlP);
+        _dtAvHtmlM = render('dt-avatar-me', DTAV_M_KEY, _dtAvHtmlM);
     }
     // 昵称仍跟随聊天设置；缓存上次值，3s 轮询只在真正变化时更新 DOM
     var _lastNameP = '', _lastNameM = '';
@@ -449,49 +453,61 @@
     // ── 拍立得设置：三个固定位，网格图库排版（样式同聊天背景图库） ──
     var _plSlot = 0;   // 当前正在上传的拍立得位（0/1/2）
     var _plSlotTitles = ['最上层', '中间', '最底层'];
+    var _plOrdinal = ['第一张', '第二张', '第三张'];
     function renderPolaroidGallery() {
         var list = $('polaroid-gallery-list');
         if (!list) return;
+        list.className = 'pl-list';   // 竖列：每行一个拍立得位
         list.innerHTML = '';
         for (var i = 0; i < 3; i++) {
             var v = getPl(i);
-            var tile = document.createElement('div');
-            tile.className = 'bg-item';
-            var img = document.createElement('img');
-            img.src = v || POLAROID_DEFAULT;
-            img.loading = 'lazy';
-            img.alt = '拍立得';
-            tile.appendChild(img);
+            var row = document.createElement('div');
+            row.className = 'pl-row';
 
-            // 槽位角标：标注第几张/层级
-            var badge = document.createElement('div');
-            badge.className = 'pl-slot-badge';
-            badge.textContent = String(i + 1) + ' · ' + _plSlotTitles[i];
-            tile.appendChild(badge);
-
-            tile.title = v
-                ? '点击更换第 ' + (i + 1) + ' 张（' + _plSlotTitles[i] + '）'
-                : '点击设置第 ' + (i + 1) + ' 张（' + _plSlotTitles[i] + '，当前为默认灰底图）';
-            tile.onclick = (function (slot) {
-                return function () { pickPolaroidFile(slot); };
-            })(i);
+            // 行头：第几张 + 层级标注
+            var head = document.createElement('div');
+            head.className = 'pl-row-head';
+            var name = document.createElement('span');
+            name.className = 'pl-row-name';
+            name.textContent = _plOrdinal[i] + ' · ' + _plSlotTitles[i];
+            head.appendChild(name);
             if (v) {
-                var del = document.createElement('div');
-                del.className = 'bg-delete-btn';
-                del.innerHTML = '<i class="fas fa-trash"></i>';
-                del.title = '恢复默认灰底图';
+                var del = document.createElement('span');
+                del.className = 'pl-reset-btn';
+                del.innerHTML = '<i class="fas fa-undo-alt"></i><span>恢复默认</span>';
+                del.title = '恢复默认（移除这张拍立得）';
                 del.onclick = (function (slot) {
                     return function (e) {
                         e.stopPropagation();
-                        if (!confirm('确定将这张拍立得恢复为默认灰底图吗？')) return;
+                        if (!confirm('确定将这张拍立得恢复为默认吗？')) return;
                         setPl(slot, '');
                         renderPolaroidGallery();
                         renderPolaroid();
                     };
                 })(i);
-                tile.appendChild(del);
+                head.appendChild(del);
             }
-            list.appendChild(tile);
+            row.appendChild(head);
+
+            // 设置格：与聊天背景图像选择格完全一致（圆形缩略图 / ＋添加格）
+            var body = document.createElement('div');
+            body.className = 'pl-row-body';
+            var cell = document.createElement('div');
+            if (v) {
+                cell.className = 'bg-item active';
+                cell.innerHTML = '<img src="' + v + '" loading="lazy" alt="拍立得">';
+            } else {
+                cell.className = 'bg-item bg-add-btn';
+                cell.innerHTML = '<i class="fas fa-plus"></i><span></span>';
+            }
+            cell.title = '点击' + (v ? '更换' : '设置') + _plOrdinal[i] + '（' + _plSlotTitles[i] + '）';
+            cell.onclick = (function (slot) {
+                return function () { pickPolaroidFile(slot); };
+            })(i);
+            body.appendChild(cell);
+            row.appendChild(body);
+
+            list.appendChild(row);
         }
     }
     function pickPolaroidFile(slot) {
