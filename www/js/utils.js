@@ -20,6 +20,52 @@ function getRandomItem(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
 }
 
+/**
+ * 音乐外链 http→https 兜底解析。
+ *
+ * 背景：网易云等"外链歌曲"（music.163.com/song/media/outer/url?id=xxx.mp3）会 302 跳到
+ * http:// 的 CDN（m*.music.126.net）。在 https 页面/WebView 里，http 音频属于混合内容会被拦截，
+ * 导致明明能下、非 VIP 却播不了。此函数通过一次轻量 Range 请求跟随重定向拿到最终地址，
+ * 并把 http:// 升级为 https://（CDN 已实测支持 https + Range），从而绕过混合内容拦截。
+ * 命中 data: / blob: / oss: / 或已是 https 的地址原样返回，不做额外请求。结果按原地址缓存。
+ */
+(function () {
+    'use strict';
+    var __audioHttpsCache = {};
+    window.resolveAudioUrl = function (raw) {
+        return new Promise(function (resolve) {
+            var s = String(raw || '');
+            // 非 http:// 远程音频直接返回（data/blob/oss/相对/https 都原样走）
+            if (!s || !/^http:\/\//i.test(s)) { resolve(s); return; }
+            if (__audioHttpsCache[s]) { resolve(__audioHttpsCache[s]); return; }
+            var httpsUrl = 'https:' + s.slice(5);
+            try {
+                fetch(httpsUrl, {
+                    method: 'GET',
+                    redirect: 'follow',
+                    headers: { 'Range': 'bytes=0-0' },
+                    credentials: 'omit'
+                }).then(function (r) {
+                    if (r && r.body && typeof r.body.cancel === 'function') {
+                        try { r.body.cancel(); } catch (e) {}
+                    }
+                    // response.url 即使跨源也能拿到(跟随重定向后的最终地址)
+                    var fin = (r && r.url) ? r.url : httpsUrl;
+                    var out = /^http:\/\//i.test(fin) ? ('https:' + fin.slice(5)) : fin;
+                    __audioHttpsCache[s] = out;
+                    resolve(out);
+                }).catch(function () {
+                    // 探测失败(如被混合内容拦截)：退而直接用 https 原链
+                    __audioHttpsCache[s] = httpsUrl;
+                    resolve(httpsUrl);
+                });
+            } catch (e) {
+                resolve(httpsUrl);
+            }
+        });
+    };
+})();
+
 function normalizeStringStrict(s) {
     if (typeof s !== 'string') return '';
     return s.trim().toLowerCase().replace(/\s+/g, ' ');

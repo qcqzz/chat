@@ -903,6 +903,18 @@
         }
     }
 
+    // 快照是否属于当前对象：跨对象守卫。切换对象后，每个对象的自动快照会混在同一个 ROLLBACK_PREFIX 桶里，
+    // 若不校验，"恢复上一步"会列出别的对象的快照；恢复时 applyBackupToStorage 又会按旧 sessionId 重映射，
+    // 等于把对象 A 的数据改写成对象 B 的命名空间（跨对象污染）。因此只认当前对象的快照；
+    // 无 sessionId 的旧版快照（单对象时期）视为归属当前，仍可恢复。
+    function _rollbackSessionMatches(p) {
+        if (!p) return false;
+        if (typeof SESSION_ID !== 'undefined' && SESSION_ID && p.sessionId) {
+            return p.sessionId === SESSION_ID;
+        }
+        return true;
+    }
+
     async function _listRollbackSnapshots() {
         var prefix = ROLLBACK_PREFIX;
         var all = await localforage.keys();
@@ -911,7 +923,7 @@
             if (all[i].indexOf(prefix) === 0) {
                 var p = null;
                 try { p = await localforage.getItem(all[i]); } catch (e) {}
-                if (p) out.push({ key: all[i], t: (p.t || 0), reason: (p.reason || '操作前') });
+                if (p && _rollbackSessionMatches(p)) out.push({ key: all[i], t: (p.t || 0), reason: (p.reason || '操作前') });
             }
         }
         out.sort(function (a, b) { return b.t - a.t; });
@@ -921,6 +933,10 @@
     async function _restoreRollbackSnapshot(slotKey) {
         var payload = await localforage.getItem(slotKey);
         if (!payload) throw new Error('快照不存在或已被清理');
+        // 双保险：即使绕过列表直接调用，也禁止把非当前对象的快照恢复进当前对象
+        if (!_rollbackSessionMatches(payload)) {
+            throw new Error('该快照属于其他对象，请先切换到对应对象后再恢复');
+        }
         window._restoringRollback = true;
         // 复用统一的恢复写盘逻辑（含 session remap、_importGuarded 守卫）
         await applyBackupToStorage(payload, {});

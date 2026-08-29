@@ -2892,10 +2892,23 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
                 if (_lastLocalBlobUrl) URL.revokeObjectURL(_lastLocalBlobUrl);
                 _lastLocalBlobUrl = URL.createObjectURL(song.url);
                 src = _lastLocalBlobUrl;
-            }
-            audio.src = src;
-            if (forcePlay || isPlaying) {
-                audio.play().then(() => _markPlaying(true)).catch(() => {});
+                audio.src = src;
+                if (forcePlay || isPlaying) {
+                    audio.play().then(() => _markPlaying(true)).catch(() => {});
+                }
+            } else if (typeof song.url === 'string' && /^http:\/\//i.test(song.url) && typeof window.resolveAudioUrl === 'function') {
+                // 外链歌曲(http://)：先做 https 兜底解析再播放，规避 https 页面混合内容拦截
+                window.resolveAudioUrl(song.url).then((opsrc) => {
+                    audio.src = opsrc;
+                    if (forcePlay || isPlaying) {
+                        audio.play().then(() => _markPlaying(true)).catch(() => {});
+                    }
+                });
+            } else {
+                audio.src = src;
+                if (forcePlay || isPlaying) {
+                    audio.play().then(() => _markPlaying(true)).catch(() => {});
+                }
             }
         }
         updatePlaylistHighlight();

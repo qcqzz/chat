@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.webkit.PermissionRequest;
+import android.webkit.WebSettings;
 
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
@@ -28,6 +29,11 @@ public class MainActivity extends BridgeActivity {
         try {
             Bridge bridge = getBridge();
             if (bridge != null && bridge.getWebView() != null) {
+                // 混合内容放行：App 用 https 原生 scheme 加载，而网易云等"外链音乐"的 CDN 最终
+                // 是 http:// 地址（music.163.com outer 链接 302 到 http://m*.music.126.net）。若不放开，
+                // https 页面请求 http 音频会被 WebView 当 Mixed Content 直接拦截，导致导入的歌曲在
+                // 手机里能下、非 VIP、CORS 全开却依然"无法播放"。这里放行混合内容解决该问题。
+                bridge.getWebView().getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
                 bridge.getWebView().setWebChromeClient(new BridgeWebChromeClient(bridge) {
                     @Override
                     public void onPermissionRequest(final PermissionRequest request) {

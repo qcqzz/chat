@@ -35,6 +35,11 @@
         +       '<div class="dm-tile-info"><div class="dm-tile-title">全量备份</div><div class="dm-tile-desc">所有设置与数据</div></div>'
         +       '<i class="fas fa-chevron-right dm-tile-arrow"></i>'
         +     '</div>'
+        +     '<div class="dm-tile" id="dm-tile-partner-backup">'
+        +       '<div class="dm-tile-icon violet"><i class="fas fa-user-astronaut"></i></div>'
+        +       '<div class="dm-tile-info"><div class="dm-tile-title">按角色备份</div><div class="dm-tile-desc">仅当前对象，可还原</div></div>'
+        +       '<i class="fas fa-chevron-right dm-tile-arrow"></i>'
+        +     '</div>'
         +     '<div class="dm-tile" id="dm-tile-chat-backup">'
         +       '<div class="dm-tile-icon teal"><i class="fas fa-comments"></i></div>'
         +       '<div class="dm-tile-info"><div class="dm-tile-title">聊天记录</div><div class="dm-tile-desc">消息内容单独备份</div></div>'
@@ -363,6 +368,12 @@
 
         var tileChatBackup = mc.querySelector('#dm-tile-chat-backup');
         if (tileChatBackup) tileChatBackup.addEventListener('click', function () { openDrawer('dm-drawer-chat'); });
+
+        var tilePartnerBackup = mc.querySelector('#dm-tile-partner-backup');
+        if (tilePartnerBackup) tilePartnerBackup.addEventListener('click', function () {
+            if (typeof window.openPartnerBackup === 'function') window.openPartnerBackup();
+            else if (typeof showNotification === 'function') showNotification('备份模块未就绪', 'error');
+        });
 
         var rollbackTile = mc.querySelector('#dm-tile-rollback');
         if (rollbackTile) rollbackTile.addEventListener('click', function () {

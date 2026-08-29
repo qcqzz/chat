@@ -231,7 +231,13 @@
             });
             return;
         }
-        finish((s && s.url) ? s.url : '');
+        var rawUrl = (s && s.url) ? s.url : '';
+        if (rawUrl && typeof window.resolveAudioUrl === 'function') {
+            // 外链歌曲(http://)先做 https 兜底解析再播放，规避混合内容拦截
+            window.resolveAudioUrl(rawUrl).then(function (finalUrl) { finish(finalUrl); });
+        } else {
+            finish(rawUrl);
+        }
     }
     function playCur() {
         if (!songs.length) { showNotification('歌单为空，请先导入歌曲', 'warning'); return; }

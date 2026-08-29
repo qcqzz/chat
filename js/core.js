@@ -760,16 +760,24 @@ const loadData = async () => {
                 const _cardBackup = _tryRecoverFromBackup();
                 // 语音字卡音频本体只完整保存在 IndexedDB 全量紧急备份里（localStorage 配额装不下），
                 // 读取该完整备份作为恢复源；不可用（如从未保存过）时才退回 localStorage 纯文本备份。
+                // 跨对象守卫：这两个紧急备份键是全局单个键（不按对象分桶），切换对象时会残留上一个对象的内容。
+                // 新对象字卡为空正是触发本条恢复的常态，若不做校验会把上一个对象的人设/私藏字卡灌进新对象（跨对象污染）。
+                // 与 _tryRecoverFromBackup 一致：备份 sessionId 必须匹配当前对象；无 sessionId 视为旧版单对象数据。
+                const _emergencyBelongs = (b) => {
+                    if (!b) return false;
+                    if (typeof SESSION_ID !== 'undefined' && SESSION_ID) return (b.sessionId || 'default') === SESSION_ID;
+                    return true;
+                };
                 let _lfCardBackup = null;
                 try {
                     const _lb = await localforage.getItem(_EMERGENCY_LF_KEY);
-                    if (_lb && typeof _lb === 'object' && _lb.ts) _lfCardBackup = _lb;
+                    if (_lb && typeof _lb === 'object' && _lb.ts && _emergencyBelongs(_lb)) _lfCardBackup = _lb;
                 } catch (e) {}
                 // 语音字卡独立键：为免主备份每次因消息变化而重拷大音频，voiceCards 单独存一个键，
                 // 恢复时把它并入主备份源；兼容旧版"主备份内直接含 customVoiceCards"的格式。
                 try {
                     const _lvc = await localforage.getItem(_EMERGENCY_VC_KEY);
-                    if (_lvc && typeof _lvc === 'object' && _lvc.ts && Array.isArray(_lvc.customVoiceCards)) {
+                    if (_lvc && typeof _lvc === 'object' && _lvc.ts && Array.isArray(_lvc.customVoiceCards) && _emergencyBelongs(_lvc)) {
                         if (_lfCardBackup) _lfCardBackup.customVoiceCards = _lvc.customVoiceCards;
                         else _lfCardBackup = _lvc;
                     }
@@ -1187,7 +1195,14 @@ function _tryRecoverFromBackup() {
     try {
         const raw = localStorage.getItem(_BACKUP_PREFIX + 'critical');
         if (!raw) return null;
-        return JSON.parse(raw);
+        const b = JSON.parse(raw);
+        // 紧急备份按对象各自生成并携带 sessionId。切换对象时会有一个「新对象主存储为空 +
+        // 备份还停留在上一个对象」的窗口；此时绝不能拿上一个对象的备份填进新对象（跨对象污染）。
+        // 只有备份所属对象与当前对象一致才恢复；无 sessionId 视为旧版单对象数据（归属 default）。
+        if (b && typeof SESSION_ID !== 'undefined' && SESSION_ID && (b.sessionId || 'default') !== SESSION_ID) {
+            return null;
+        }
+        return b;
     } catch (e) {
         return null;
     }
@@ -3074,13 +3089,26 @@ function showModal(modalElement, focusElement = null) {
             let _moodForExport = null;
             let _customMoodOptionsForExport = [];
             try {
-                const _allKeys = await localforage.keys();
-                const _diaryKey = _allKeys.find(k => k.includes('companionDiary') && !k.includes('Bg') && !k.includes('Gallery'));
-                if (_diaryKey) _diaryForExport = (await localforage.getItem(_diaryKey)) || [];
-                const _moodKey = _allKeys.find(k => k.includes('moodCalendar'));
-                if (_moodKey) _moodForExport = (await localforage.getItem(_moodKey)) || {};
-                const _moodOptsKey = _allKeys.find(k => k.includes('customMoodOptions'));
-                if (_moodOptsKey) _customMoodOptionsForExport = (await localforage.getItem(_moodOptsKey)) || [];
+                // 按当前对象命名空间读取：对象切换后导出不串别的对象的数据。
+                // 用 getStorageKey 取当前 SESSION_ID 分桶的键；取不到再回退旧版单对象无前缀键（APP_PREFIX + 键名）。
+                function _sessionKey(sfx) {
+                    try { return getStorageKey(sfx); } catch (e) {}
+                    return (APP_PREFIX || '') + sfx;
+                }
+                const _scopedGet = async (sfx, fb) => {
+                    const sk = _sessionKey(sfx);
+                    const v = await localforage.getItem(sk).catch(() => null);
+                    if (v != null) return v;
+                    const legacy = (APP_PREFIX || '') + sfx;
+                    if (legacy !== sk) {
+                        const lv = await localforage.getItem(legacy).catch(() => null);
+                        if (lv != null) return lv;
+                    }
+                    return fb;
+                };
+                _diaryForExport = (await _scopedGet('companionDiary', [])) || [];
+                _moodForExport = (await _scopedGet('moodCalendar', {})) || {};
+                _customMoodOptionsForExport = (await _scopedGet('customMoodOptions', [])) || [];
             } catch(e) { _diaryForExport = []; _moodForExport = {}; }
 
             const overlay = document.createElement('div');

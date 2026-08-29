@@ -1510,6 +1510,42 @@ html[data-theme="dark"] #chat-transition-overlay{
                 <i class="fas fa-database"></i>
                 <span>数据管理</span>
             </div>
+            <div class="settings-card" id="partner-manager-entry" onclick="openPartnerManager()">
+                <i class="fas fa-user-astronaut"></i>
+                <span>对象管理</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 对象管理弹窗：切换对象 / 新建对象 / 删除对象 -->
+    <div class="modal" id="partner-manager-modal" onclick="if(event.target===this){if(typeof hideModal==='function')hideModal(this);}">
+        <div class="modal-content partner-manager-content">
+            <div class="modal-title"><i class="fas fa-user-astronaut"></i><span>对象管理</span></div>
+            <div id="partner-manager-current" class="pm-current"></div>
+            <div class="pm-list-title">切换对象（聊天 · 陪伴 · 娱乐全部随之切换）</div>
+            <div id="partner-manager-list" class="pm-list"></div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" onclick="hideModal(document.getElementById('partner-manager-modal'))">关闭</button>
+                <button class="modal-btn modal-btn-primary" id="pm-new-btn"><i class="fas fa-plus"></i> 新建对象</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新建梦角弹窗 -->
+    <div class="modal" id="new-partner-modal" onclick="if(event.target===this){if(typeof hideModal==='function')hideModal(this);}">
+        <div class="modal-content new-partner-content">
+            <div class="modal-title"><i class="fas fa-wand-magic-sparkles"></i><span>新建梦角</span></div>
+            <div class="np-hero">
+                <div class="np-preview" id="np-preview">梦</div>
+                <input type="text" id="np-name" class="np-name-in" maxlength="12" placeholder="给 TA 的名字（10 字内）" autocomplete="off">
+            </div>
+            <div class="np-color-label">头像配色</div>
+            <div class="np-colors" id="np-colors"></div>
+            <div class="np-hint">新对象会继承当前的全部设定，并在独立的世界里开启全新的聊天、陪伴与娱乐，互不影响。</div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" onclick="hideModal(document.getElementById('new-partner-modal'))">取消</button>
+                <button class="modal-btn modal-btn-primary" id="np-create"><i class="fas fa-plus"></i> 创建并切换</button>
+            </div>
         </div>
     </div>
 
@@ -3956,6 +3992,7 @@ html[data-theme="dark"] #chat-transition-overlay{
     <script src="js/cloud-media.js"></script>
     <script src="js/cloud-media-migration.js"></script>
     <script src="js/cloud-sync-ui.js"></script>
+    <script src="js/partner-manager.js"></script>
     <script src="js/app.js"></script>
     <script src="js/desktop.js"></script>
     <script src="js/features/cinema.js"></script>
