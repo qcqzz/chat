@@ -96,6 +96,10 @@ jobs:
           # BootReceiver.java — 开机自启动接收器
           cp android-src/app/src/main/java/com/chuanxun/app/BootReceiver.java \
              android/app/src/main/java/com/chuanxun/app/
+
+          # MessageAlarmReceiver.java — 后台到点弹消息通知闹钟接收器
+          cp android-src/app/src/main/java/com/chuanxun/app/MessageAlarmReceiver.java \
+             android/app/src/main/java/com/chuanxun/app/
           
           # MainActivity.java — 启动前台服务
           cp android-src/app/src/main/java/com/chuanxun/app/MainActivity.java \
