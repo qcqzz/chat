@@ -10,21 +10,54 @@
 
     var $ = document.getElementById.bind(document);
 
+    // ── 桌面个性化按梦角隔离（localStorage 分桶）──
+    // 签名/两侧头像/顶部栏背景/桌面背景 原本存全局固定 key，切换对象后不跟随，现统一改走
+    // SESSION_ID 分桶 key。旧版全局 key 数据在首次运行时一次性迁入当前对象并删除旧键（防串对象）。
+    var DS_MIG_KEY = 'tiDesktopSettingsMigratedV1';
+    function dsSid() { return (typeof SESSION_ID !== 'undefined' && SESSION_ID) ? String(SESSION_ID) : ''; }
+    function dsScope(base) { return (window.APP_PREFIX || '') + dsSid() + '_' + base; }
+    function dsGet(base) { try { return localStorage.getItem(dsScope(base)); } catch (e) { return null; } }
+    function dsSet(base, val) { try { localStorage.setItem(dsScope(base), val); } catch (e) {} }
+    function dsRemove(base) { try { localStorage.removeItem(dsScope(base)); } catch (e) {} }
+    // 一次性迁移：旧版全局 key（base 即旧固定 key 名）迁入当前对象分桶，迁完删除旧键。
+    function dsMigrateLegacy() {
+        if (!dsSid()) return;                       // SESSION_ID 未就绪，由 init 重试
+        try { if (localStorage.getItem(DS_MIG_KEY)) return; } catch (e) {}
+        var legacyKeys = [
+            'tiDesktopSignature',
+            'tiDesktopAvatarPartner', 'tiDesktopAvatarMe',
+            'tiDesktopTopbarBgGallery', 'tiDesktopTopbarBgActive',
+            'tiDesktopBgGallery', 'tiDesktopBgActive'
+        ];
+        for (var i = 0; i < legacyKeys.length; i++) {
+            var base = legacyKeys[i];
+            var ov = null;
+            try { ov = localStorage.getItem(base); } catch (e) {}
+            if (ov == null) continue;
+            var scoped = dsScope(base);
+            var cv = null;
+            try { cv = localStorage.getItem(scoped); } catch (e) {}
+            if (cv == null) try { localStorage.setItem(scoped, ov); } catch (e) {}
+            try { localStorage.removeItem(base); } catch (e) {}
+        }
+        try { localStorage.setItem(DS_MIG_KEY, '1'); } catch (e) {}
+    }
+
     // ── 存储小工具 ──
     function getGallery() {
-        try { return JSON.parse(localStorage.getItem(GALLERY_KEY)) || []; } catch (e) { return []; }
+        try { return JSON.parse(dsGet(GALLERY_KEY)) || []; } catch (e) { return []; }
     }
     function saveGallery(arr) {
-        try { localStorage.setItem(GALLERY_KEY, JSON.stringify(arr)); } catch (e) {}
+        dsSet(GALLERY_KEY, JSON.stringify(arr));
     }
-    function getActive() { try { return localStorage.getItem(ACTIVE_KEY) || ''; } catch (e) { return ''; } }
+    function getActive() { try { return dsGet(ACTIVE_KEY) || ''; } catch (e) { return ''; } }
 
     // ── 个性签名 ──
     function renderSignature() {
         var el = $('dt-signature');
         if (!el) return;
         var sig = '';
-        try { sig = localStorage.getItem(SIG_KEY) || ''; } catch (e) {}
+        try { sig = dsGet(SIG_KEY) || ''; } catch (e) {}
         el.textContent = sig && sig.trim() ? sig : '两颗缠绕的心，会走同一条路';
     }
 
@@ -32,7 +65,7 @@
         var modal = $('signature-modal');
         var input = $('signature-input');
         if (!modal || !input) return;
-        try { input.value = localStorage.getItem(SIG_KEY) || ''; } catch (e) { input.value = ''; }
+        try { input.value = dsGet(SIG_KEY) || ''; } catch (e) { input.value = ''; }
         updateSigCounter();
         showModal(modal);
         setTimeout(function () { input.focus(); }, 120);
@@ -49,7 +82,7 @@
         var input = $('signature-input');
         if (!input) return;
         var val = input.value.trim().slice(0, 20);
-        try { localStorage.setItem(SIG_KEY, val); } catch (e) {}
+        dsSet(SIG_KEY, val);
         renderSignature();
         hideModal($('signature-modal'));
         showNotification && showNotification('个性签名已更新', 'success');
@@ -60,7 +93,7 @@
     var DTAV_P_KEY = 'tiDesktopAvatarPartner';
     var DTAV_M_KEY = 'tiDesktopAvatarMe';
     function getDtAvatar(key) {
-        try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
+        try { return dsGet(key) || ''; } catch (e) { return ''; }
     }
     function renderDesktopAvatars() {
         function render(id, key) {
@@ -138,7 +171,7 @@
         upBtn.addEventListener('click', function () { fileInput.click(); });
         cancelBtn.addEventListener('click', function () { hideModal(m); });
         delBtn.addEventListener('click', function () {
-            try { localStorage.removeItem(getDtAvKey(_dtAvTarget)); } catch (e) {}
+            dsRemove(getDtAvKey(_dtAvTarget));
             renderDesktopAvatars();
             if (typeof showNotification === 'function') showNotification('桌面头像已清除', 'success');
             hideModal(m);
@@ -162,7 +195,7 @@
         });
         saveBtn.addEventListener('click', function () {
             if (!_dtAvCurrent) return;
-            try { localStorage.setItem(getDtAvKey(_dtAvTarget), _dtAvCurrent); } catch (e) {}
+            dsSet(getDtAvKey(_dtAvTarget), _dtAvCurrent);
             renderDesktopAvatars();
             if (typeof showNotification === 'function') showNotification('桌面头像已更新', 'success');
             hideModal(m);
@@ -204,7 +237,7 @@
             bg.style.backgroundImage = '';
             if (card) card.classList.remove('dt-has-bg');
         }
-        try { localStorage.setItem(ACTIVE_KEY, value || ''); } catch (e) {}
+        dsSet(ACTIVE_KEY, value || '');
     }
 
     function renderTopbarBgGallery() {
@@ -263,11 +296,12 @@
     var _plOrder = [0, 1, 2];                    // 下标 0 = 最前（pl-1）
     var _plFronts = ['pl-1', 'pl-2', 'pl-3'];
     var POLAROID_DEFAULT = 'desktop-pl/default.jpg';   // 默认灰底图
-    var PL_KEYS = ['tiDesktopPl1', 'tiDesktopPl2', 'tiDesktopPl3'];
+    // 拍立得按梦角隔离：读写走 SESSION_ID 分桶 key（localforage 主存储 + localStorage 兼容镜像）。
+    // 旧版固定 key（无分桶）的数据在首次运行时一次性迁入当前对象并删除旧键，避免升级后丢失、
+    // 也避免切换对象时把别的梦角的照片带过来（对象切换后 reload，会按新对象分桶重新加载）。
     // 拍立得图片改走 IndexedDB（localforage），容量远大于 localStorage，
     // 避免设备 localStorage 配额被应急备份/背景图库占满后第 3 张静默存不上。
-    // localStorage(this PL_KEYS) 仅作兼容镜像，供旧版本读取，配额不足时自动忽略。
-    var PL_LF_KEYS = ['POLAROID_LF_1', 'POLAROID_LF_2', 'POLAROID_LF_3'];
+    // localStorage 镜像仅作兼容读取用，配额不足时自动忽略，不再静默阻断保存。
     var _plCache = ['', '', ''];
     // 未设置拍立得 / 图片缺失时，照片区显示的灰色占位图片
     var _plPlaceholder = 'data:image/svg+xml;utf8,' + encodeURIComponent(
@@ -275,34 +309,102 @@
         '<rect width="200" height="200" fill="#e6e2da"/>' +
         '</svg>'
     );
+    // 分桶 key（localforage 主存储）
+    function plLfKey(i) {
+        if (typeof getStorageKey === 'function' && typeof SESSION_ID !== 'undefined' && SESSION_ID) {
+            try { return getStorageKey('POLAROID_LF_' + (i + 1)); } catch (e) {}
+        }
+        return 'POLAROID_LF_' + (i + 1);
+    }
+    // 兼容镜像 key（localStorage）
+    function plLsKey(i) {
+        if (typeof getStorageKey === 'function' && typeof SESSION_ID !== 'undefined' && SESSION_ID) {
+            try { return getStorageKey('tiDesktopPl' + (i + 1)); } catch (e) {}
+        }
+        return 'tiDesktopPl' + (i + 1);
+    }
+    // 旧版本全局 key（仅迁移用，读后删除防止串对象）
+    function plLegacyLfKey(i) { return 'POLAROID_LF_' + (i + 1); }
+    function plLegacyLsKey(i) { return 'tiDesktopPl' + (i + 1); }
+
     function getPl(i) { return _plCache[i] || ''; }
     function setPl(i, v) {
         v = v || '';
         _plCache[i] = v;                                     // 先同步更新内存缓存，界面立即生效
         if (typeof localforage !== 'undefined') {
-            localforage.setItem(PL_LF_KEYS[i], v).catch(function (e) {
+            localforage.setItem(plLfKey(i), v).catch(function (e) {
                 console.warn('[Polaroid] IndexedDB 写入失败:', e);
             });
         }
-        // 尽力镜像一份到 localStorage（兼容旧版本/外部读取；配额满时自动忽略，不再静默阻断保存）
-        try { localStorage.setItem(PL_KEYS[i], v || ''); } catch (e) {}
+        // 尽力镜像一份到 localStorage（兼容旧版本/外部读取；配额满时自动忽略）
+        try { localStorage.setItem(plLsKey(i), v || ''); } catch (e) {}
     }
-    // 启动时把存量数据读入缓存：IndexedDB 为源，localStorage 兼容镜像兜底（老版本迁移）
+    // 一次性迁移：当前对象某槽位为空时，把旧版全局 key 的数据迁入该对象分桶，迁完删除旧键。
+    // 槽位已有值则跳过（当前对象已自定义，绝不拿旧对象覆盖）。
+    function migrateLegacyPl(lfKeys, lsKeys) {
+        var legacy = ['', '', ''];
+        var legacyAny = false;
+        for (var i = 0; i < 3; i++) {
+            try { legacy[i] = localStorage.getItem(plLegacyLsKey(i)) || ''; } catch (e) {}
+            if (legacy[i]) legacyAny = true;
+        }
+        if (!legacyAny) return Promise.resolve();
+        var p = Promise.resolve();
+        for (var j = 0; j < 3; j++) {
+            (function (ii) {
+                p = p.then(function () {
+                    if (typeof localforage === 'undefined') return;
+                    return localforage.getItem(plLegacyLfKey(ii)).then(function (lfv) {
+                        if (lfv) { legacy[ii] = lfv; legacyAny = true; }
+                    }).catch(function () {});
+                });
+            })(j);
+        }
+        return p.then(function () {
+            if (!legacyAny) return;
+            for (var k = 0; k < 3; k++) {
+                if (!legacy[k] || _plCache[k]) continue;    // 槽位已有当前对象数据则不迁移
+                _plCache[k] = legacy[k];
+                if (typeof localforage !== 'undefined') {
+                    localforage.setItem(lfKeys[k], legacy[k]).catch(function (e) {
+                        console.warn('[Polaroid] 迁移写入失败:', e);
+                    });
+                }
+                try { localStorage.setItem(lsKeys[k], legacy[k]); } catch (e) {}
+                try { localStorage.removeItem(plLegacyLsKey(k)); } catch (e) {}
+                if (typeof localforage !== 'undefined') {
+                    localforage.removeItem(plLegacyLfKey(k)).catch(function () {});
+                }
+            }
+        });
+    }
+    // 启动时把存量数据读入缓存：IndexedDB 为源，localStorage 兼容镜像兜底。
+    // SESSION_ID 由 core.js 异步初始化，可能晚于 DOMContentLoaded；未就绪时稍后重试，
+    // 避免用空 SESSION_ID 读/写旧共享 key 造成跨对象污染。
     function plLoadAll() {
         _plCache = ['', '', ''];
+        if (typeof SESSION_ID === 'undefined' || !SESSION_ID) {
+            setTimeout(plLoadAll, 150);
+            return;
+        }
+        var lfKeys = [plLfKey(0), plLfKey(1), plLfKey(2)];
+        var lsKeys = [plLsKey(0), plLsKey(1), plLsKey(2)];
+        var done = function () {
+            migrateLegacyPl(lfKeys, lsKeys).then(function () {
+                renderPolaroidGallery(); renderPolaroid();
+            });
+        };
         for (var i = 0; i < 3; i++) {
-            try { var v = localStorage.getItem(PL_KEYS[i]); if (v) _plCache[i] = v; } catch (e) {}
+            try { var v = localStorage.getItem(lsKeys[i]); if (v) _plCache[i] = v; } catch (e) {}
         }
         if (typeof localforage !== 'undefined') {
-            Promise.all([PL_LF_KEYS[0], PL_LF_KEYS[1], PL_LF_KEYS[2]].map(function (k) {
-                return localforage.getItem(k);
-            })).then(function (vals) {
-                var changed = false;
-                for (var j = 0; j < 3; j++) {
-                    if (vals[j] && _plCache[j] !== vals[j]) { changed = true; _plCache[j] = vals[j]; }
-                }
-                if (changed) { renderPolaroidGallery(); renderPolaroid(); }
-            }).catch(function () {});
+            Promise.all(lfKeys.map(function (k) { return localforage.getItem(k); }))
+                .then(function (vals) {
+                    for (var j = 0; j < 3; j++) { if (vals[j] && _plCache[j] !== vals[j]) _plCache[j] = vals[j]; }
+                    done();
+                }).catch(done);
+        } else {
+            done();
         }
     }
 
@@ -522,12 +624,12 @@
     var DKACTIVE_KEY = 'tiDesktopBgActive';
 
     function getDkGallery() {
-        try { return JSON.parse(localStorage.getItem(DKGALLERY_KEY)) || []; } catch (e) { return []; }
+        try { return JSON.parse(dsGet(DKGALLERY_KEY)) || []; } catch (e) { return []; }
     }
     function saveDkGallery(arr) {
-        try { localStorage.setItem(DKGALLERY_KEY, JSON.stringify(arr)); } catch (e) {}
+        dsSet(DKGALLERY_KEY, JSON.stringify(arr));
     }
-    function getDkActive() { try { return localStorage.getItem(DKACTIVE_KEY) || ''; } catch (e) { return ''; } }
+    function getDkActive() { try { return dsGet(DKACTIVE_KEY) || ''; } catch (e) { return ''; } }
 
     function applyDesktopBg(value) {
         var pd = document.getElementById('phone-desktop');
@@ -537,7 +639,7 @@
         } else {
             document.documentElement.style.setProperty('--desktop-bg-image', '');
         }
-        try { localStorage.setItem(DKACTIVE_KEY, value || ''); } catch (e) {}
+        dsSet(DKACTIVE_KEY, value || '');
     }
 
     function renderDesktopBgGallery() {
@@ -621,39 +723,67 @@
     };
 
     // ── 初始化 ──
+    var _dtInitDone = false;   // 一次性操作（事件绑定/兜底/轮询）只执行一次
     function init() {
-        var sig = $('dt-signature');
-        if (sig) sig.addEventListener('click', openSignature);
+        if (!_dtInitDone) {
+            _dtInitDone = true;
+            var sig = $('dt-signature');
+            if (sig) sig.addEventListener('click', openSignature);
 
-        var input = $('signature-input');
-        if (input) input.addEventListener('input', function () {
-            if (input.value.length > 20) input.value = input.value.slice(0, 20);
-            updateSigCounter();
-        });
-        var save = $('signature-save');
-        if (save) save.addEventListener('click', saveSignature);
-        $('signature-input') && $('signature-input').addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') saveSignature();
-        });
+            var input = $('signature-input');
+            if (input) input.addEventListener('input', function () {
+                if (input.value.length > 20) input.value = input.value.slice(0, 20);
+                updateSigCounter();
+            });
+            var save = $('signature-save');
+            if (save) save.addEventListener('click', saveSignature);
+            $('signature-input') && $('signature-input').addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') saveSignature();
+            });
 
-        var reset = $('reset-default-topbar-bg');
-        if (reset) reset.addEventListener('click', resetTopbarBg);
+            var reset = $('reset-default-topbar-bg');
+            if (reset) reset.addEventListener('click', resetTopbarBg);
 
-        var dkReset = $('reset-desktop-bg');
-        if (dkReset) dkReset.addEventListener('click', resetDesktopBg);
+            var dkReset = $('reset-desktop-bg');
+            if (dkReset) dkReset.addEventListener('click', resetDesktopBg);
 
-        var pl = $('dt-polaroid');
-        if (pl) pl.addEventListener('click', cyclePolaroid);
+            var pl = $('dt-polaroid');
+            if (pl) pl.addEventListener('click', cyclePolaroid);
 
-        var plReset = $('reset-all-polaroid');
-        if (plReset) plReset.addEventListener('click', resetAllPolaroid);
+            var plReset = $('reset-all-polaroid');
+            if (plReset) plReset.addEventListener('click', resetAllPolaroid);
 
-        var ann = $('dt-anniversary');
-        if (ann) ann.addEventListener('click', cycleAnniversary);
+            var ann = $('dt-anniversary');
+            if (ann) ann.addEventListener('click', cycleAnniversary);
 
+            // 启动默认进入桌面页（隐藏聊天页主体），点击「聊天」图标后再打开聊天页
+            document.body.classList.add('dt-view');
+
+            // 兜底：若启动流程卡在加载动画（如外网资源失败导致引导未结束），
+            // 超时后强制隐藏加载动画并进入桌面视图，避免白屏
+            setTimeout(function () {
+                var w = $('welcome-animation');
+                if (w && !w.classList.contains('hidden')) {
+                    w.classList.add('hidden');
+                    setTimeout(function () { w.style.display = 'none'; }, 350);
+                }
+                document.body.classList.add('dt-view');
+            }, 6000);
+
+            // 头像/昵称等可能异步加载，周期性同步一次。
+            // 所有设备统一降到 3s 一轮（1.5s 对异步加载同步来说过密，属明显可省的高频渲染）；
+            // 低端机(data-lite)进一步降到 10s，减少持续渲染开销，避免与快速点击叠加后卡顿
+            var dtLite = document.documentElement && document.documentElement.getAttribute('data-lite') === '1';
+            setInterval(function () { syncTopbarUsers(); renderAnniversary(); }, dtLite ? 10000 : 3000);
+        }
+
+        // 桌面个性化渲染 + 旧数据迁移依赖 SESSION_ID 就绪（core.js 异步初始化，可能晚于
+        // DOMContentLoaded）；未就绪时稍后重试，避免用空 SESSION_ID 读到共享旧 key 造成跨对象污染。
+        if (!dsSid()) { setTimeout(init, 150); return; }
+        dsMigrateLegacy();
+        bindAvatarEdit();
         renderSignature();
         syncTopbarUsers();
-        bindAvatarEdit();
         renderTopbarBgGallery();
         applyTopbarBg(getActive());
         renderDesktopBgGallery();
@@ -662,26 +792,6 @@
         renderPolaroid();
         renderPolaroidGallery();
         renderAnniversary();
-
-        // 启动默认进入桌面页（隐藏聊天页主体），点击「聊天」图标后再打开聊天页
-        document.body.classList.add('dt-view');
-
-        // 兜底：若启动流程卡在加载动画（如外网资源失败导致引导未结束），
-        // 超时后强制隐藏加载动画并进入桌面视图，避免白屏
-        setTimeout(function () {
-            var w = $('welcome-animation');
-            if (w && !w.classList.contains('hidden')) {
-                w.classList.add('hidden');
-                setTimeout(function () { w.style.display = 'none'; }, 350);
-            }
-            document.body.classList.add('dt-view');
-        }, 6000);
-
-        // 头像/昵称等可能异步加载，周期性同步一次。
-        // 所有设备统一降到 3s 一轮（1.5s 对异步加载同步来说过密，属明显可省的高频渲染）；
-        // 低端机(data-lite)进一步降到 10s，减少持续渲染开销，避免与快速点击叠加后卡顿
-        var dtLite = document.documentElement && document.documentElement.getAttribute('data-lite') === '1';
-        setInterval(function () { syncTopbarUsers(); renderAnniversary(); }, dtLite ? 10000 : 3000);
     }
 
     if (document.readyState === 'loading') {
