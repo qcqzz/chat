@@ -772,3 +772,28 @@ window._annInit = async function() {
     }
     hookOpen();
 })();
+
+// ── 启动即加载相遇覆盖数据 ──────────────────────────────
+// 相遇日期（annMeetOverride）与置顶项都存于 localforage（异步读取）。
+// 若不在一启动就加载，桌面「纪念日方块」和空间「相遇日期」在编辑过之后，
+// 每次进入仍会读到首条消息时间（_annMeetOverride 为 null 时的兜底），
+// 直到手动进入「重要日」页触发 _annLoadMeetOverride 才刷新。
+// 这里在页面加载后立即读取，读完后立刻重绘相关区域，一进入就是用户编辑好的值。
+function _annBootstrapMeetOverride() {
+    Promise.all([_annLoadPinnedId(), _annLoadMeetOverride()]).then(function () {
+        try {
+            if (typeof _annUpdateHeaderDays === 'function') _annUpdateHeaderDays();
+        } catch (e) {}
+        try {
+            if (window.DesktopTopbar && typeof window.DesktopTopbar.refresh === 'function') {
+                window.DesktopTopbar.refresh();
+            }
+        } catch (e) {}
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { _annBootstrapMeetOverride(); });
+} else {
+    _annBootstrapMeetOverride();
+}
