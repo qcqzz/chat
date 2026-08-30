@@ -328,7 +328,7 @@
                             });
                         };
                         var sanitizedCompanion = Object.assign({}, v);
-                        var modes = ['study', 'work', 'exercise', 'sleep'];
+                        var modes = ['study', 'work', 'exercise', 'sleep', 'eat', 'slack'];
                         ['backgrounds', 'voices', 'noises'].forEach(function (field) {
                             if (sanitizedCompanion[field] && typeof sanitizedCompanion[field] === 'object') {
                                 var sanitizedField = {};

@@ -35,7 +35,7 @@
     ];
 
     function _getSym(key, customKey) {
-        key = _k(key); customKey = _k(customKey);
+        key = window.dgKey(key); customKey = window.dgKey(customKey);
         var v = localStorage.getItem(key) || 'star4';
         if (v === 'custom') return localStorage.getItem(customKey) || '✦';
         var p = PRESETS.find(function(x){ return x.value === v; });
@@ -70,10 +70,10 @@
         var old = document.getElementById('poke-sym-modal');
         if (old) old.remove();
 
-        var mySel    = localStorage.getItem(_k(MY_SYM_KEY)) || 'star4';
-        var ptrSel   = localStorage.getItem(_k(PTR_SYM_KEY)) || 'star4';
-        var myCustom = localStorage.getItem(_k(MY_CUST_KEY)) || '';
-        var ptrCustom= localStorage.getItem(_k(PTR_CUST_KEY)) || '';
+        var mySel    = localStorage.getItem(window.dgKey(MY_SYM_KEY)) || 'star4';
+        var ptrSel   = localStorage.getItem(window.dgKey(PTR_SYM_KEY)) || 'star4';
+        var myCustom = localStorage.getItem(window.dgKey(MY_CUST_KEY)) || '';
+        var ptrCustom= localStorage.getItem(window.dgKey(PTR_CUST_KEY)) || '';
 
         function opts(sel) {
             return PRESETS.map(function(p){
@@ -140,10 +140,10 @@
         document.getElementById('psm-save').addEventListener('click', function(){
             var mv = document.getElementById('psm-my').value;
             var pv = document.getElementById('psm-ptr').value;
-            localStorage.setItem(_k(MY_SYM_KEY), mv);
-            localStorage.setItem(_k(PTR_SYM_KEY), pv);
-            if(mv==='custom') localStorage.setItem(_k(MY_CUST_KEY), document.getElementById('psm-my-ci').value.trim());
-            if(pv==='custom') localStorage.setItem(_k(PTR_CUST_KEY), document.getElementById('psm-ptr-ci').value.trim());
+            localStorage.setItem(window.dgKey(MY_SYM_KEY), mv);
+            localStorage.setItem(window.dgKey(PTR_SYM_KEY), pv);
+            if(mv==='custom') localStorage.setItem(window.dgKey(MY_CUST_KEY), document.getElementById('psm-my-ci').value.trim());
+            if(pv==='custom') localStorage.setItem(window.dgKey(PTR_CUST_KEY), document.getElementById('psm-ptr-ci').value.trim());
             close();
             if(window._syncPokeDesc) window._syncPokeDesc();
             if(typeof showNotification==='function') showNotification('戳一戳符号已保存 ✓','success',1800);
@@ -151,8 +151,8 @@
     };
 
     function _syncPokeDesc() {
-        var ms = localStorage.getItem(_k(MY_SYM_KEY))||'star4';
-        var ps = localStorage.getItem(_k(PTR_SYM_KEY))||'star4';
+        var ms = localStorage.getItem(window.dgKey(MY_SYM_KEY))||'star4';
+        var ps = localStorage.getItem(window.dgKey(PTR_SYM_KEY))||'star4';
         var ml = (PRESETS.find(function(p){return p.value===ms;})||{}).label||ms;
         var pl = (PRESETS.find(function(p){return p.value===ps;})||{}).label||ps;
         var d = document.getElementById('poke-symbol-desc');
@@ -1351,14 +1351,14 @@ function _buildDailyGreeting() {
         var months = ['一','二','三','四','五','六','七','八','九','十','十一','十二'];
         setEl('dg-date-stamp', now.getFullYear() + ' · ' + months[now.getMonth()] + '月' + now.getDate() + '日');
 
-        var headerBg = localStorage.getItem(_k('dg_header_bg'));
+        var headerBg = localStorage.getItem(window.dgKey('dg_header_bg'));
         var bgEl = document.getElementById('dg-header-band-bg');
         if (bgEl && headerBg) {
             bgEl.style.backgroundImage = 'url(' + headerBg + ')';
             bgEl.classList.add('has-img');
         }
 
-        var overlayBg = localStorage.getItem(_k('dg_overlay_bg'));
+        var overlayBg = localStorage.getItem(window.dgKey('dg_overlay_bg'));
         if (overlayBg) { applyDgOverlayBg(overlayBg); }
 
         var decoImg = customData.decoImg;
@@ -1380,7 +1380,7 @@ window.toggleImmersiveMode = function(force) {
     document.body.classList.toggle('immersive-mode', isOn);
     var toggle = document.getElementById('immersive-toggle');
     if (toggle) toggle.classList.toggle('active', isOn);
-    try { localStorage.setItem(_k('immersive_mode'), isOn ? '1' : '0'); } catch(e) {}
+    try { localStorage.setItem(window.dgKey('immersive_mode'), isOn ? '1' : '0'); } catch(e) {}
     if (!isOn && typeof showNotification === 'function') showNotification('已退出沉浸式模式', 'info');
 };
 
@@ -1436,7 +1436,7 @@ window.toggleImmersiveMode = function(force) {
 })();
 (function() {
     try {
-        if (localStorage.getItem(_k('immersive_mode')) === '1') {
+        if (localStorage.getItem(window.dgKey('immersive_mode')) === '1') {
             document.body.classList.add('immersive-mode');
             var t = document.getElementById('immersive-toggle');
             if (t) t.classList.add('active');
@@ -1498,14 +1498,14 @@ window.clearDgDecoImg = function() {
     if (wrap) wrap.style.display = 'none';
 };
 window.clearDgHeaderBg = function() {
-    localStorage.removeItem(_k('dg_header_bg'));
+    localStorage.removeItem(window.dgKey('dg_header_bg'));
     var bgEl = document.getElementById('dg-header-band-bg');
     if (bgEl) { bgEl.style.backgroundImage = ''; bgEl.classList.remove('has-img'); }
 };
 
 window.onDgOverlayOpacityChange = function(val) {
     var tint = parseInt(val) / 100;
-    localStorage.setItem(_k('dg_overlay_bg_tint'), tint);
+    localStorage.setItem(window.dgKey('dg_overlay_bg_tint'), tint);
     var valEl = document.getElementById('dg-overlay-opacity-val');
     if (valEl) valEl.textContent = val + '%';
     var tintLayer = document.getElementById('dg-card-tint-overlay');
@@ -1518,14 +1518,14 @@ window.handleDgOverlayBgUpload = function(input) {
     var reader = new FileReader();
     reader.onload = function(ev) {
         var data = ev.target.result;
-        localStorage.setItem(_k('dg_overlay_bg'), data);
+        localStorage.setItem(window.dgKey('dg_overlay_bg'), data);
         applyDgOverlayBg(data);
         var prev = document.getElementById('dg-overlay-bg-preview');
         var prevImg = document.getElementById('dg-overlay-bg-preview-img');
         if (prev && prevImg) { prevImg.src = data; prev.style.display = 'block'; }
         var opRow = document.getElementById('dg-overlay-opacity-row');
         if (opRow) opRow.style.display = 'block';
-        var savedTint = parseFloat(localStorage.getItem(_k('dg_overlay_bg_tint')));
+        var savedTint = parseFloat(localStorage.getItem(window.dgKey('dg_overlay_bg_tint')));
         var pct = isNaN(savedTint) ? 25 : Math.round(savedTint * 100);
         var slider = document.getElementById('dg-overlay-opacity-slider');
         var valEl = document.getElementById('dg-overlay-opacity-val');
@@ -1536,7 +1536,7 @@ window.handleDgOverlayBgUpload = function(input) {
 };
 
 window.clearDgOverlayBg = function() {
-    localStorage.removeItem(_k('dg_overlay_bg'));
+    localStorage.removeItem(window.dgKey('dg_overlay_bg'));
     applyDgOverlayBg(null);
     var prev = document.getElementById('dg-overlay-bg-preview');
     if (prev) prev.style.display = 'none';
@@ -1551,7 +1551,7 @@ function applyDgOverlayBg(data, tintOpacity) {
     var tintLayer = document.getElementById('dg-card-tint-overlay');
     if (!card || !bgLayer) return;
     if (tintOpacity === undefined || tintOpacity === null) {
-        var saved = parseFloat(localStorage.getItem(_k('dg_overlay_bg_tint')));
+        var saved = parseFloat(localStorage.getItem(window.dgKey('dg_overlay_bg_tint')));
         tintOpacity = isNaN(saved) ? 0.25 : saved;
     }
     if (data) {
@@ -1572,7 +1572,7 @@ function applyDgOverlayBg(data, tintOpacity) {
 }
 
 (function() {
-    var savedOverlayBg = localStorage.getItem(_k('dg_overlay_bg'));
+    var savedOverlayBg = localStorage.getItem(window.dgKey('dg_overlay_bg'));
     if (savedOverlayBg) {
         document.addEventListener('DOMContentLoaded', function() {
             applyDgOverlayBg(savedOverlayBg);
@@ -1581,7 +1581,7 @@ function applyDgOverlayBg(data, tintOpacity) {
             if (prev && prevImg) { prevImg.src = savedOverlayBg; prev.style.display = 'block'; }
             var opRow = document.getElementById('dg-overlay-opacity-row');
             if (opRow) opRow.style.display = 'block';
-            var savedOp = parseFloat(localStorage.getItem(_k('dg_overlay_bg_tint')));
+            var savedOp = parseFloat(localStorage.getItem(window.dgKey('dg_overlay_bg_tint')));
             var pct = isNaN(savedOp) ? 25 : Math.round(savedOp * 100);
             var slider = document.getElementById('dg-overlay-opacity-slider');
             var valEl = document.getElementById('dg-overlay-opacity-val');
@@ -1620,7 +1620,7 @@ window.switchToAnnouncementPanel = function() {
         var prevImg = document.getElementById('dg-deco-preview-img');
         if (prev && prevImg) { prevImg.src = customData.decoImg; prev.style.display = 'block'; }
     }
-    var savedOverlayBg2 = localStorage.getItem(_k('dg_overlay_bg'));
+    var savedOverlayBg2 = localStorage.getItem(window.dgKey('dg_overlay_bg'));
     if (savedOverlayBg2) {
         var overlayPrev = document.getElementById('dg-overlay-bg-preview');
         var overlayPrevImg = document.getElementById('dg-overlay-bg-preview-img');
@@ -1709,7 +1709,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var reader = new FileReader();
             reader.onload = function(ev) {
                 var data = ev.target.result;
-                localStorage.setItem(_k('dg_header_bg'), data);
+                localStorage.setItem(window.dgKey('dg_header_bg'), data);
                 var bgEl = document.getElementById('dg-header-band-bg');
                 if (bgEl) { bgEl.style.backgroundImage = 'url(' + data + ')'; bgEl.classList.add('has-img'); }
             };

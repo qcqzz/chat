@@ -768,6 +768,20 @@
         }
         _hookEngine();
 
+        // 启动时自动恢复云端连接：
+        // 若已保存的配置处于"未验证/未连接"状态（connectedAt 为空），后台静默重连一次，
+        // 避免每次进入 App 都要手动点击"测试连接"。
+        var _startupRetry = 20; // 最多等 20×250ms = 5s（覆盖 cloud-sync 的启动配置加载重试）
+        (function _autoReconnect() {
+            if (!window.CloudSync) { if (_startupRetry > 0) { _startupRetry--; setTimeout(_autoReconnect, 250); } return; }
+            var cfg = window.CloudSync.getConfig();
+            var loaded = window.CloudSync.isConnected() || (cfg !== null && typeof cfg !== 'undefined');
+            if (!loaded) {
+                if (_startupRetry > 0) { _startupRetry--; setTimeout(_autoReconnect, 250); return; }
+            }
+            setTimeout(_silentRetest, 50);
+        })();
+
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', watchDataModal);
         } else {

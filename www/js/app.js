@@ -722,7 +722,7 @@ window.addEventListener('load', function() {
 
 // 陪伴闪退恢复弹窗
 function showCompanionRecoverDialog(session) {
-    const modeNames = { study: '学习', work: '工作', exercise: '运动', sleep: '睡觉' };
+    const modeNames = { study: '学习', work: '工作', exercise: '运动', sleep: '睡觉', eat: '吃饭', slack: '摸鱼' };
     const modeName = modeNames[session.mode] || '陪伴';
     const startTime = new Date(session.startTs);
     const startTimeStr = ('0' + startTime.getHours()).slice(-2) + ':' + ('0' + startTime.getMinutes()).slice(-2);
@@ -846,7 +846,7 @@ function showCompanionRecoverDialog(session) {
 
 // 陪伴已结束提示弹窗（倒计时模式：闪退后过太久，时间已经到了）
 function showCompanionCompletedDialog(session) {
-    const modeNames = { study: '学习', work: '工作', exercise: '运动', sleep: '睡觉' };
+    const modeNames = { study: '学习', work: '工作', exercise: '运动', sleep: '睡觉', eat: '吃饭', slack: '摸鱼' };
     const modeName = modeNames[session.mode] || '陪伴';
     const startTime = new Date(session.startTs);
     const startTimeStr = ('0' + startTime.getHours()).slice(-2) + ':' + ('0' + startTime.getMinutes()).slice(-2);
@@ -895,7 +895,9 @@ function selectCompanionMode(mode) {
         study: '陪我学习',
         work: '陪我工作',
         exercise: '陪我运动',
-        sleep: '陪我睡觉'
+        sleep: '陪我睡觉',
+        eat: '陪我吃饭',
+        slack: '陪我摸鱼'
     };
 
     const modeName = modeNames[mode] || '陪伴';

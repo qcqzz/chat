@@ -1786,9 +1786,11 @@ if (_cancelEnvEl) _cancelEnvEl.addEventListener('click', () => {
 
 
 
-        DOMElements.sessionModal.managerBtn.addEventListener('click', () => {
-            renderSessionList(); showModal(DOMElements.sessionModal.modal);
-        });
+        if (DOMElements.sessionModal.managerBtn) {
+            DOMElements.sessionModal.managerBtn.addEventListener('click', () => {
+                renderSessionList(); showModal(DOMElements.sessionModal.modal);
+            });
+        }
         DOMElements.sessionModal.createBtn.addEventListener('click', async () => {
             await createNewSession(false);
             renderSessionList();

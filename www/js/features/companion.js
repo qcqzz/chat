@@ -39,17 +39,31 @@
             times: [10,20,30,60,'rest'],
             inviteTimes: [30, 60, 'rest'],
         },
+        eat:      {
+            label: '一起吃饭',
+            icon:  'fa-utensils',
+            hint:  '正在一起吃饭 · 慢慢吃',
+            times: [10,15,20,25,30],
+            inviteTimes: [15, 20, 25],
+        },
+        slack:    {
+            label: '一起摸鱼',
+            icon:  'fa-fish',
+            hint:  '正在一起摸鱼 · 偷偷懒吧',
+            times: [10,15,20,25,30],
+            inviteTimes: [10, 15, 20],
+        },
     };
 
     // ─── 运行时状态 ──────────────────────────────────────────────────────────
 
     let companionData = {
-        backgrounds: { study: [], work: [], exercise: [], sleep: [] },
-        voices:      { study: [], work: [], exercise: [], sleep: [] },
-        noises:      { study: [], work: [], exercise: [], sleep: [] },
-        selectedBg:  { study: null, work: null, exercise: null, sleep: null }, // 选中的背景 id
-        lastNoiseChoice: { study: null, work: null, exercise: null, sleep: null },
-        lastPlayMode:    { study: 'single', work: 'single', exercise: 'single', sleep: 'single' },
+        backgrounds: { study: [], work: [], exercise: [], sleep: [], eat: [], slack: [] },
+        voices:      { study: [], work: [], exercise: [], sleep: [], eat: [], slack: [] },
+        noises:      { study: [], work: [], exercise: [], sleep: [], eat: [], slack: [] },
+        selectedBg:  { study: null, work: null, exercise: null, sleep: null, eat: null, slack: null }, // 选中的背景 id
+        lastNoiseChoice: { study: null, work: null, exercise: null, sleep: null, eat: null, slack: null },
+        lastPlayMode:    { study: 'single', work: 'single', exercise: 'single', sleep: 'single', eat: 'single', slack: 'single' },
         history: []
     };
 
@@ -66,12 +80,12 @@
 
     function _emptyData() {
         return {
-            backgrounds: { study: [], work: [], exercise: [], sleep: [] },
-            voices:      { study: [], work: [], exercise: [], sleep: [] },
-            noises:      { study: [], work: [], exercise: [], sleep: [] },
-            selectedBg:  { study: null, work: null, exercise: null, sleep: null },
-            lastNoiseChoice: { study: null, work: null, exercise: null, sleep: null },
-            lastPlayMode:    { study: 'single', work: 'single', exercise: 'single', sleep: 'single' },
+            backgrounds: { study: [], work: [], exercise: [], sleep: [], eat: [], slack: [] },
+            voices:      { study: [], work: [], exercise: [], sleep: [], eat: [], slack: [] },
+            noises:      { study: [], work: [], exercise: [], sleep: [], eat: [], slack: [] },
+            selectedBg:  { study: null, work: null, exercise: null, sleep: null, eat: null, slack: null },
+            lastNoiseChoice: { study: null, work: null, exercise: null, sleep: null, eat: null, slack: null },
+            lastPlayMode:    { study: 'single', work: 'single', exercise: 'single', sleep: 'single', eat: 'single', slack: 'single' },
             history: []
         };
     }
@@ -149,7 +163,7 @@
                 return v;
             }));
             // 过滤掉 data 为空（被上面过滤掉 blob URL）的背景条目
-            const modes = ['study', 'work', 'exercise', 'sleep'];
+            const modes = ['study', 'work', 'exercise', 'sleep', 'eat', 'slack'];
             modes.forEach(function (m) {
                 if (toSave.backgrounds && Array.isArray(toSave.backgrounds[m])) {
                     toSave.backgrounds[m] = toSave.backgrounds[m].filter(function (bg) {
@@ -381,6 +395,8 @@
         work:  ['一起加油工作吧', '可以陪我一起工作吗？'],
         exercise: ['一起活动一下？', '我想锻炼了，陪我一会？'],
         sleep: ['困了，陪我睡觉好吗？', '一起入睡吧'],
+        eat: ['肚子有点饿了，陪我一起吃饭好吗？', '一起吃饭吧，边吃边聊'],
+        slack: ['偷个懒吧，一起摸鱼呀', '工作好累，一起摸会鱼？'],
     };
 
     // ─── 过渡画面文案库（梦角第一人称）──────────────────────────────────────
@@ -1583,7 +1599,7 @@
         // 设置玻璃球计时器副标题（场景名英文缩写）
         const timerLabel = $('companion-timer-label');
         if (timerLabel) {
-            const labels = { study: 'STUDY', work: 'WORK', exercise: 'EXERCISE', sleep: 'SLEEP' };
+            const labels = { study: 'STUDY', work: 'WORK', exercise: 'EXERCISE', sleep: 'SLEEP', eat: 'EAT', slack: 'SLACK' };
             timerLabel.textContent = labels[currentMode] || '';
         }
 

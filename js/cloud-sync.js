@@ -355,8 +355,25 @@
         buildSignedUrl: _buildV4SignedUrl
     };
 
-    // 页面加载时读取一次
-    if (typeof localforage !== 'undefined') {
-        loadConfig().catch(function () {});
+    // 页面加载时读取一次配置。
+    // 注意：模块可能在 localforage 驱动(localforage.config)之前解析，
+    // 过早 getItem 会读到 null 导致已保存的"云端连接"在重启后无法恢复。
+    // 因此带重试：驱动就绪后能拿到真实配置就停止；最多尝试 N 次。
+    var _loadRetries = 8;
+    function _bootLoad() {
+        if (typeof localforage === 'undefined') {
+            if (_loadRetries > 0) { _loadRetries--; setTimeout(_bootLoad, 400); }
+            return;
+        }
+        loadConfig()
+            .then(function () {
+                // 读到配置(含 null=确实没配置)也算就绪；仅当确实拿到非空配置才停。
+                if (typeof _config !== 'undefined' && _config) return;
+                if (_loadRetries > 0) { _loadRetries--; setTimeout(_bootLoad, 400); }
+            })
+            .catch(function () {
+                if (_loadRetries > 0) { _loadRetries--; setTimeout(_bootLoad, 400); }
+            });
     }
+    _bootLoad();
 })(typeof window !== 'undefined' ? window : this);

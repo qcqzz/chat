@@ -351,6 +351,12 @@
         inp.onchange = async function () {
             var file = inp.files && inp.files[0];
             if (!file) { inp.remove(); return; }
+            // 与全量备份恢复的过程一致：先确认，再提示正在恢复
+            if (typeof confirm === 'function' &&
+                !confirm('导入按角色备份将覆盖当前对象的数据。\n\n导入前会自动留一份「恢复上一步」快照，可随时回滚。\n\n确定继续吗？')) {
+                inp.remove(); return;
+            }
+            if (typeof showNotification === 'function') showNotification('正在恢复数据…', 'info', 3000);
             try {
                 // ArrayBuffer 不可按下标取值（arrBuff[0] 恒为 undefined），必须先包成 Uint8Array，
                 // 否则 ZIP 文件会被误判为 JSON，解成二进制后 JSON.parse 抛错 → “导入失败”。
@@ -366,40 +372,44 @@
                     }
                     var data = await window.ChatBackup.loadBackupFromFile(file);
                     await window.ChatBackup.applyBackupToStorage(data, {});
-                    if (typeof showNotification === 'function') showNotification('已导入当前对象 ZIP 备份', 'success');
-                    inp.remove();
-                    setTimeout(function () { window.location.reload(); }, 800);
-                    return;
-                }
-
-                // 旧版单 JSON（partnerBackup）
-                var payload = JSON.parse(new TextDecoder('utf-8', { fatal: false }).decode(arrBuff));
-                if (!payload || payload.type !== 'partnerBackup') {
-                    if (typeof showNotification === 'function') showNotification('不是有效的按角色备份文件', 'error');
-                    inp.remove(); return;
-                }
-                var prefix = P + sid + '_';
-                var data2 = payload.data || {};
-
-                // 覆盖前快照（保险丝，可回滚）
-                if (window.ChatBackup && window.ChatBackup.makeRollbackSnapshot) {
-                    try { await window.ChatBackup.makeRollbackSnapshot('按角色导入前'); } catch (e) { console.warn('[partner-manager] 快照失败', e); }
-                }
-
-                var count = 0;
-                for (var k in data2) {
-                    var newKey = k;
-                    // 源前缀 → 当前对象前缀（只换对象段，其余键名原样）
-                    if (payload.sourcePrefix && newKey.indexOf(payload.sourcePrefix) === 0) {
-                        newKey = prefix + newKey.slice(payload.sourcePrefix.length);
+                } else {
+                    // 旧版单 JSON（partnerBackup）
+                    var payload = JSON.parse(new TextDecoder('utf-8', { fatal: false }).decode(arrBuff));
+                    if (!payload || payload.type !== 'partnerBackup') {
+                        if (typeof showNotification === 'function') showNotification('不是有效的按角色备份文件', 'error');
+                        inp.remove(); return;
                     }
-                    // 只写当前对象命名空间，绝不触碰其它对象/系统全局键
-                    if (newKey.indexOf(prefix) !== 0) continue;
-                    await localforage.setItem(newKey, data2[k]);
-                    count++;
+                    var prefix = P + sid + '_';
+                    var data2 = payload.data || {};
+
+                    // 覆盖前快照（保险丝，可回滚）
+                    if (window.ChatBackup && window.ChatBackup.makeRollbackSnapshot) {
+                        try { await window.ChatBackup.makeRollbackSnapshot('按角色导入前'); } catch (e) { console.warn('[partner-manager] 快照失败', e); }
+                    }
+
+                    var count = 0;
+                    for (var k in data2) {
+                        var newKey = k;
+                        // 源前缀 → 当前对象前缀（只换对象段，其余键名原样）
+                        if (payload.sourcePrefix && newKey.indexOf(payload.sourcePrefix) === 0) {
+                            newKey = prefix + newKey.slice(payload.sourcePrefix.length);
+                        }
+                        // 只写当前对象命名空间，绝不触碰其它对象/系统全局键
+                        if (newKey.indexOf(prefix) !== 0) continue;
+                        await localforage.setItem(newKey, data2[k]);
+                        count++;
+                    }
                 }
 
-                if (typeof showNotification === 'function') showNotification('已导入 ' + count + ' 条数据到当前对象', 'success');
+                // 与全量备份一致的导入守卫：写盘后、reload 前禁止内存里的旧数据回写，
+                // 否则 beforeunload/pagehide 会把内存旧数据覆盖回 IndexedDB 造成“导入数据丢失”。
+                window._importGuarded = true;
+
+                if (isZip) {
+                    if (typeof showNotification === 'function') showNotification('已导入当前对象 ZIP 备份，即将刷新…', 'success');
+                } else {
+                    if (typeof showNotification === 'function') showNotification('已导入到当前对象，即将刷新…', 'success');
+                }
                 inp.remove();
                 setTimeout(function () { window.location.reload(); }, 800);
             } catch (e) {

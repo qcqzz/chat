@@ -23,7 +23,7 @@
     var _dKey = window.dgKey || function(base) {
         return (typeof window.appSessionKey === 'function') ? window.appSessionKey(base) : ((window.APP_PREFIX || 'CHAT_APP_V3_') + base);
     };
-    var COMPANION_MODES = ['study', 'work', 'exercise', 'sleep'];
+    var COMPANION_MODES = ['study', 'work', 'exercise', 'sleep', 'eat', 'slack'];
     var COMPANION_MEDIA_TYPES = [
         { field: 'backgrounds', category: 'companion-backgrounds' },
         { field: 'voices',      category: 'companion-voices' },
