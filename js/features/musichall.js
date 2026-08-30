@@ -200,7 +200,11 @@
 
     // 音乐厅消息头像：跟随系统设置的真实头像（无头像时兜底为图标）
     function mhAvatarHTML(isPartner) {
-        if (typeof _avEl === 'function') return _avEl(isPartner, 28);
+        // 头像渲染必须永不抛错：既用于真实消息气泡，也被“正在输入”省略号模板使用，
+        // 一旦 _avEl 异常就会连累整个回复流程（省略号+真实回复一起消失）。
+        if (typeof _avEl === 'function') {
+            try { return _avEl(isPartner, 28); } catch (e) { /* 回退到图标 */ }
+        }
         return isPartner ? '<i class="fas fa-music"></i>' : '<i class="fas fa-user"></i>';
     }
 
@@ -474,18 +478,24 @@
             '</div>' +
         '</div>';
     }
-    // 把“正在输入…”气泡追加到聊天区，返回该节点（用于之后替换成真实回复）
+    // 把“正在输入…”气泡追加到聊天区，返回该节点（用于之后替换成真实回复）。
+    // 任何渲染失败都必须回退返回 null（上层据此走“直接追加真实回复”的兜底），绝不吞掉回复。
     function mhAppendTyping() {
-        var area = document.getElementById('mh-chat-area');
-        if (!area) return null;
-        var empty = area.querySelector('.mh-chat-empty');
-        if (empty) empty.remove();
-        var tmp = document.createElement('div');
-        tmp.innerHTML = mhTypingHTML();
-        var node = tmp.firstChild;
-        area.appendChild(node);
-        area.scrollTop = area.scrollHeight;
-        return node;
+        try {
+            var area = document.getElementById('mh-chat-area');
+            if (!area) return null;
+            var empty = area.querySelector('.mh-chat-empty');
+            if (empty) empty.remove();
+            var tmp = document.createElement('div');
+            tmp.innerHTML = mhTypingHTML();
+            var node = tmp.firstChild;
+            if (!node) return null;
+            area.appendChild(node);
+            area.scrollTop = area.scrollHeight;
+            return node;
+        } catch (e) {
+            return null;
+        }
     }
     // 回复到达：用真实回复气泡替换“正在输入…”气泡，并重新懒加载云端表情
     function mhMorphTyping(node, msg) {
@@ -518,22 +528,30 @@
         (function next() {
             if (index >= replyCount) return;
             index++;
-            var typing = mhAppendTyping(); // 先显示省略号气泡
+            // 先尝试显示“正在输入”省略号气泡；若渲染失败返回 null，仍会在到点时直接补上真实回复
+            var typing = null;
+            try { typing = mhAppendTyping(); } catch (e) { typing = null; }
             var d = dmin + Math.random() * (dmax - dmin);
             setTimeout(function () {
-                var slotIsVoice = pool.voice.length > 0 && (pool.text.length === 0 || Math.random() < 0.35);
-                var msg;
-                if (slotIsVoice) {
-                    var vc = pool.voice[Math.floor(Math.random() * pool.voice.length)];
-                    msg = { sender: 'partner', content: '', image: vc.audio, ts: Date.now() };
-                } else {
-                    msg = { sender: 'partner', content: pool.text[Math.floor(Math.random() * pool.text.length)], image: null, ts: Date.now() };
+                try {
+                    var slotIsVoice = pool.voice.length > 0 && (pool.text.length === 0 || Math.random() < 0.35);
+                    var msg;
+                    if (slotIsVoice) {
+                        var vc = pool.voice[Math.floor(Math.random() * pool.voice.length)];
+                        msg = { sender: 'partner', content: '', image: vc.audio, ts: Date.now() };
+                    } else {
+                        msg = { sender: 'partner', content: pool.text[Math.floor(Math.random() * pool.text.length)], image: null, ts: Date.now() };
+                    }
+                    messages.push(msg);
+                    // 省略号存在则原地替换，否则直接追加真实回复（两者都能把回复送达）
+                    var shown = false;
+                    if (typing) { try { mhMorphTyping(typing, msg); shown = true; } catch (e) { typing = null; } }
+                    if (!shown) appendMsg(messages[messages.length - 1]);
+                    saveMessages();
+                    if (typeof playSound === 'function') { try { playSound('message'); } catch (e) {} }
+                } catch (e) {
+                    // 单条回复异常不阻塞整批：忽略并继续
                 }
-                messages.push(msg);
-                if (typing) mhMorphTyping(typing, msg); // 省略号 → 回复内容
-                else appendMsg(messages[messages.length - 1]);
-                saveMessages();
-                if (typeof playSound === 'function') { try { playSound('message'); } catch (e) {} }
                 next(); // 紧接着让下一条回复也先显示省略号气泡
             }, d);
         })();
