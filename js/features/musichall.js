@@ -463,6 +463,42 @@
         } catch (e) {}
         return { text: text, voice: voice };
     }
+    // 对方“正在输入…”气泡 HTML（三个省略号点动画），回复真正发出后被 _msgHTML 内容替换
+    function mhTypingHTML() {
+        return '<div class="mh-msg mh-msg--partner mh-msg--typing">' +
+            '<div class="mh-msg-av">' + mhAvatarHTML(true) + '</div>' +
+            '<div class="' + bubbleClass() + ' mh-typing-bubble">' +
+                '<span class="mh-typing-dot"></span>' +
+                '<span class="mh-typing-dot"></span>' +
+                '<span class="mh-typing-dot"></span>' +
+            '</div>' +
+        '</div>';
+    }
+    // 把“正在输入…”气泡追加到聊天区，返回该节点（用于之后替换成真实回复）
+    function mhAppendTyping() {
+        var area = document.getElementById('mh-chat-area');
+        if (!area) return null;
+        var empty = area.querySelector('.mh-chat-empty');
+        if (empty) empty.remove();
+        var tmp = document.createElement('div');
+        tmp.innerHTML = mhTypingHTML();
+        var node = tmp.firstChild;
+        area.appendChild(node);
+        area.scrollTop = area.scrollHeight;
+        return node;
+    }
+    // 回复到达：用真实回复气泡替换“正在输入…”气泡，并重新懒加载云端表情
+    function mhMorphTyping(node, msg) {
+        if (!node || !node.parentNode) return;
+        var tmp = document.createElement('div');
+        tmp.innerHTML = _msgHTML(msg);
+        var newNode = tmp.firstChild;
+        node.parentNode.replaceChild(newNode, node);
+        _mhBindCloudImages(newNode);
+        var area = document.getElementById('mh-chat-area');
+        if (area) area.scrollTop = area.scrollHeight;
+    }
+    // 触发梦角回复（带“正在输入…”提示）：每条回复先显示省略号气泡，到点后原地替换成回复内容
     function mhSimulateReply() {
         var s = (typeof settings !== 'undefined') ? settings : window.settings;
         var cfg = s || {};
@@ -478,26 +514,29 @@
         var dmax = Number(cfg.replyDelayMax) || 1500;
         if (dmin > dmax) dmax = dmin;
         var replyCount = Math.random() < 0.75 ? 1 : (Math.random() < 0.95 ? 2 : 3); // 与陪伴同一规则
-        var delay = 0;
-        for (var i = 0; i < replyCount; i++) {
-            delay += dmin + Math.random() * (dmax - dmin);
-            (function (d) {
-                setTimeout(function () {
-                    var slotIsVoice = pool.voice.length > 0 && (pool.text.length === 0 || Math.random() < 0.35);
-                    var msg;
-                    if (slotIsVoice) {
-                        var vc = pool.voice[Math.floor(Math.random() * pool.voice.length)];
-                        msg = { sender: 'partner', content: '', image: vc.audio, ts: Date.now() };
-                    } else {
-                        msg = { sender: 'partner', content: pool.text[Math.floor(Math.random() * pool.text.length)], image: null, ts: Date.now() };
-                    }
-                    messages.push(msg);
-                    appendMsg(messages[messages.length - 1]);
-                    saveMessages();
-                    if (typeof playSound === 'function') { try { playSound('message'); } catch (e) {} }
-                }, d);
-            })(delay);
-        }
+        var index = 0;
+        (function next() {
+            if (index >= replyCount) return;
+            index++;
+            var typing = mhAppendTyping(); // 先显示省略号气泡
+            var d = dmin + Math.random() * (dmax - dmin);
+            setTimeout(function () {
+                var slotIsVoice = pool.voice.length > 0 && (pool.text.length === 0 || Math.random() < 0.35);
+                var msg;
+                if (slotIsVoice) {
+                    var vc = pool.voice[Math.floor(Math.random() * pool.voice.length)];
+                    msg = { sender: 'partner', content: '', image: vc.audio, ts: Date.now() };
+                } else {
+                    msg = { sender: 'partner', content: pool.text[Math.floor(Math.random() * pool.text.length)], image: null, ts: Date.now() };
+                }
+                messages.push(msg);
+                if (typing) mhMorphTyping(typing, msg); // 省略号 → 回复内容
+                else appendMsg(messages[messages.length - 1]);
+                saveMessages();
+                if (typeof playSound === 'function') { try { playSound('message'); } catch (e) {} }
+                next(); // 紧接着让下一条回复也先显示省略号气泡
+            }, d);
+        })();
     }
     function mhTriggerReply() {
         mhSimulateReply();
@@ -1143,6 +1182,7 @@
             conf.mhCss = v;
             saveConf();
             applyMhCustomCss(v);
+            rerenderMhChatArea();
             showNotification(v ? '自定义CSS已应用' : '已清除自定义CSS', 'info');
         });
         var frommainBtn = el.querySelector('#mh-css-frommain');
@@ -1151,7 +1191,7 @@
             var ta = el.querySelector('#mh-css-area');
             if (ta) ta.value = mainCss;
             if (typeof applyCustomBubbleCss === 'function') { try { applyCustomBubbleCss(mainCss); } catch (e) {} }
-            showNotification('已填入主设置的自定义CSS', 'info');
+            showNotification('已填入主设置的自定义CSS，请点击「应用」生效', 'info');
         });
         var clearBtn = el.querySelector('#mh-css-clear');
         if (clearBtn) clearBtn.addEventListener('click', function () {
@@ -1160,17 +1200,38 @@
             conf.mhCss = '';
             saveConf();
             applyMhCustomCss('');
+            rerenderMhChatArea();
             showNotification('已清空自定义CSS', 'info');
         });
     }
 
-    // 音乐厅自定义CSS：独立注入（作用目标为音乐厅气泡/聊天，如 .mh-msg-bubble）
+    // 音乐厅自定义CSS：独立注入。用 @scope 把用户CSS的作用域限制在音乐厅面板 #cs-panel-musichall 内部，
+    // 即使写了主聊天页的选择器（如 .message-bubble）也不会影响主聊天页。
+    // 每次强制新建 <style> 节点（重新注入，避免 WebView 旧节点不重新解析），保证可靠生效。
     function applyMhCustomCss(cssCode) {
         var styleId = 'mh-user-custom-style';
         var styleTag = document.getElementById(styleId);
-        if (!cssCode || !cssCode.trim()) { if (styleTag) styleTag.remove(); return; }
-        if (!styleTag) { styleTag = document.createElement('style'); styleTag.id = styleId; document.head.appendChild(styleTag); }
-        styleTag.textContent = cssCode;
+        if (styleTag) styleTag.remove();
+        cssCode = (cssCode || '').trim();
+        if (!cssCode) return;
+        styleTag = document.createElement('style');
+        styleTag.id = styleId;
+        styleTag.setAttribute('type', 'text/css');
+        // @scope：Chrome 118+ / 现代 Android WebView 支持，把规则限定到音乐厅面板及其后代
+        styleTag.textContent = '@scope (#cs-panel-musichall) {\n' + cssCode + '\n}';
+        document.head.appendChild(styleTag);
+    }
+
+    // 应用/清空自定义CSS后强制重绘聊天区，确保样式改动立刻可见
+    function rerenderMhChatArea() {
+        var area = document.getElementById('mh-chat-area');
+        if (!area) return;
+        if (messages.length) {
+            var MAX = 200;
+            area.innerHTML = messages.slice(Math.max(0, messages.length - MAX)).map(_msgHTML).join('');
+            _mhBindCloudImages(area);
+        }
+        area.scrollTop = area.scrollHeight;
     }
 
     function syncVinylImage() {
