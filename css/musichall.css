@@ -418,7 +418,7 @@
 .mh-combo-content .sticker-grid-view {
     gap: 14px;
 }
-.mh-msg-img img { width: 100%; max-width: 180px; border-radius: 12px; }
+.mh-msg-img img { max-width: 200px; border-radius: 10px; }
 
 /* ═══ 歌单页（全屏覆盖，与电影院档案页一致：顶部 tabs + 单内容区） ═══ */
 .music-playlist-page {

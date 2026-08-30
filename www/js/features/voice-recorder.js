@@ -89,6 +89,9 @@
         if (holdWrap) holdWrap.style.display = 'none';
         if (messageInput) messageInput.style.display = '';
         resetHoldUI();
+        // 恢复被语音模式隐藏的表情包栏：清除 inline display:none，避免退出后无法再点开
+        var sPicker = $('user-sticker-picker');
+        if (sPicker) sPicker.style.display = '';
     }
 
     async function toggleVoiceMode() {

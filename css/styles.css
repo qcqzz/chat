@@ -11242,6 +11242,19 @@ body #user-sticker-picker .empty-sticker-tip {
     gap: 14px !important;
 }
 
+/* 音乐厅表情面板：弹层较窄，小格子下 cover 会把长条/动图贴纸裁成"破损"，
+   改 contain 让图片完整显示（聊天页 popover 格子大不带此规则，行为不变） */
+#mh-emoji-panel .sticker-grid-view {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+#mh-emoji-panel .sticker-grid-item {
+    background: rgba(128, 128, 128, 0.06);
+}
+#mh-emoji-panel .sticker-grid-item img {
+    object-fit: contain;
+}
+
 /* 加号格子（添加表情入口）*/
 .sticker-grid-add {
     aspect-ratio: 1 / 1;
