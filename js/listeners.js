@@ -4095,6 +4095,15 @@ window._scheduleQuestionAnswer = function(data) {
             replyTo: null,
             type: 'question'
         });
+        // 梦角已回答：把用户发出的「问问你」问题卡片（及此前未读消息）标记为已读，仅更新 DOM
+        try {
+            var _msgs = (typeof messages !== 'undefined' && messages) ? messages : window.messages;
+            var _changed = false;
+            if (_msgs) _msgs.forEach(function (m) {
+                if (m && m.sender === 'user' && m.status !== 'read') { m.status = 'read'; _changed = true; }
+            });
+            if (_changed && typeof _updateReadReceiptsDOM === 'function') _updateReadReceiptsDOM();
+        } catch (e) {}
         // 梦角作答回答卡片：弹系统通知
         if (typeof window._sendPartnerNotification === 'function') {
             window._sendPartnerNotification(partner, '回答了你《' + (data.question || '') + '》：' + answer.join('、'));
