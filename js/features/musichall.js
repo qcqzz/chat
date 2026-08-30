@@ -414,17 +414,25 @@
             });
         }
     }
+    // 追加一条消息气泡到聊天区，返回是否真正写入成功。
+    // 任何渲染失败都返回 false，上层据此整块重绘兜底，绝不吞掉消息。
     function appendMsg(m) {
-        var area = document.getElementById('mh-chat-area');
-        if (!area) return;
-        var empty = area.querySelector('.mh-chat-empty');
-        if (empty) empty.remove();
-        var tmp = document.createElement('div');
-        tmp.innerHTML = _msgHTML(m);
-        var node = tmp.firstChild;
-        area.appendChild(node);
-        _mhBindCloudImages(node);
-        area.scrollTop = area.scrollHeight;
+        try {
+            var area = document.getElementById('mh-chat-area');
+            if (!area) return false;
+            var empty = area.querySelector('.mh-chat-empty');
+            if (empty) empty.remove();
+            var tmp = document.createElement('div');
+            tmp.innerHTML = _msgHTML(m);
+            var node = tmp.firstChild;
+            if (!node) return false;
+            area.appendChild(node);
+            _mhBindCloudImages(node);
+            area.scrollTop = area.scrollHeight;
+            return true;
+        } catch (e) {
+            return false;
+        }
     }
 
     // ── 音乐厅聊天：表情包（与聊天页表情功能一致；样式仿微信：添加表情标题＋加号格子＋4列贴纸网格） ─────────
@@ -497,24 +505,35 @@
             return null;
         }
     }
-    // 回复到达：用真实回复气泡替换“正在输入…”气泡，并重新懒加载云端表情
+    // 回复到达：用真实回复气泡替换“正在输入…”气泡，并重新懒加载云端表情。
+    // 返回是否真正完成了替换。节点已脱离 DOM / 渲染失败等都会返回 false，
+    // 上层据此直接追加真实回复（或整块重绘），保证回复内容必然送达。
     function mhMorphTyping(node, msg) {
-        if (!node || !node.parentNode) return;
-        var tmp = document.createElement('div');
-        tmp.innerHTML = _msgHTML(msg);
-        var newNode = tmp.firstChild;
-        node.parentNode.replaceChild(newNode, node);
-        _mhBindCloudImages(newNode);
-        var area = document.getElementById('mh-chat-area');
-        if (area) area.scrollTop = area.scrollHeight;
+        if (!node || !node.parentNode) return false;
+        try {
+            var tmp = document.createElement('div');
+            tmp.innerHTML = _msgHTML(msg);
+            var newNode = tmp.firstChild;
+            if (!newNode) return false;
+            node.parentNode.replaceChild(newNode, node);
+            _mhBindCloudImages(newNode);
+            var area = document.getElementById('mh-chat-area');
+            if (area) area.scrollTop = area.scrollHeight;
+            return true;
+        } catch (e) {
+            return false;
+        }
     }
-    // 触发梦角回复（带“正在输入…”提示）：每条回复先显示省略号气泡，到点后原地替换成回复内容
+    // 触发梦角回复（带“正在输入…”提示）：每条回复先显示省略号气泡，到点后原地替换成回复内容。
+    // 回复本身绝不依赖省略号是否渲染成功：任何一步失败都回退“直接追加 / 整块重绘”，保证回复必达。
     function mhSimulateReply() {
         var s = (typeof settings !== 'undefined') ? settings : window.settings;
         var cfg = s || {};
-        if (cfg.replyEnabled === false) return; // 在线回复关闭：不回
+        // 注意：不复用 settings.replyEnabled（那是主聊天「引用回复」开关，与音乐厅本地回复无关），
+        // 否则用户关掉引用回复后音乐厅就再也不回，表现为"收不到回复"。
         var chance = Math.max(0, Math.min(1, Number(cfg.readNoReplyChance) || 0));
         if (cfg.allowReadNoReply && Math.random() < chance) return; // 已读不回
+        var showTyping = cfg.typingIndicatorEnabled !== false; // 遵循「正在输入」开关；关闭时仍正常回复，只是不显示省略号
         var pool = mhBuildReplyPool();
         if (!pool.text.length && !pool.voice.length) {
             if (typeof showNotification === 'function') showNotification('回复库可用内容为空，请到「自定义回复」中调整', 'info', 3500);
@@ -530,7 +549,7 @@
             index++;
             // 先尝试显示“正在输入”省略号气泡；若渲染失败返回 null，仍会在到点时直接补上真实回复
             var typing = null;
-            try { typing = mhAppendTyping(); } catch (e) { typing = null; }
+            if (showTyping) { try { typing = mhAppendTyping(); } catch (e) { typing = null; } }
             var d = dmin + Math.random() * (dmax - dmin);
             setTimeout(function () {
                 try {
@@ -543,10 +562,10 @@
                         msg = { sender: 'partner', content: pool.text[Math.floor(Math.random() * pool.text.length)], image: null, ts: Date.now() };
                     }
                     messages.push(msg);
-                    // 省略号存在则原地替换，否则直接追加真实回复（两者都能把回复送达）
-                    var shown = false;
-                    if (typing) { try { mhMorphTyping(typing, msg); shown = true; } catch (e) { typing = null; } }
-                    if (!shown) appendMsg(messages[messages.length - 1]);
+                    // 省略号存在则原地替换；替换失败/节点已脱离 DOM 则直接追加；
+                    // 追加也失败则整块重绘聊天区。三层兜底保证真实回复必然可见。
+                    var shown = typing ? mhMorphTyping(typing, msg) : false;
+                    if (!shown && !appendMsg(messages[messages.length - 1])) rerenderMhChatArea();
                     saveMessages();
                     if (typeof playSound === 'function') { try { playSound('message'); } catch (e) {} }
                 } catch (e) {
