@@ -214,27 +214,87 @@
     var KEY = 'keepaliveAudioEnabled';
     // 内嵌静音音频（base64 WAV），完全本地，不依赖外网：
     // 1) 移动端启动时不再拉远程音频，减少卡顿与网络重试；
-    // 2) muted=true 可绕过浏览器自动播放限制，让 WebView 无需用户操作也能直接进入"运行中"。
+    // 2) 先以 muted=true 绕过浏览器自动播放限制，播放成功后再解除静音，
+    //    让 WebView 判定为"正在播放音频"，从而豁免隐藏页 JS 定时器节流。
     var SRC = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
-    var _audio = null;
+    var _audio = null;       // <audio> 兜底信号
+    var _audioCtx = null;    // WebAudio 主保活信号（不出声、不占媒体通知位）
+    var _gainNode = null;
+    var _bufSrc = null;
     var _unlockBound = false;
     var _retryTimer = null;
     var _watchdogTimer = null;
     var _wakeLock = null;
+    var _diagTick = 0;
 
     function _get() { return localStorage.getItem(KEY) === 'true'; }
 
+    // ===== WebAudio 静音循环（主信号） =====
+    // 根因说明：Chromium 对隐藏页面会强制节流 JS 定时器（隐藏约 5 分钟后降为 1 次/分钟甚至冻结），
+    // 但"正在播放音频"的页面会被豁免。muted=true 的 <audio> 不算"正在播放"，
+    // 所以以前挂久了 JS 定时器照样被冻结、保活静默失效。
+    // 这里用 WebAudio 循环播放一段静音 buffer：系统眼里是"正在输出音频"，人耳里是绝对静音，
+    // 且不会像 <audio> 那样弹出媒体播放通知。部分 WebView 要求用户手势后 resume 才生效，
+    // 因此也在 _bindUnlock 的每次手势里顺带调用本函数。
+    function _startAudioCtx() {
+        try {
+            var AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return false;
+            if (!_audioCtx) _audioCtx = new AC();
+            if (_audioCtx.state === 'suspended') {
+                var rp = _audioCtx.resume();
+                if (rp && rp.then) rp.catch(function () {});
+            }
+            if (_audioCtx.state !== 'running') return false;
+            if (!_bufSrc) {
+                var sr = _audioCtx.sampleRate || 44100;
+                var buf = _audioCtx.createBuffer(1, sr, sr); // 1 秒纯静音 buffer
+                _bufSrc = _audioCtx.createBufferSource();
+                _bufSrc.buffer = buf;
+                _bufSrc.loop = true;
+                if (!_gainNode) { _gainNode = _audioCtx.createGain(); _gainNode.gain.value = 0; }
+                _bufSrc.connect(_gainNode);
+                _gainNode.connect(_audioCtx.destination);
+                _bufSrc.start();
+            }
+            return true;
+        } catch (e) {
+            console.warn('[keepalive] WebAudio 启动失败:', e);
+            return false;
+        }
+    }
+
+    function _stopAudioCtx() {
+        try {
+            if (_bufSrc) {
+                try { _bufSrc.stop(); } catch (e) {}
+                try { _bufSrc.disconnect(); } catch (e) {}
+                _bufSrc = null;
+            }
+            if (_audioCtx && _audioCtx.state !== 'closed') {
+                try { _audioCtx.close(); } catch (e) {}
+            }
+            _audioCtx = null; _gainNode = null;
+        } catch (e) {}
+    }
+
+    // ===== <audio> 兜底信号 =====
     function _createAudio() {
         if (_audio) return _audio;
         _audio = new Audio(SRC);
         _audio.loop   = true;
         _audio.volume = 0.01;
-        _audio.muted  = true;   // 静音自播：绕过自动播放策略，评保活可靠进入"运行中"
+        _audio.muted  = true;   // 先静音：绕过自动播放策略，无需用户操作也能直接播放
         _audio.preload = 'auto';
         _audio._createdAt = Date.now();
-        _audio.addEventListener('play',  function(){ _setUI(true);  });
+        _audio.addEventListener('play', function(){
+            _setUI(true);
+            // 播放成功后解除静音：让 Chromium 判定为"正在播放音频"，豁免隐藏页定时器节流。
+            // 内容是纯静音 WAV，解除静音也不会有任何声音。
+            try { if (_audio) { _audio.muted = false; _audio.volume = 0.01; } } catch (e) {}
+        });
         _audio.addEventListener('pause', function(){ _setUI(false); });
-        // 静音音频一旦出错/中断，自动重建重试，避免保活悄悄失效（本地资源重试开销极小）
+        // 音频一旦出错/中断，自动重建重试，避免保活悄悄失效（本地资源重试开销极小）
         ['error', 'abort', 'stalled', 'emptied'].forEach(function (evt) {
             _audio.addEventListener(evt, function () {
                 console.warn('[keepalive] 音频事件:', evt);
@@ -307,14 +367,16 @@
     function _bindUnlock() {
         if (_unlockBound) return;
         _unlockBound = true;
+        // 首次用户手势时启动/恢复 WebAudio（部分 WebView 要求手势后 resume 才生效）；
+        // 之后每次手势都顺带确保主信号在跑，防止被系统挂起后无法自愈。
         function unlock() {
-            _unlockBound = false;
-            if (_get()) _start();
+            if (!_get()) return;
+            _startAudioCtx();
+            if (_audio && _audio.paused) _start();
         }
-        document.addEventListener('touchstart', unlock, { once:true });
-        document.addEventListener('touchend',   unlock, { once:true });
-        document.addEventListener('click',      unlock, { once:true });
-        document.addEventListener('pointerdown',unlock, { once:true });
+        ['touchstart', 'touchend', 'click', 'pointerdown'].forEach(function (ev) {
+            document.addEventListener(ev, unlock, { passive: true });
+        });
     }
 
     function _start() {
@@ -335,42 +397,54 @@
         } else {
             _setUI(true);
         }
+        _startAudioCtx();   // 同步拉起 WebAudio 主信号
         _requestWakeLock();
         _refreshForeground();
     }
 
     function _stop() {
         if (_audio) { _audio.pause(); _audio.currentTime = 0; }
+        _stopAudioCtx();
         _releaseWakeLock();
         _setUI(false);
     }
 
-    // 是否"真在播放"：音频对象存在且未暂停/未结束/未出错才算保活生效
+    // 是否"真在保活"：WebAudio 在渲染 或 <audio> 未暂停/未结束/未出错，任一信号有效即可
     function _isReallyPlaying() {
-        return !!_audio && !_audio.paused && !_audio.ended && !_audio.error;
+        var audioOk = !!_audio && !_audio.paused && !_audio.ended && !_audio.error;
+        var ctxOk = !!_audioCtx && _audioCtx.state === 'running' && !!_bufSrc;
+        return audioOk || ctxOk;
     }
 
-    // 自愈入口：只要开启了保活就尽量让音频真正跑起来。
+    // 自愈入口：只要开启了保活就尽量让两个信号都真正跑起来。
     // play() 在首次用户手势前会被自动播放策略拒绝，这里高频重试，
     // 一旦用户点过一次（首次交互/回前台），无需再手动切换即可自动拉起到"运行中"。
     function _ensureRunning() {
         if (!_get()) return;
-        if (!_isReallyPlaying()) {
+        _startAudioCtx();
+        if (!_audio || _audio.paused || _audio.error) {
             try { if (_audio && _audio.error) _audio = null; } catch (e) {}
             _start();
-        } else {
-            _requestWakeLock();
-            _refreshForeground();
         }
+        _requestWakeLock();
+        _refreshForeground();
+        _setUI(_isReallyPlaying());
     }
 
     function _startWatchdog() {
         if (_watchdogTimer) return;
-        // 高频巡检（3 秒）：发现静音音频没在播就自动重试拉起，并顺带刷新原生前台服务，
+        // 高频巡检（3 秒）：发现任一保活信号没在跑就自动重试拉起，并顺带刷新原生前台服务，
         // 确保持久运行，后台/息屏也能持续接收并弹出消息；无需依赖一次性 unlock 监听。
         _watchdogTimer = setInterval(function () {
             if (!_get()) return;
             _ensureRunning();
+            if (++_diagTick % 20 === 0) {
+                console.log('[keepalive] 巡检', {
+                    audio: !!_audio && !_audio.paused && !_audio.error,
+                    ctx: _audioCtx ? _audioCtx.state : null,
+                    wake: !!_wakeLock
+                });
+            }
         }, 3000);
     }
 
@@ -379,13 +453,15 @@
         localStorage.setItem(KEY, String(next));
         if (next) {
             _startWatchdog();
+            _bindUnlock();
+            _startAudioCtx();
             _start();
-            if (typeof showNotification === 'function') showNotification('保活音频已开启 🎵', 'success', 2000);
+            if (typeof showNotification === 'function') showNotification('后台保活已开启 🎵', 'success', 2000);
             // 立即更新开关颜色，不等待异步 play() 返回
             _setUI(true);
         } else {
             _stop();
-            if (typeof showNotification === 'function') showNotification('保活音频已关闭', 'info', 1500);
+            if (typeof showNotification === 'function') showNotification('后台保活已关闭', 'info', 1500);
             _setUI(false);
         }
     };
@@ -401,11 +477,11 @@
 
     document.addEventListener('DOMContentLoaded', function(){
         _setUI(false);
-        if (_get()) { _startWatchdog(); _start(); }
+        if (_get()) { _startWatchdog(); _bindUnlock(); _start(); }
     });
     setTimeout(function(){
-        _setUI(_get() && !!_audio && !_audio.paused);
-        if (_get()) { _startWatchdog(); if (!_audio || _audio.paused) _start(); }
+        _setUI(_get() && _isReallyPlaying());
+        if (_get()) { _startWatchdog(); _bindUnlock(); _ensureRunning(); }
     }, 1800);
 })();
 
