@@ -70,10 +70,11 @@
         }
         if (messageInput) messageInput.style.display = 'none';
         if (holdWrap) holdWrap.style.display = 'flex';
-        // 收起可能打开的更多面板 / 表情面板
+        // 收起可能打开的更多面板 / 表情面板（只去掉 active 收起，不 display:none 硬隐藏，
+        // 这样语音输入状态下仍可通过 combo-btn 重新打开表情包栏）
         if (typeof window.closeMorePanel === 'function') window.closeMorePanel();
         var picker = $('user-sticker-picker');
-        if (picker) picker.style.display = 'none';
+        if (picker) picker.classList.remove('active');
     }
 
     function exitVoiceMode() {

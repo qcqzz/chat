@@ -93,6 +93,7 @@
         bindControls(panel);
         bindChat(panel);
         _mhRegisterControl();
+        _mhBindCloudImages(panel);
 
         applyMhCustomCss(conf.mhCss);
 
@@ -170,12 +171,23 @@
         return 'mh-msg-bubble bubble-' + (bs === 'rounded' ? 'rounded' : bs === 'rounded-large' ? 'rounded-large' : bs === 'square' ? 'square' : 'standard');
     }
 
+    // 绑定消息里的云端表情/图片（data-lazy-cloud-ref → CloudMedia 懒加载），与主聊天页一致
+    function _mhBindCloudImages(scope) {
+        if (!window.CloudMedia || !scope || !scope.querySelectorAll) return;
+        scope.querySelectorAll('img[data-lazy-cloud-ref]').forEach(function (imgEl) {
+            var ref = imgEl.getAttribute('data-lazy-cloud-ref');
+            if (ref) window.CloudMedia.bindLazyImage(imgEl, ref);
+        });
+    }
+
     function _msgHTML(m) {
         var mine = m.sender === 'user';
         var bubble;
         if (m.image) {
             var isCloud = String(m.image).indexOf('oss://') === 0;
-            bubble = '<div class="' + bubbleClass() + ' mh-msg-img"><img data-mh-cloud="' + (isCloud ? '1' : '0') + '" ' + (isCloud ? '' : 'src="' + esc(m.image) + '"') + ' alt="表情"></div>';
+            bubble = '<div class="' + bubbleClass() + ' mh-msg-img"><img ' +
+                (isCloud ? 'data-lazy-cloud-ref="' + esc(m.image) + '"' : 'src="' + esc(m.image) + '"') +
+                ' alt="表情"></div>';
         } else {
             bubble = '<div class="' + bubbleClass() + '">' + esc(m.content) + '</div>';
         }
@@ -405,7 +417,9 @@
         if (empty) empty.remove();
         var tmp = document.createElement('div');
         tmp.innerHTML = _msgHTML(m);
-        area.appendChild(tmp.firstChild);
+        var node = tmp.firstChild;
+        area.appendChild(node);
+        _mhBindCloudImages(node);
         area.scrollTop = area.scrollHeight;
     }
 
@@ -413,8 +427,18 @@
     // 表情包图片源：我的表情 + 对方表情（与聊天页一致）
     function mhStickerArray() {
         var out = [];
-        if (typeof myStickerLibrary !== 'undefined' && Array.isArray(myStickerLibrary)) out = out.concat(myStickerLibrary);
-        if (typeof stickerLibrary !== 'undefined' && Array.isArray(stickerLibrary)) out = out.concat(stickerLibrary);
+        // 兼容两种格式：stickerLibrary 是纯字符串数组（内置贴纸）；
+        // myStickerLibrary 是对象数组 { id, src, groupId, addedAt, groupJoinedAt }（本地上传，
+        // 分成组管理）。音乐厅这里只关心图片地址，统一取出字符串 src，避免把对象直接当 src。
+        [myStickerLibrary, stickerLibrary].forEach(function (lib) {
+            if (typeof lib === 'undefined' || !Array.isArray(lib)) return;
+            lib.forEach(function (item) {
+                var src = (item && typeof item === 'object' && typeof item.src === 'string')
+                    ? item.src
+                    : String(item || '');
+                if (src) out.push(src);
+            });
+        });
         return out;
     }
     // 触发梦角回复：完全独立的本地回复——复用主聊天同一套「自定义回复」语料与规则，
@@ -428,7 +452,9 @@
             (window.customReplyGroups || []).forEach(function (g) {
                 if (g.disabled && Array.isArray(g.items)) g.items.forEach(function (it) { disabledGroup.add(it); });
             });
-            var cr = window._customReplies || [];
+            var cr = (typeof customReplies !== 'undefined' && Array.isArray(customReplies))
+                ? customReplies
+                : (window._customReplies || []);
             text = cr.filter(function (r) { return !disabledReplies.has(r) && !disabledGroup.has(r); })
                 .map(function (r) { return String(r || '').trim(); }).filter(Boolean);
             var disabledVoice = new Set();
