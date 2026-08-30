@@ -352,6 +352,8 @@ function loadMoreFuture() {
                 musicPlayerEnabled: false,
                 replyDelayMin: 3000,
                 replyDelayMax: 7000,
+                askDelayMin: 10000,
+                askDelayMax: 60000,
                 inChatAvatarEnabled: true,
                 inChatAvatarSize: 36,
                 inChatAvatarPosition: 'center',

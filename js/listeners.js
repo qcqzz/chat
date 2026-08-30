@@ -1197,6 +1197,10 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
             const minDelayValue = document.getElementById('reply-delay-min-value');
             const maxDelaySlider = document.getElementById('reply-delay-max-slider');
             const maxDelayValue = document.getElementById('reply-delay-max-value');
+            const askMinSlider = document.getElementById('ask-delay-min-slider');
+            const askMinValue = document.getElementById('ask-delay-min-value');
+            const askMaxSlider = document.getElementById('ask-delay-max-slider');
+            const askMaxValue = document.getElementById('ask-delay-max-value');
 
             window.switchCsTab = function switchCsTab(btn) {
                 document.querySelectorAll('.cs-tab').forEach(t => t.classList.remove('active'));
@@ -1213,7 +1217,16 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
                 maxDelaySlider.value = settings.replyDelayMax;
                 const maxSec = settings.replyDelayMax / 1000;
                 maxDelayValue.textContent = maxSec >= 60 ? `${(maxSec/60).toFixed(1)}分钟` : `${maxSec.toFixed(0)}s`;
-                maxDelaySlider.min = settings.replyDelayMin; 
+                maxDelaySlider.min = settings.replyDelayMin;
+                if (!(Number(settings.askDelayMin) > 0)) settings.askDelayMin = 10000;
+                if (!(Number(settings.askDelayMax) > 0)) settings.askDelayMax = 60000;
+                askMinSlider.value = settings.askDelayMin;
+                const askMinSec = settings.askDelayMin / 1000;
+                askMinValue.textContent = askMinSec >= 60 ? `${(askMinSec/60).toFixed(1)}分钟` : `${askMinSec.toFixed(0)}s`;
+                askMaxSlider.value = settings.askDelayMax;
+                const askMaxSec = settings.askDelayMax / 1000;
+                askMaxValue.textContent = askMaxSec >= 60 ? `${(askMaxSec/60).toFixed(1)}分钟` : `${askMaxSec.toFixed(0)}s`;
+                askMaxSlider.min = settings.askDelayMin;
             }
             updateDelayUI();
 
@@ -1234,6 +1247,24 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
                 updateDelayUI();
             });
             maxDelaySlider.addEventListener('change', throttledSaveData);
+
+            askMinSlider.addEventListener('input', (e) => {
+                settings.askDelayMin = parseInt(e.target.value, 10);
+                if (settings.askDelayMin > settings.askDelayMax) {
+                    settings.askDelayMax = settings.askDelayMin;
+                }
+                updateDelayUI();
+            });
+            askMinSlider.addEventListener('change', throttledSaveData);
+
+            askMaxSlider.addEventListener('input', (e) => {
+                settings.askDelayMax = parseInt(e.target.value, 10);
+                if (settings.askDelayMax < settings.askDelayMin) {
+                    settings.askDelayMin = settings.askDelayMax;
+                }
+                updateDelayUI();
+            });
+            askMaxSlider.addEventListener('change', throttledSaveData);
 
             const settingToggles = {
                 '#reply-toggle': {
@@ -4017,7 +4048,11 @@ window._scheduleQuestionAnswer = function(data) {
     var opts = (Array.isArray(data.options)) ? data.options.slice() : [];
     if (opts.length === 0) return;
     var mode = data.choiceMode === 'multiple' ? 'multiple' : 'single';
-    var delay = 10000 + Math.random() * 50000;
+    var s = (typeof settings === 'object' && settings) ? settings : window.settings || {};
+    var amin = Number(s.askDelayMin) || 10000;
+    var amax = Number(s.askDelayMax) || 60000;
+    if (amax < amin) amax = amin;
+    var delay = amin + Math.random() * (amax - amin);
     setTimeout(function () {
         var idx = [];
         for (var i = 0; i < opts.length; i++) idx.push(i);

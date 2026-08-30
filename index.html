@@ -2380,6 +2380,20 @@ html[data-theme="dark"] #chat-transition-overlay{
                         </div>
                     </div>
 
+                    <p class="cs-group-label" style="margin-top:4px;">问一问回答速度</p>
+                    <div class="cs-card" style="margin-bottom:10px;">
+                        <div class="cs-slider-row">
+                            <span class="cs-slider-label">最短等待</span>
+                            <input type="range" min="1000" max="30000" step="1000" value="10000" class="font-size-slider" id="ask-delay-min-slider">
+                            <span class="cs-slider-val" id="ask-delay-min-value">10s</span>
+                        </div>
+                        <div class="cs-slider-row">
+                            <span class="cs-slider-label">最长等待</span>
+                            <input type="range" min="1000" max="1800000" step="1000" value="60000" class="font-size-slider" id="ask-delay-max-slider">
+                            <span class="cs-slider-val" id="ask-delay-max-value">60s</span>
+                        </div>
+                    </div>
+
                     <p class="cs-group-label" style="margin-top:4px;">主动发送</p>
                     <div class="cs-card">
                         <div class="setting-pill-row" id="auto-send-toggle">
@@ -3878,10 +3892,10 @@ html[data-theme="dark"] #chat-transition-overlay{
 
     <!-- == 核心层 == -->
     <script src="js/config.js"></script>
-    <script src="js/utils.js?v=218"></script>
+    <script src="js/utils.js?v=220"></script>
     <script src="js/backup-engine.js?v=215"></script>
     <script src="js/state.js"></script>
-    <script src="js/core.js?v=215"></script>
+    <script src="js/core.js?v=216"></script>
 
     <!-- == 功能模块 == -->
     <script src="js/features/mood.js"></script>
@@ -3902,7 +3916,7 @@ html[data-theme="dark"] #chat-transition-overlay{
     <script src="js/data.js"></script>
     <script src="js/onboarding.js"></script> 
     <script src="js/features/anniversary.js"></script>
-    <script src="js/listeners.js?v=4"></script>
+    <script src="js/listeners.js?v=5"></script>
     <script src="js/listeners-step2.js"></script>
     <script src="js/listeners-voice.js"></script>
     <script src="js/features/voice-recorder.js"></script>
