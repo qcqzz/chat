@@ -602,11 +602,19 @@
     };
 
     window._scrollToMsg = function(id) {
-        var el = document.querySelector('[data-id="'+id+'"]') || document.querySelector('[data-message-id="'+id+'"]') || document.querySelector('[data-msg-id="'+id+'"]');
+        // 消息统计/日期跳转都从「桌面页」进入：先切回聊天页再定位消息，
+        // 否则弹窗一关看到的还是桌面，消息滚动发生在隐藏的聊天容器里，用户感觉“没跳转”
+        function ensureChatView() {
+            if (!document.body.classList.contains('dt-view')) return;
+            if (typeof window._chatCancelOpen === 'function') window._chatCancelOpen();
+            document.body.classList.remove('dt-view');
+        }
         function closeStatsModal() {
             var m = document.getElementById('stats-modal');
             if (m && typeof hideModal==='function') setTimeout(function(){ hideModal(m); }, 350);
         }
+        ensureChatView();
+        var el = document.querySelector('[data-id="'+id+'"]') || document.querySelector('[data-message-id="'+id+'"]') || document.querySelector('[data-msg-id="'+id+'"]');
         if (el) {
             el.scrollIntoView({behavior:'smooth',block:'center'});
             el.style.transition='background .3s ease';
