@@ -2590,6 +2590,28 @@ if (!isBatchMode && type === 'normal') {
             ro.observe(inputArea);
         })();
 
+        // ─── 正在输入指示器：统一隐藏 + 超时兜底（防止超出发送节奏后仍一直显示） ───
+        function _hideTyping() {
+            try { if (window._typingIndicatorAutoHideTimer) { clearTimeout(window._typingIndicatorAutoHideTimer); window._typingIndicatorAutoHideTimer = null; } } catch (e) {}
+            var _tiW = document.getElementById('typing-indicator-wrapper');
+            if (_tiW) {
+                var _tiInner = _tiW.querySelector('.typing-indicator');
+                if (_tiInner) {
+                    _tiInner.classList.add('hiding');
+                    setTimeout(function () { _tiW.style.display = 'none'; if (_tiInner) _tiInner.classList.remove('hiding'); }, 240);
+                } else {
+                    _tiW.style.display = 'none';
+                }
+            }
+        }
+        function _scheduleTypingAutoHide(ms) {
+            try { if (window._typingIndicatorAutoHideTimer) { clearTimeout(window._typingIndicatorAutoHideTimer); } } catch (e) {}
+            window._typingIndicatorAutoHideTimer = setTimeout(function () {
+                window._typingIndicatorAutoHideTimer = null;
+                _hideTyping();
+            }, ms);
+        }
+
         // 通用：触发"模拟用户发了消息后的延迟回复"机制
         //   isUserMessage: true 表示真实有用户消息（默认），false 表示陪伴页点击触发（不存在的虚拟消息）
         //   返回 true 表示已排队等待回复，false 表示被"已读不回"概率拦截
@@ -2598,8 +2620,12 @@ if (!isBatchMode && type === 'normal') {
         function _drainReplyQueue() {
             if (!window._replyQueue || window._replyQueue.length === 0) return;
             const task = window._replyQueue[0];
+            // 只当"后面还有排队回复"时才插入节奏间隔（用于串联多条消息的回复）；
+            // 单独一条消息立即执行，避免在 simulateReply 内部的回复延迟之外再叠一层，
+            // 否则正在输入会超出发送的回复节奏（总等待时长接近翻倍）。
+            const hasNext = window._replyQueue.length > 1;
             const delayRange = settings.replyDelayMax - settings.replyDelayMin;
-            const randomDelay = settings.replyDelayMin + Math.random() * delayRange;
+            const randomDelay = hasNext ? settings.replyDelayMin + Math.random() * delayRange : 0;
             setTimeout(() => {
                 if (window._replyQueue.length > 0) window._replyQueue.shift();
                 try {
@@ -2662,6 +2688,8 @@ if (!isBatchMode && type === 'normal') {
                     tiAvatar.innerHTML = partnerImg ? `<img src="${partnerImg.src}">` : '<i class="fas fa-user"></i>';
                 }
                 if (_isCaughtUpToLatest() && DOMElements.chatContainer) DOMElements.chatContainer.scrollTop = DOMElements.chatContainer.scrollHeight;
+                // 超时兜底：即使后续回复流程提前中断，正在输入也会在合理时间后自动消失
+                _scheduleTypingAutoHide((settings.replyDelayMax || 7000) * 5 + 3000);
             }
 
             // 排队回复（不覆盖已有排队，连续触发会在前面回复完成后依次执行）
@@ -2741,17 +2769,20 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
             if (settings.partnerRecallEnabled && Math.random() < 0.03) {
                 // ── 对方撤回消息：触发概率 3%，用一个独立回复周期触发 ──
                 if (typeof window._triggerPartnerRecall === 'function') window._triggerPartnerRecall();
+                _hideTyping(); // 撤回不产生回复，隐藏正在输入，避免一直显示
                 return;
             }
             if (Math.random() < 0.03) {
                 // ── 对方拍一拍：调用提取的通用函数（同时供 /测试拍一拍 指令使用）──
                 if (typeof window._triggerPartnerPoke === 'function') window._triggerPartnerPoke();
+                _hideTyping(); // 拍一拍不产生回复，隐藏正在输入
                 return;
             }
 
             const replyCount = Math.random() < 0.75 ? 1: (Math.random() < 0.95 ? 2: 3);
             if (!customReplies || customReplies.length === 0) {
                 showNotification('回复库为空，请先到「自定义回复」中添加内容', 'info', 3500);
+                _hideTyping(); // 无回复可发，隐藏正在输入
                 return;
             }
             const disabledItemsOnce = (() => {
@@ -2778,11 +2809,14 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
         const enabledVoicePool = vcEnabledReply ? (voiceCards || []).filter(v => v && v.audio && !disabledVoiceIdsOnce.has(v.id)) : [];
         if (!replyPoolOnce.length && !enabledVoicePool.length) {
             showNotification('回复库可用内容为空（无可用文字字卡或语音字卡），请到「自定义回复」中调整', 'info', 4000);
+            _hideTyping(); // 无可用回复，隐藏正在输入
             return;
         }
 
             // 确认有可用回复后再展示“正在输入中”，避免空转
             showTypingIndicator();
+            // 按实际回复条数收紧超时兜底：正常路径会在最后一条回复到达时主动隐藏并清除计时器
+            _scheduleTypingAutoHide((settings.replyDelayMax || 7000) * replyCount + 2500);
             let delay = 0;
             // 陪伴页静默触发时不引用用户消息（陪伴中的触发不是用户发了某条具体消息）
             const recentUserMsgs = (settings.replyEnabled && !window._companionSilentTrigger)

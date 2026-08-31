@@ -4101,17 +4101,18 @@
                     window.__stickerPickerOriginalNextSibling = picker.nextSibling;
                 }
 
-                // 触发主聊天的初始化逻辑（让面板内容渲染好）
-                mainComboBtn.click();
-
-                // 物理移到陪伴页里
+                // 物理移到陪伴页里（先移动再触发 active/动画：
+                // 不能先 click 让 pickerSlideUp 动画开始再 appendChild 移动 DOM，
+                // 移动会中断动画，forwards 会让 opacity 停在起始帧 0，面板打不开）
                 const companionPage = document.getElementById('companion-page');
                 if (companionPage) {
                     companionPage.appendChild(picker);
                     picker.dataset.companionMoved = '1';
-                    picker.classList.add('active');
-                    // 浮在陪伴输入区上方 + 圆角
                     picker.style.cssText = 'position: absolute !important; left: 16px !important; right: 16px !important; bottom: 80px !important; top: auto !important; width: auto !important; max-width: none !important; max-height: 320px !important; z-index: 200 !important; display: flex !important; border-radius: 16px !important; overflow: hidden !important; box-shadow: 0 8px 32px rgba(0,0,0,0.25) !important;';
+
+                    // 触发主聊天的初始化逻辑（让面板内容渲染好）
+                    mainComboBtn.click();
+                    picker.classList.add('active');
 
                     // 关闭逻辑已统一到 document-level（在外面注册），这里不重复绑定
                 }

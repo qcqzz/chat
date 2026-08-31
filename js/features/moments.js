@@ -312,54 +312,139 @@ function _fmtDate(d){if(!d)return'';if(d===_mToday())return'今天';const dt=new
 function _getAvSrc(isPartner){const c=window._avatarCache||{};if(isPartner){if(c.partner)return c.partner;const e=document.getElementById('partner-avatar');return e&&e.src&&!e.src.endsWith('/')?e.src:null;}else{if(c.me)return c.me;const e=document.getElementById('my-avatar');return e&&e.src&&!e.src.endsWith('/')?e.src:null;}}
 function _avEl(isPartner,size){const src=_getAvSrc(isPartner),s=size||36;return src?`<img src="${src}" style="width:${s}px;height:${s}px;border-radius:50%;object-fit:cover;display:block;flex-shrink:0;">`:`<span style="width:${s}px;height:${s}px;border-radius:50%;background:var(--border-color,#d0d0d0);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fas fa-user" style="font-size:${Math.round(s*0.48)}px;color:var(--text-secondary,#aaa);"></i></span>`;}
 
-// ─── 贴纸选择器（用户自己的 stickerLibrary） ───
-window._mToggleSticker=function(postId){
-    const existing=document.getElementById('cs-sticker-picker');
-    if(existing){existing.remove();return;}
-    const pool=[...(myStickerLibrary||[])];
-    if(!pool.length){
-        const toast=document.createElement('div');
-        toast.style.cssText='position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.75);color:#fff;padding:8px 16px;border-radius:20px;font-size:13px;z-index:9999;';
-        toast.textContent='还没有表情包，请先在设置中上传哦~';
-        document.body.appendChild(toast); setTimeout(()=>toast.remove(),2000); return;
+// ─── 表情/贴纸选择器（情侣空间评论）──────────────────────────────
+// 评论里的笑脸按钮：直接复用主聊天的 #user-sticker-picker 表情面板，
+// 保证和主聊天页"一模一样"（同样的分组/添加/删除/管理、同样的样式、同样的格子）。
+// 区别只在点表情时的落点：主聊天发消息，这里通过 window._mStickerCommentTarget
+// 把表情作为"评论图片"附加到对应动态的评论输入框（games.js 的 _pickSticker 统一出口）。
+
+window._mStickerCommentTarget = null;  // { postId } 或 null，games.js _pickSticker 读取
+window._mStickerCommentPostId = null;  // 当前正在回复的动态 id（用于"再点一次收起"判断）
+
+window._mToggleSticker = function (postId) {
+    const picker = document.getElementById('user-sticker-picker');
+    const mainComboBtn = document.getElementById('combo-btn');
+    if (!picker || !mainComboBtn) {
+        if (typeof showNotification === 'function') showNotification('表情功能加载失败', 'error');
+        return;
     }
-    const btn=document.getElementById('cs-sticker-btn-'+postId);
-    const rect=btn?btn.getBoundingClientRect():{top:300,left:10};
-    const picker=document.createElement('div'); picker.id='cs-sticker-picker';
-    picker.style.cssText=`position:fixed;bottom:${window.innerHeight-rect.top+8}px;left:48px;right:48px;z-index:9500;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:14px;padding:10px;box-shadow:0 8px 32px rgba(0,0,0,0.25);display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:200px;overflow-y:auto;`;
-    // 分批渲染 + 滚动加载：贴纸很多时避免一次性创建/解码几百个 base64 <img> 拖卡主线程
-    const PAGE=32;
-    let idx=0;
-    function buildSticker(src){
-        const b=document.createElement('button');
-        b.style.cssText='position:relative;background:var(--primary-bg);border:1px solid var(--border-color);padding:0;cursor:pointer;border-radius:7px;overflow:hidden;display:block;';
-        const spacer=document.createElement('div');
-        spacer.style.cssText='padding-top:100%;'; // 用百分比padding撑出正方形高度，兼容性比aspect-ratio更稳，老浏览器也支持
-        b.appendChild(spacer);
-        const isCloud=src.indexOf('oss://')===0;
-        const imgTag=isCloud?`<img data-lazy-cloud-ref="${src}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;">`:`<img src="${src}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;">`;
-        b.insertAdjacentHTML('beforeend', imgTag);
-        b.onclick=()=>window._mSelectSticker(postId,src);
-        return b;
+
+    // 面板已在情侣空间浮起且打开：
+    //  - 再点同一个动态的笑脸 → 收起
+    //  - 点另一个动态的笑脸 → 只切换目标，面板保持打开
+    if (picker.dataset.csMoved === '1' && picker.classList.contains('active')) {
+        if (window._mStickerCommentPostId === postId) {
+            window._mCloseCommentSticker();
+        } else {
+            window._mStickerCommentPostId = postId;
+            window._mStickerCommentTarget = { postId: postId };
+        }
+        return;
     }
-    function renderNext(){
-        const frag=document.createDocumentFragment();
-        const end=Math.min(idx+PAGE,pool.length);
-        for(;idx<end;idx++)frag.appendChild(buildSticker(pool[idx]));
-        if(frag.childNodes.length){picker.appendChild(frag);_bindLazy(frag);}
+
+    // 面板若因主聊天/陪伴页正处于 active，先收掉，避免 combo-btn.click() 被当成"关闭"
+    if (picker.classList.contains('active')) picker.classList.remove('active');
+    // 若之前在陪伴页被搬走过，重置标记，避免陪伴页的关闭监听继续插手
+    if (picker.dataset.companionMoved === '1') picker.dataset.companionMoved = '0';
+
+    // 第一次移动前记录原位置，关闭情侣空间时搬回主聊天
+    if (picker.dataset.csMoved !== '1') {
+        window.__csPickerOriginalParent = picker.parentNode;
+        window.__csPickerOriginalNextSibling = picker.nextSibling;
     }
-    renderNext();
-    if(pool.length>PAGE){
-        picker.addEventListener('scroll',function(){
-            if(idx>=pool.length)return;
-            if(picker.scrollTop+picker.clientHeight>=picker.scrollHeight-120)renderNext();
-        },{passive:true});
-    }
-    document.body.appendChild(picker);
-    setTimeout(()=>{function c(ev){if(!picker.contains(ev.target)&&(!btn||!btn.contains(ev.target))){picker.remove();document.removeEventListener('click',c);}}document.addEventListener('click',c);},100);
+
+    window._mStickerCommentPostId = postId;
+    window._mStickerCommentTarget = { postId: postId };
+
+    // 先物理移到情侣空间页并套用浮层样式，再触发 active/动画。
+    // 关键：不能"先开面板(active 触发 fadeUp 动画)再 appendChild 移动 DOM"，
+    // 移动节点会中断正在播放的 CSS 动画，面板会停在 fadeUp 的 opacity:0 起始帧，
+    // 表现为"表情栏打不开"。
+    const csPage = document.getElementById('couple-space-page');
+    if (csPage) csPage.appendChild(picker);
+    picker.dataset.csMoved = '1';
+    picker.style.cssText = 'position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important; top: auto !important; width: 100% !important; height: 44vh !important; min-height: 260px !important; max-height: 52vh !important; z-index: 1600 !important; display: flex !important; border-radius: 16px 16px 0 0 !important; overflow: hidden !important; box-shadow: 0 -8px 32px rgba(0,0,0,0.25) !important;';
+
+    // 触发主聊天面板的渲染逻辑（combo-btn → switchTab('my-sticker') → renderMyStickerLibrary）
+    // 此时面板已位于情侣空间页，动画会在最终位置播放，不被移动打断
+    mainComboBtn.click();
+    picker.classList.add('active');
+    _csInstallStickerClose();
 };
 
-window._mSelectSticker=function(postId,src){
+// 收起情侣空间里的表情面板
+window._mCloseCommentSticker = function () {
+    window._mStickerCommentTarget = null;
+    window._mStickerCommentPostId = null;
+    const picker = document.getElementById('user-sticker-picker');
+    if (picker) {
+        picker.classList.remove('active');
+        picker.style.display = 'none';
+    }
+};
+
+// 关闭情侣空间时，把表情面板搬回主聊天的原位
+window._mRestoreStickerPicker = function () {
+    const picker = document.getElementById('user-sticker-picker');
+    if (!picker) return;
+    if (picker.dataset.csMoved === '1') {
+        const parent = window.__csPickerOriginalParent;
+        const next = window.__csPickerOriginalNextSibling;
+        if (parent) {
+            if (next && next.parentNode === parent) parent.insertBefore(picker, next);
+            else parent.appendChild(picker);
+        }
+        picker.dataset.csMoved = '0';
+        picker.style.cssText = '';
+        picker.style.display = '';
+    }
+    picker.classList.remove('active');
+    window._mStickerCommentTarget = null;
+    window._mStickerCommentPostId = null;
+};
+
+// 情侣空间里点面板外部 → 关闭（只装一次，capture 阶段先于主聊天/陪伴页的关闭监听）
+function _csInstallStickerClose() {
+    if (window.__csStickerCloseInstalled) return;
+    document.addEventListener('click', function (e) {
+        const picker = document.getElementById('user-sticker-picker');
+        if (!picker || picker.dataset.csMoved !== '1') return;
+        if (!picker.classList.contains('active')) return;
+        const t = e.target;
+        if (!t) return;
+
+        if (t.closest('#user-sticker-picker')) {
+            // 面板内部：排除 tab/添加/删除/分组/管理/弹窗/长按浮窗/上传 input 等交互
+            if (t.closest('.combo-tab-btn') ||
+                t.closest('.sticker-grid-add') ||
+                t.closest('.combo-tabs-header') ||
+                t.closest('.sticker-delete-btn') ||
+                t.closest('.my-sticker-action-popover') ||
+                t.closest('.my-sticker-sub-modal') ||
+                t.closest('.my-sticker-group-add') ||
+                t.closest('.my-sticker-group-chip') ||
+                t.closest('.my-sticker-manage-link') ||
+                t.closest('.modal') ||
+                t.tagName === 'INPUT') {
+                return;
+            }
+            // 表情图片点击由 item 自己的 onclick 处理，这里不重复关闭
+            if (t.tagName === 'IMG' || t.closest('.sticker-grid-item') || t.closest('.picker-item')) {
+                return;
+            }
+            return;
+        }
+
+        // 点评论区的笑脸按钮 → 让它自己 toggle
+        if (t.closest('.cs-cmt-tool-btn')) return;
+
+        window._mCloseCommentSticker();
+    }, true);
+    window.__csStickerCloseInstalled = true;
+}
+_csInstallStickerClose();
+
+window._mSelectSticker = function (postId, src) {
     _commentImgMap[postId]=src;
     const pv=document.getElementById('cs-cmt-img-prev-'+postId);
     if(pv){
@@ -591,6 +676,8 @@ window.openCoupleSpace=window.openMomentsModal=function(scrollToPostId){
 window.closeCoupleSpace=window.closeMomentsModal=function(){
     if(typeof window._csCancelOpen==='function')window._csCancelOpen(); // 取消未完成的打开动画
     const page=document.getElementById('couple-space-page');if(!page)return;
+    // 把借用的主聊天表情面板搬回原位，避免下次打开聊天时面板丢失/样式错乱
+    if(typeof window._mRestoreStickerPicker==='function')window._mRestoreStickerPicker();
     page.classList.remove('cs-open');window.closeAllCsSheets();_csExpandFeedHeader();
     [document.getElementById('cs-notif-popup'),document.getElementById('cs-sticker-picker')].forEach(el=>{if(el)el.style.display='none';});
     setTimeout(()=>{page.style.display='none';},380);

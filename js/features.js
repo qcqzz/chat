@@ -214,11 +214,17 @@
     var KEY = 'keepaliveAudioEnabled';
     // 内嵌静音音频（base64 WAV），完全本地，不依赖外网：
     // 1) 移动端启动时不再拉远程音频，减少卡顿与网络重试；
-    // 2) 先以 muted=true 绕过浏览器自动播放限制，播放成功后再解除静音，
-    //    让 WebView 判定为"正在播放音频"，从而豁免隐藏页 JS 定时器节流。
+    // 2) 全程保持 muted=true 且 volume=0（真正静音、不出声）：
+    //    - WebView 只有在"非静音的音频输出"时才会申请音频焦点（Audio Focus）。
+    //      一旦拿到焦点，系统会压低其他正在播放的媒体（如音乐 App）的音量（duck），
+    //      而保活信号 24 小时不停播，焦点一直被占着，导致其他媒体音量迟迟不恢复，
+    //      必须刷新页面或手动切歌（重新申请焦点）才能恢复——这正是"发消息后音乐变小"的根因。
+    //    - 改成真正静音后，Chromium 不会为静音输出申请焦点，不再干扰其他媒体。
+    // 3) 定时器节流豁免由下方 gain=0 的 WebAudio 主信号提供：WebAudio 音频管线在持续渲染
+    //    （哪怕输出全零），页面仍被判定为"正在播放音频"，从而豁免隐藏页 JS 定时器节流。
     var SRC = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
-    var _audio = null;       // <audio> 兜底信号
-    var _audioCtx = null;    // WebAudio 主保活信号（不出声、不占媒体通知位）
+    var _audio = null;       // <audio> 兜底信号（全程静音，仅作备用，不申请音频焦点）
+    var _audioCtx = null;    // WebAudio 主保活信号（gain=0 绝对静音，不申请音频焦点、不占媒体通知位）
     var _gainNode = null;
     var _bufSrc = null;
     var _unlockBound = false;
@@ -233,9 +239,9 @@
     // 根因说明：Chromium 对隐藏页面会强制节流 JS 定时器（隐藏约 5 分钟后降为 1 次/分钟甚至冻结），
     // 但"正在播放音频"的页面会被豁免。muted=true 的 <audio> 不算"正在播放"，
     // 所以以前挂久了 JS 定时器照样被冻结、保活静默失效。
-    // 这里用 WebAudio 循环播放一段静音 buffer：系统眼里是"正在输出音频"，人耳里是绝对静音，
-    // 且不会像 <audio> 那样弹出媒体播放通知。部分 WebView 要求用户手势后 resume 才生效，
-    // 因此也在 _bindUnlock 的每次手势里顺带调用本函数。
+    // 这里用 WebAudio 循环播放一段静音 buffer（gain=0）：音频管线持续运行 → 定时器豁免生效；
+    // 同时输出为绝对静音 → Chromium 不会为静音输出申请音频焦点 → 不再压低其他媒体音量。
+    // 部分 WebView 要求用户手势后 resume 才生效，因此也在 _bindUnlock 的每次手势里顺带调用本函数。
     function _startAudioCtx() {
         try {
             var AC = window.AudioContext || window.webkitAudioContext;
@@ -283,16 +289,14 @@
         if (_audio) return _audio;
         _audio = new Audio(SRC);
         _audio.loop   = true;
-        _audio.volume = 0.01;
-        _audio.muted  = true;   // 先静音：绕过自动播放策略，无需用户操作也能直接播放
+        // 全程保持静音（muted=true、volume=0）：非静音的音频输出会触发 WebView 申请音频焦点，
+        // 抢走焦点后系统会压低其他媒体音量且迟迟不恢复（见模块头部说明）。静音播放不再干扰其他媒体，
+        // 仅作为 WebAudio 主信号之外的一路"备用播放中"信号；真正的定时器豁免由 WebAudio 提供。
+        _audio.volume = 0;
+        _audio.muted  = true;   // 保持静音：既能绕过自动播放策略，又不会申请音频焦点
         _audio.preload = 'auto';
         _audio._createdAt = Date.now();
-        _audio.addEventListener('play', function(){
-            _setUI(true);
-            // 播放成功后解除静音：让 Chromium 判定为"正在播放音频"，豁免隐藏页定时器节流。
-            // 内容是纯静音 WAV，解除静音也不会有任何声音。
-            try { if (_audio) { _audio.muted = false; _audio.volume = 0.01; } } catch (e) {}
-        });
+        _audio.addEventListener('play', function(){ _setUI(true); });
         _audio.addEventListener('pause', function(){ _setUI(false); });
         // 音频一旦出错/中断，自动重建重试，避免保活悄悄失效（本地资源重试开销极小）
         ['error', 'abort', 'stalled', 'emptied'].forEach(function (evt) {
