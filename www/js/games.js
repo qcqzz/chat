@@ -1567,6 +1567,10 @@ function initComboMenu() {
     comboBtn.dataset.initialized = 'true';
 
     document.addEventListener('click', (e) => {
+        // 面板被搬到情侣空间时（csMoved），关闭逻辑由 moments.js 的 capture 监听负责，
+        // 这里直接跳过；否则点评论区的笑脸按钮会被这个 bubble 监听误判成"点击面板外部"，
+        // 导致刚打开的面板立刻被关掉
+        if (picker.dataset.csMoved === '1') return;
         // 点在任何弹窗（新建分组/移动分组/管理这些）或长按浮窗内部，
         // 不算"点了面板外面"——这几个弹窗都是挂在页面最外层的，不在 picker 的DOM范围内，
         // 之前没排除这种情况，导致点弹窗里任何按钮都会被误判成"点击外部"，把主面板意外关掉
@@ -1619,6 +1623,25 @@ function initComboMenu() {
         }
         item.onclick = (e) => { e.stopPropagation(); onClick(); };
         return item;
+    }
+
+    // 表情被点击时的统一出口：
+    //   情侣空间评论模式（window._mStickerCommentTarget 非空）→ 把表情作为评论图片附加，
+    //   否则 → 按主聊天原有逻辑发聊天消息。保证两个入口用的是同一套面板、同一套格子。
+    function _pickSticker(src) {
+        var cmt = window._mStickerCommentTarget;
+        if (cmt && cmt.postId && typeof window._mSelectSticker === 'function') {
+            window._mSelectSticker(cmt.postId, src);
+            window._mStickerCommentTarget = null;
+            picker.classList.remove('active');
+            picker.style.display = 'none';
+            return;
+        }
+        addMessage({ id: Date.now(), sender: 'user', text: '', timestamp: new Date(), image: src, status: 'sent', type: 'normal' });
+        playSound('send');
+        picker.classList.remove('active');
+        const delayRange = settings.replyDelayMax - settings.replyDelayMin;
+        setTimeout(simulateReply, settings.replyDelayMin + Math.random() * delayRange);
     }
 
     window._myStickerActiveGroup = null; // null = 默认分组（或者默认分组为空时，落到第一个真实分组）
@@ -1796,11 +1819,7 @@ function initComboMenu() {
         }
         itemsToShow.forEach((entry) => {
             const item = makeMyStickerItem(entry, () => {
-                addMessage({ id: Date.now(), sender: 'user', text: '', timestamp: new Date(), image: entry.src, status: 'sent', type: 'normal' });
-                playSound('send');
-                picker.classList.remove('active');
-                const delayRange = settings.replyDelayMax - settings.replyDelayMin;
-                setTimeout(simulateReply, settings.replyDelayMin + Math.random() * delayRange);
+                _pickSticker(entry.src);
             }, async () => {
                 if (window.CloudMedia && typeof entry.src === 'string' && entry.src.indexOf('oss://') === 0) {
                     try { await window.CloudMedia.delete(entry.src); } catch (err) { console.warn('[cloud-media] 云端删除失败', err); }
@@ -2178,11 +2197,7 @@ function initComboMenu() {
         let idx = 0;
         function buildItem(src) {
             return makeStickerItem(src, () => {
-                addMessage({ id: Date.now(), sender: 'user', text: '', timestamp: new Date(), image: src, status: 'sent', type: 'normal' });
-                playSound('send');
-                picker.classList.remove('active');
-                const delayRange = settings.replyDelayMax - settings.replyDelayMin;
-                setTimeout(simulateReply, settings.replyDelayMin + Math.random() * delayRange);
+                _pickSticker(src);
             });
         }
         function renderNext() {
