@@ -80,6 +80,13 @@
         if (_banner) _banner.classList.remove('gmb-show');
     }
 
+    // 显示出来的那一刻才开始计 4 秒，到期自动收起（微信/系统弹窗式行为）。
+    // 每次新消息都会重置计时，保证横条只在上一条消息后停留一小段时间。
+    function _armHide() {
+        clearTimeout(_hideTimer);
+        _hideTimer = setTimeout(_hide, 4000);
+    }
+
     // 点一下横条：不管当前是弹窗、还是情侣空间、还是两者都有（比如情侣空间设置弹窗），
     // 一律强制关掉，跳回主聊天。弹窗直接关，不走各自的取消/保存逻辑——用户点的是"跳转"，
     // 等于主动放弃当前正在填的东西，跟点了弹窗外面把它关掉是一个意思。
@@ -132,9 +139,12 @@
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
                 banner.classList.add('gmb-show');
+                // 动画完全显示后才开始计 4 秒。不能在动画请求发出前就启动定时器：
+                // 页面处于背景时 requestAnimationFrame 回调会被挂起，横条真正显示出来时
+                // 定时器早已触发，导致横条永远收不回去。
+                _armHide();
             });
         });
-        _hideTimer = setTimeout(_hide, 4000);
     }
 
     if (typeof window._registerPartnerMessageListener === 'function') {

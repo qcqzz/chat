@@ -312,26 +312,43 @@ function _fmtDate(d){if(!d)return'';if(d===_mToday())return'今天';const dt=new
 function _getAvSrc(isPartner){const c=window._avatarCache||{};if(isPartner){if(c.partner)return c.partner;const e=document.getElementById('partner-avatar');return e&&e.src&&!e.src.endsWith('/')?e.src:null;}else{if(c.me)return c.me;const e=document.getElementById('my-avatar');return e&&e.src&&!e.src.endsWith('/')?e.src:null;}}
 function _avEl(isPartner,size){const src=_getAvSrc(isPartner),s=size||36;return src?`<img src="${src}" style="width:${s}px;height:${s}px;border-radius:50%;object-fit:cover;display:block;flex-shrink:0;">`:`<span style="width:${s}px;height:${s}px;border-radius:50%;background:var(--border-color,#d0d0d0);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fas fa-user" style="font-size:${Math.round(s*0.48)}px;color:var(--text-secondary,#aaa);"></i></span>`;}
 
-// ─── 贴纸选择器（用户自己的 stickerLibrary） ───
+// ─── 表情/贴纸选择器（用户自己的 customEmojis + myStickerLibrary） ───
+// 修复：原来在自定义内容为空时只弹一个 toast 就 return，面板根本打不开（"点不开表情包栏"）。
+// 现在保证面板永远能打开：自定义表情 + 自定义贴纸，都没有时用内置兜底表情，点击插入回复输入框。
 window._mToggleSticker=function(postId){
     const existing=document.getElementById('cs-sticker-picker');
     if(existing){existing.remove();return;}
-    const pool=[...(myStickerLibrary||[])];
-    if(!pool.length){
-        const toast=document.createElement('div');
-        toast.style.cssText='position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.75);color:#fff;padding:8px 16px;border-radius:20px;font-size:13px;z-index:9999;';
-        toast.textContent='还没有表情包，请先在设置中上传哦~';
-        document.body.appendChild(toast); setTimeout(()=>toast.remove(),2000); return;
-    }
+    const emojis=(typeof customEmojis!=='undefined'&&Array.isArray(customEmojis))?customEmojis:[];
+    const stickers=(typeof myStickerLibrary!=='undefined'&&Array.isArray(myStickerLibrary))?myStickerLibrary:[];
+    const pool=emojis.concat(stickers);
+    // 内置兜底表情：自定义内容为空时也能打开面板
+    const FALLBACK=['😀','😄','😁','😆','🤗','😉','😊','🥰','😍','😘','😋','😜','🤪','😎','🥳','😅','😂','🤣','😭','😢','🥺','😤','😡','😱','🤔','😴','😇','🙃','🤩','😶','👍','👏','💪','❤️','💕','💔','😹','🫶'];
+    const list=pool.length?pool:FALLBACK;
     const btn=document.getElementById('cs-sticker-btn-'+postId);
-    const rect=btn?btn.getBoundingClientRect():{top:300,left:10};
+    const rect=btn?btn.getBoundingClientRect():{top:Math.floor(window.innerHeight/2),bottom:Math.floor(window.innerHeight/2)};
     const picker=document.createElement('div'); picker.id='cs-sticker-picker';
-    picker.style.cssText=`position:fixed;bottom:${window.innerHeight-rect.top+8}px;left:48px;right:48px;z-index:9500;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:14px;padding:10px;box-shadow:0 8px 32px rgba(0,0,0,0.25);display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:200px;overflow-y:auto;`;
-    // 分批渲染 + 滚动加载：贴纸很多时避免一次性创建/解码几百个 base64 <img> 拖卡主线程
+    picker.style.cssText='position:fixed;left:48px;right:48px;z-index:9999;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:14px;padding:10px;box-shadow:0 8px 32px rgba(0,0,0,0.25);display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:220px;overflow-y:auto;';
+    // 定位：优先按钮上方，上方空间不足放下方，避免溢出屏幕
+    const H=Math.min(220,80+Math.ceil(list.length/4)*72);
+    picker.style.top=(rect.top>H+40?Math.max(8,rect.top-H-8):Math.max(8,window.innerHeight-rect.bottom-8))+'px';
+    // 分批渲染 + 滚动加载：内容很多时避免一次性创建/解码几百个 base64 <img> 拖卡主线程
     const PAGE=32;
     let idx=0;
+    function buildEmoji(e){
+        const b=document.createElement('button');
+        b.type='button';
+        b.style.cssText='background:var(--primary-bg);border:1px solid var(--border-color);padding:8px 0;cursor:pointer;border-radius:7px;font-size:22px;display:flex;align-items:center;justify-content:center;';
+        b.textContent=e;
+        b.onclick=()=>{
+            const inp=document.getElementById('cs-ci-'+postId);
+            if(inp){inp.value+=e;inp.focus();}
+            picker.remove();
+        };
+        return b;
+    }
     function buildSticker(src){
         const b=document.createElement('button');
+        b.type='button';
         b.style.cssText='position:relative;background:var(--primary-bg);border:1px solid var(--border-color);padding:0;cursor:pointer;border-radius:7px;overflow:hidden;display:block;';
         const spacer=document.createElement('div');
         spacer.style.cssText='padding-top:100%;'; // 用百分比padding撑出正方形高度，兼容性比aspect-ratio更稳，老浏览器也支持
@@ -344,14 +361,19 @@ window._mToggleSticker=function(postId){
     }
     function renderNext(){
         const frag=document.createDocumentFragment();
-        const end=Math.min(idx+PAGE,pool.length);
-        for(;idx<end;idx++)frag.appendChild(buildSticker(pool[idx]));
+        const end=Math.min(idx+PAGE,list.length);
+        for(;idx<end;idx++){
+            const item=list[idx];
+            // 贴纸是对象（含 src），其余按 emoji 插入输入框
+            const isSticker=item&&typeof item==='object'&&item.src;
+            frag.appendChild(isSticker?buildSticker(item.src):buildEmoji(item));
+        }
         if(frag.childNodes.length){picker.appendChild(frag);_bindLazy(frag);}
     }
     renderNext();
-    if(pool.length>PAGE){
+    if(list.length>PAGE){
         picker.addEventListener('scroll',function(){
-            if(idx>=pool.length)return;
+            if(idx>=list.length)return;
             if(picker.scrollTop+picker.clientHeight>=picker.scrollHeight-120)renderNext();
         },{passive:true});
     }
