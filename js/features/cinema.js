@@ -1005,7 +1005,13 @@
             return;
         }
 
-        myStickers.forEach(function (src) {
+        myStickers.forEach(function (entry) {
+            // myStickerLibrary 是对象数组 { id, src, groupId, ... }（支持分组），
+            // 只有取到 src 字符串才能正常显示/发送；直接拿对象当 src 会显示成破损图
+            var src = (entry && typeof entry === 'object' && typeof entry.src === 'string')
+                ? entry.src
+                : String(entry || '');
+            if (!src) return;
             var item = document.createElement('div');
             item.className = 'cinema-sticker-item';
             item.innerHTML = '<img>';

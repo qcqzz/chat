@@ -418,6 +418,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             let ok = 0, fail = 0;
             const newStickers = [];
             const cloudReady = !!(window.CloudMedia && window.CloudSync && window.CloudSync.isConnected());
+            // 与 games.js 的数据结构保持一致：每个表情必须是 {id, src, groupId, addedAt} 的对象，
+            // 不能塞纯字符串——否则渲染时 e.src 取不到 → 破损图；批量管理时没有 id →
+            // 所有破损条目的 data-id 都是 "undefined"，点一个就全选、删除时匹配不到、永远删不掉
+            const base = Date.now();
+            let added = 0;
             for (const file of validFiles) {
                 try {
                     const base64 = await optimizeImage(file, 300, 0.8);
@@ -430,7 +435,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                             console.warn('[cloud-media] 我的贴纸上传失败，降级本地', upErr);
                         }
                     }
-                    newStickers.push(toStore);
+                    newStickers.push({
+                        id: 'stk_' + base + '_' + added,
+                        src: toStore,
+                        groupId: window._myStickerActiveGroup || null,
+                        addedAt: base - added,
+                        groupJoinedAt: base - added
+                    });
+                    added++;
                     ok++;
                 } catch(err) { fail++; }
             }

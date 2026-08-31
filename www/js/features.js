@@ -254,11 +254,27 @@
             if (_audioCtx.state !== 'running') return false;
             if (!_bufSrc) {
                 var sr = _audioCtx.sampleRate || 44100;
-                var buf = _audioCtx.createBuffer(1, sr, sr); // 1 秒纯静音 buffer
+                var isNative = !!(window.Capacitor && window.Capacitor.Plugins);
+                var buf = _audioCtx.createBuffer(1, sr, sr);
+                if (!isNative) {
+                    // 网页端：写入超低振幅正弦波（约 -60dB，人耳几乎不可闻）。
+                    // 关键差异：纯静音（全 0）输出不会被浏览器判定为"正在播放音频"，
+                    // 后台标签页定时器照样被节流/冻结，保活即失效、回复与通知都不触发；
+                    // 只有非零输出才让 Chrome/Edge 将该标签页标记为"audible"，
+                    // 从而豁免后台定时器节流与"5 分钟后 intensive throttling"冻结。
+                    var ch = buf.getChannelData(0);
+                    for (var i = 0; i < ch.length; i++) {
+                        ch[i] = Math.sin((i / sr) * Math.PI * 2 * 200) * 0.001;
+                    }
+                }
+                // APK：保持全 0 绝对静音，避免抢音频焦点压低其他媒体音量（见模块头注释）
                 _bufSrc = _audioCtx.createBufferSource();
                 _bufSrc.buffer = buf;
                 _bufSrc.loop = true;
-                if (!_gainNode) { _gainNode = _audioCtx.createGain(); _gainNode.gain.value = 0; }
+                if (!_gainNode) {
+                    _gainNode = _audioCtx.createGain();
+                    _gainNode.gain.value = isNative ? 0 : 1;
+                }
                 _bufSrc.connect(_gainNode);
                 _gainNode.connect(_audioCtx.destination);
                 _bufSrc.start();

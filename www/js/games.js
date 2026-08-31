@@ -1424,7 +1424,26 @@ window.startCoinFlipAnimation = startCoinFlipAnimation;
 // myStickerGroups 是 {id, name, cover, createdAt} 的数组。
 // ══════════════════════════════════════════
 function _myStickerLib() {
-    return (typeof myStickerLibrary !== 'undefined' && Array.isArray(myStickerLibrary)) ? myStickerLibrary : [];
+    var lib = (typeof myStickerLibrary !== 'undefined' && Array.isArray(myStickerLibrary)) ? myStickerLibrary : [];
+    // 防御性修复：历史版本（app.js 快速上传）会把纯字符串 URL 直接塞进数组。
+    // 字符串条目没有 id/src/groupId → 渲染成破损图、批量管理点一个全选、删除匹配不到删不掉。
+    // 这里读的时候顺手把字符串补全成对象并落盘，旧数据一进来就自愈，不用等刷新。
+    var hasString = false;
+    for (var i = 0; i < lib.length; i++) {
+        if (typeof lib[i] === 'string') { hasString = true; break; }
+    }
+    if (!hasString) return lib;
+    var base = Date.now();
+    var fixed = lib.map(function (s, i) {
+        if (typeof s === 'string') {
+            return { id: 'stk_' + base + '_' + i, src: s, groupId: null, addedAt: base - i, groupJoinedAt: base - i };
+        }
+        return s; // 已经是对象，原样保留
+    });
+    myStickerLibrary = fixed;
+    if (typeof window !== 'undefined') window.myStickerLibrary = fixed;
+    try { _myStickerSaveLibrary(); } catch (e) {}
+    return fixed;
 }
 function _myStickerGroupsRaw() {
     return window.myStickerGroups || [];

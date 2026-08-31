@@ -2559,6 +2559,7 @@ if (!isBatchMode && type === 'normal') {
             });
             const delayRange = settings.replyDelayMax - settings.replyDelayMin;
             const randomDelay = settings.replyDelayMin + Math.random() * delayRange;
+            window._replyScheduledAt = Date.now(); // 排期回复：后台冻结时回到前台立即补发
             setTimeout(simulateReply, batchMessages.length * 300 + randomDelay);
             isBatchMode = false; batchMessages = [];
             DOMElements.batchBtn.classList.remove('active'); DOMElements.batchPreview.style.display = 'none';
@@ -2693,6 +2694,7 @@ if (!isBatchMode && type === 'normal') {
             }
 
             // 排队回复（不覆盖已有排队，连续触发会在前面回复完成后依次执行）
+            window._replyScheduledAt = Date.now(); // 排期回复：后台冻结时回到前台立即补发
             _queueReply(() => {
                 simulateReply();
                 // 清除陪伴静默标志：延迟清除，确保 simulateReply 内部所有消息都已取到 recentUserMsgs 之后再清
@@ -2709,6 +2711,7 @@ if (!isBatchMode && type === 'normal') {
             }
             window._simulateReplyLockUntil = now + 2000;
             window._lastReplyTs = now;
+            window._replyScheduledAt = 0; // 回复已在产出，清除待补发标记
 
             function showTypingIndicator() {
                 if (!settings.typingIndicatorEnabled) return;
@@ -3007,6 +3010,21 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                 }, delay);
             }
         }
+
+        // ─── 后台补发：回到前台时，若排期的回复因浏览器冻结定时器而一直未产出，立即补发一次 ───
+        // 浏览器会节流/冻结后台标签页的定时器（尤其隐藏 5 分钟后 intensive throttling），
+        // 导致"对方正在输入→回复+通知"整套 setTimeout 链在后台不触发；回到前台时在这里补上。
+        // 仅当确实排期过回复且已离后台一段时间才触发，避免每次切标签都打扰。
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState !== 'visible') return;
+            var scheduled = window._replyScheduledAt;
+            if (!scheduled) return;
+            if (Date.now() - scheduled < 2000) return; // 快速切回不打扰，正常排期照常执行
+            window._replyScheduledAt = 0;
+            try {
+                if (typeof window.simulateReply === 'function') window.simulateReply();
+            } catch (e) {}
+        });
 
 function showModal(modalElement, focusElement = null) {
             if (modalElement._hideTimeout) {
