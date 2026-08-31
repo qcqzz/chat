@@ -356,15 +356,19 @@ window._mToggleSticker = function (postId) {
     window._mStickerCommentPostId = postId;
     window._mStickerCommentTarget = { postId: postId };
 
-    // 触发主聊天面板的渲染逻辑（combo-btn → switchTab('my-sticker') → renderMyStickerLibrary）
-    mainComboBtn.click();
-    picker.classList.add('active');
-
-    // 物理移到情侣空间页，浮在底部（微信风格，与主聊天一致）
+    // 先物理移到情侣空间页并套用浮层样式，再触发 active/动画。
+    // 关键：不能"先开面板(active 触发 fadeUp 动画)再 appendChild 移动 DOM"，
+    // 移动节点会中断正在播放的 CSS 动画，面板会停在 fadeUp 的 opacity:0 起始帧，
+    // 表现为"表情栏打不开"。
     const csPage = document.getElementById('couple-space-page');
     if (csPage) csPage.appendChild(picker);
     picker.dataset.csMoved = '1';
     picker.style.cssText = 'position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important; top: auto !important; width: 100% !important; height: 44vh !important; min-height: 260px !important; max-height: 52vh !important; z-index: 1600 !important; display: flex !important; border-radius: 16px 16px 0 0 !important; overflow: hidden !important; box-shadow: 0 -8px 32px rgba(0,0,0,0.25) !important;';
+
+    // 触发主聊天面板的渲染逻辑（combo-btn → switchTab('my-sticker') → renderMyStickerLibrary）
+    // 此时面板已位于情侣空间页，动画会在最终位置播放，不被移动打断
+    mainComboBtn.click();
+    picker.classList.add('active');
     _csInstallStickerClose();
 };
 
