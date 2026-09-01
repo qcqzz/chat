@@ -92,6 +92,10 @@ jobs:
           # KeepAliveReceiver.java — 定时唤醒接收器
           cp android-src/app/src/main/java/com/chuanxun/app/KeepAliveReceiver.java \
              android/app/src/main/java/com/chuanxun/app/
+
+          # KeepAliveActivity.java — 任务被划掉时瞬时前台保活宿主（AndroidManifest 引用 .KeepAliveActivity，必须随包注入）
+          cp android-src/app/src/main/java/com/chuanxun/app/KeepAliveActivity.java \
+             android/app/src/main/java/com/chuanxun/app/
           
           # BootReceiver.java — 开机自启动接收器
           cp android-src/app/src/main/java/com/chuanxun/app/BootReceiver.java \

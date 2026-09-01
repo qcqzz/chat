@@ -78,6 +78,7 @@ jobs:
           cp android-src/app/src/main/java/com/chuanxun/app/ForegroundPlugin.java android/app/src/main/java/com/chuanxun/app/
           cp android-src/app/src/main/java/com/chuanxun/app/NotificationPlugin.java android/app/src/main/java/com/chuanxun/app/
           cp android-src/app/src/main/java/com/chuanxun/app/KeepAliveReceiver.java android/app/src/main/java/com/chuanxun/app/
+          cp android-src/app/src/main/java/com/chuanxun/app/KeepAliveActivity.java android/app/src/main/java/com/chuanxun/app/
           cp android-src/app/src/main/java/com/chuanxun/app/BootReceiver.java android/app/src/main/java/com/chuanxun/app/
           cp android-src/app/src/main/java/com/chuanxun/app/MessageAlarmReceiver.java android/app/src/main/java/com/chuanxun/app/
           cp android-src/app/src/main/java/com/chuanxun/app/MainActivity.java android/app/src/main/java/com/chuanxun/app/
