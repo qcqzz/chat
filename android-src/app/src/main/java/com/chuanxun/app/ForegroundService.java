@@ -245,6 +245,9 @@ public class ForegroundService extends Service {
                 startService(restart);
             }
             Log.i("ForegroundService", "任务被划掉，已重启服务并重排定时唤醒");
+            // 瞬时"前台身份"保活：任务被划掉后立刻启动无窗口的保活宿主，避免系统刚划掉
+            // 就回收 WebView 渲染进程/重置后台会话；宿主会在 ~1.5s 后自动 finish 释放，不打扰用户。
+            KeepAliveActivity.start(this);
         } catch (Exception e) {
             Log.w("ForegroundService", "任务被划掉时重启服务受限(闹钟已重排): " + e.getMessage());
         }

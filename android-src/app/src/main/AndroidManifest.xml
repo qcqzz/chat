@@ -25,6 +25,15 @@
 
         </activity>
 
+        <!-- 任务被划掉时瞬时维持前台身份的保活宿主（无窗口、不可见、不进最近任务） -->
+        <activity
+            android:name=".KeepAliveActivity"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:launchMode="singleTop"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

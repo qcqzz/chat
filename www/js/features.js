@@ -254,26 +254,24 @@
             if (_audioCtx.state !== 'running') return false;
             if (!_bufSrc) {
                 var sr = _audioCtx.sampleRate || 44100;
-                var isNative = !!(window.Capacitor && window.Capacitor.Plugins);
                 var buf = _audioCtx.createBuffer(1, sr, sr);
-                if (!isNative) {
-                    // 网页端：写入超低振幅正弦波（约 -60dB，人耳几乎不可闻）。
-                    // 关键差异：纯静音（全 0）输出不会被浏览器判定为"正在播放音频"，
-                    // 后台标签页定时器照样被节流/冻结，保活即失效、回复与通知都不触发；
-                    // 只有非零输出才让 Chrome/Edge 将该标签页标记为"audible"，
-                    // 从而豁免后台定时器节流与"5 分钟后 intensive throttling"冻结。
-                    var ch = buf.getChannelData(0);
-                    for (var i = 0; i < ch.length; i++) {
-                        ch[i] = Math.sin((i / sr) * Math.PI * 2 * 200) * 0.001;
-                    }
+                // 注入约 -60dB 的超低频正弦，确保"非零输出"：Chromium 只有把页面判定为
+                // "正在播放音频"(audible) 才会豁免后台(隐藏页)的 JS 定时器节流/冻结。
+                // 纯静音(全 0)不被判定为播放中，后台 5 分钟后 setInterval 会被降到 1 次/分钟
+                // 甚至停摆，心跳/定时消息/自动回复全部失效。
+                // 原 APK 端曾用 gain=0 全静音以避免抢其他媒体的音频焦点，但这会直接废掉豁免，
+                // 故改为与网页端一致的极低幅值信号（约 -60dB，人耳几乎不可闻），豁免优先，
+                // 对手机媒体音量的影响极小。
+                var ch = buf.getChannelData(0);
+                for (var i = 0; i < ch.length; i++) {
+                    ch[i] = Math.sin((i / sr) * Math.PI * 2 * 200) * 0.001;
                 }
-                // APK：保持全 0 绝对静音，避免抢音频焦点压低其他媒体音量（见模块头注释）
                 _bufSrc = _audioCtx.createBufferSource();
                 _bufSrc.buffer = buf;
                 _bufSrc.loop = true;
                 if (!_gainNode) {
                     _gainNode = _audioCtx.createGain();
-                    _gainNode.gain.value = isNative ? 0 : 1;
+                    _gainNode.gain.value = 1;
                 }
                 _bufSrc.connect(_gainNode);
                 _gainNode.connect(_audioCtx.destination);
