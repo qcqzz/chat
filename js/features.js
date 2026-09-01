@@ -477,6 +477,17 @@
             _startAudioCtx();
             _start();
             if (typeof showNotification === 'function') showNotification('后台保活已开启 🎵', 'success', 2000);
+            // 首次开启保活：引导开启悬浮窗权限（豁免后台启动限制），仅一次
+            try {
+                if (!localStorage.getItem('overlayGuided') && typeof ForegroundBridge !== 'undefined' && ForegroundBridge.isSupported()) {
+                    ForegroundBridge.isOverlayEnabled(function (enabled) {
+                        if (!enabled) {
+                            ForegroundBridge.requestOverlay().catch(function () {});
+                        }
+                        localStorage.setItem('overlayGuided', '1');
+                    });
+                }
+            } catch (e) {}
             // 立即更新开关颜色，不等待异步 play() 返回
             _setUI(true);
         } else {

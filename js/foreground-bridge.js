@@ -108,6 +108,65 @@
         },
 
         /**
+         * 悬浮窗权限（豁免 Android 12+ 后台限制，提升进程被回收后重新拉起的成功率）
+         */
+        isOverlayEnabled: function (callback) {
+            var fg = getCapacitor();
+            if (!fg) {
+                if (callback) callback(true);
+                return;
+            }
+            fg.isOverlayEnabled().then(function (result) {
+                if (callback) callback(!!result.enabled);
+            }).catch(function () {
+                if (callback) callback(false);
+            });
+        },
+
+        /**
+         * 引导开启悬浮窗权限。返回 Promise({alreadyGranted, needAction})
+         */
+        requestOverlay: function () {
+            var fg = getCapacitor();
+            if (!fg) return Promise.reject('not native');
+            return fg.requestOverlay();
+        },
+
+        /**
+         * 识别当前设备厂商（方便前端展示相应的保活引导文案）。
+         * callback(brand, model)
+         */
+        getManufacturer: function (callback) {
+            var fg = getCapacitor();
+            if (!fg) {
+                if (callback) callback('unknown', '');
+                return;
+            }
+            fg.getManufacturer().then(function (result) {
+                if (callback) callback(result.brand || 'unknown', result.model || '');
+            }).catch(function () {
+                if (callback) callback('unknown', '');
+            });
+        },
+
+        /**
+         * 打开当前厂商的"自启动 / 后台管理"白名单设置面板；
+         * 找不到入口时自动回退到系统电池优化页。
+         */
+        openBatterySaverGuide: function (callback) {
+            var fg = getCapacitor();
+            if (!fg) {
+                if (callback) callback({ opened: false, brand: 'unknown' });
+                return;
+            }
+            fg.openBatterySaverGuide().then(function (result) {
+                if (callback) callback(result);
+            }).catch(function () {
+                if (callback) callback({ opened: false, brand: 'unknown' });
+            });
+        },
+
+        /**
          * 检查是否支持前台服务
          */
         isSupported: function () {

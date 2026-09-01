@@ -1,5 +1,6 @@
 package com.chuanxun.app;
 
+import android.annotation.TargetApi;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -8,6 +9,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -15,6 +17,16 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.util.Log;
 
+import androidx.core.app.ServiceCompat;
+
+/**
+ * 前台保活服务。
+ *
+ * 前台服务类型策略：Android 15+（API 35）对 dataSync 这类后台型前台服务有 6 小时强制
+ * 超时——超时后系统直接销毁服务并杀死进程，保活链无声断裂，即使从未被用户清除后台也会死。
+ * 为满足"只要没被清除后台就能一直运行"，Android 14+（API 34）改用 specialUse 类型
+ * （无超时、无需持续音频、侧载 App 无审核问题），低版本继续用 dataSync 兼容。
+ */
 public class ForegroundService extends Service {
     private static final String CHANNEL_ID = "foreground_service";
     private static final int NOTIFICATION_ID = 1001;
@@ -95,8 +107,43 @@ public class ForegroundService extends Service {
                 .setPriority(Notification.PRIORITY_LOW)
                 .build();
 
-        startForeground(NOTIFICATION_ID, notification);
+        startForegroundCompat(notification);
         return START_STICKY;
+    }
+
+    /**
+     * 按系统版本选择前台服务类型并提升为前台：
+     * API 34+（Android 14+）用 specialUse —— 免除 Android 15+ 对 dataSync 的 6 小时强杀；
+     * 更早版本用 dataSync 兼容。
+     */
+    private void startForegroundCompat(Notification notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            ServiceCompat.startForeground(
+                    this, NOTIFICATION_ID, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+        } else {
+            ServiceCompat.startForeground(
+                    this, NOTIFICATION_ID, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        }
+    }
+
+    /**
+     * Android 15+（API 35）对非 specialUse 类型前台服务超时（默认 6h）后会回调这里。
+     * 我们 API 34+ 已改用 specialUse 不会触发；此处兜底覆盖个别厂商/异常将类型解析为
+     * dataSync 的情况——超时被杀后立即重排闹钟，并由闹钟拉起服务，尽量缩短保活空窗。
+     */
+    @TargetApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @Override
+    public void onTimeout(int startId) {
+        Log.w("ForegroundService", "前台服务触发 onTimeout(超时)，重排定时唤醒兜底恢复");
+        try {
+            KeepAliveReceiver.scheduleNext(this);
+            Intent restart = new Intent(this, ForegroundService.class);
+            startForegroundService(restart);
+        } catch (Exception e) {
+            Log.w("ForegroundService", "onTimeout 恢复失败: " + e.getMessage());
+        }
     }
 
     /**

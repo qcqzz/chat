@@ -37,9 +37,17 @@
 
         <service
             android:name=".ForegroundService"
-            android:foregroundServiceType="dataSync"
+            android:foregroundServiceType="dataSync|specialUse"
             android:stopWithTask="false"
-            android:exported="false" />
+            android:exported="false">
+
+            <!-- specialUse 类型要求声明具体用途（供系统审计，侧载不影响运行）。
+                 用途：后台消息轮询与保活，Android 15+ 下 dataSync 有 6 小时强制超时，
+                 故 Android 14+ 走 specialUse 免除超时强杀 -->
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="background_message_polling_and_keep_alive" />
+        </service>
 
         <!-- 定时唤醒接收器（熄屏/Doze 保活） -->
         <receiver
@@ -83,9 +91,12 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- 悬浮窗：豁免 Android 12+ 后台启动前台服务限制，提升"进程被回收后重新拉起"的成功率 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- 导出备份到下载目录：仅 Android 9- 需要，Android 10+ 用 MediaStore 无需权限 -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 </manifest>

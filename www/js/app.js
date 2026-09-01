@@ -180,6 +180,26 @@ document.addEventListener('DOMContentLoaded', async () => {
                         });
                     }
                 } catch(e) {}
+                // 首次启动：国产厂商(小米/华为/OPPO/vivo/魅族)系统级保活白名单引导，仅一次；
+                // 非原生或非国产自动跳过。引导用户把 App 加入"自启动/后台/省电"白名单，
+                // 显著提升真实设备上被厂商省电策略杀掉前的存活率。
+                try {
+                    if (!localStorage.getItem('batterySaverGuided')) {
+                        ForegroundBridge.getManufacturer(function (brand) {
+                            var domestic = brand === 'xiaomi' || brand === 'huawei'
+                                || brand === 'oppo' || brand === 'vivo' || brand === 'meizu';
+                            if (domestic) {
+                                try {
+                                    if (typeof showNotification === 'function') {
+                                        showNotification('为后台不漏消息，请允许本应用自启动/后台运行', 'info', 3000);
+                                    }
+                                } catch (e3) {}
+                                ForegroundBridge.openBatterySaverGuide();
+                            }
+                            localStorage.setItem('batterySaverGuided', '1');
+                        });
+                    }
+                } catch (e2) {}
             }
         }, 1000);
 
