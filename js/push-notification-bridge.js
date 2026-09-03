@@ -145,8 +145,33 @@
         });
     }
 
-    // ====== 浏览器通知 ======
-    function _sendBrowserNotif(title, body) {
+    // ====== 浏览器通知（Service Worker 优先，保证后台/失焦也能弹出） ======
+    // 直接 new Notification() 在 Chrome 中仅当标签页处于活动/可见时才真正显示，
+    // 后台或不聚焦时会静默丢弃。正确姿势是走已注册的 Service Worker：
+    // registration.showNotification() 不依赖标签页可见性/焦点，必达。
+    function _sendViaServiceWorker(title, body, options) {
+        try {
+            var reg = (PushBridge.webKeepAlive && PushBridge.webKeepAlive._swReg) || null;
+            if (!reg || !reg.showNotification) return false;
+            options = options || {};
+            var tag = options.urgent ? 'partner-invite' : 'partner-msg';
+            reg.showNotification(title, {
+                body: body,
+                icon: './assets/ct-heart-wings.png',
+                badge: './assets/ct-heart-wings.png',
+                tag: tag,
+                renotify: true,
+                data: { url: (location && location.href) || '/' }
+            }).then(function () {
+                console.log('[PushBridge] Service Worker 浏览器通知:', title, body);
+            }).catch(function () { /* 忽略 */ });
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function _sendBrowserNotif(title, body, options) {
         try {
             if (typeof localStorage !== 'undefined' && localStorage.getItem('notifEnabled') !== '1') {
                 return false;
@@ -154,12 +179,20 @@
         } catch (e) {}
         if (!('Notification' in global)) return false;
         if (global.Notification.permission !== 'granted') return false;
-        if (!document.hidden) return false;
+        // 用户正专注查看本页：不弹系统通知（应用内横幅已提示），避免打扰；
+        // 后台 / 失焦 / 其他窗口时才弹。isFocused 仅在真正获焦时为 true。
+        var focused = false;
+        try { focused = document.visibilityState === 'visible' && document.hasFocus && document.hasFocus(); } catch (e) {}
+        if (focused) return false;
 
+        // 1) 优先 Service Worker（后台/失焦必达）
+        if (_sendViaServiceWorker(title, body, options)) return true;
+
+        // 2) 兜底：直接构造 Notification
         try {
             new global.Notification(title, {
                 body: body,
-                tag: 'partner-msg',
+                tag: options && options.urgent ? 'partner-invite' : 'partner-msg',
                 renotify: true
             });
             console.log('[PushBridge] 浏览器通知:', title, body);
@@ -234,7 +267,7 @@
             }
 
             // 浏览器回退
-            _sendBrowserNotif(title, body);
+            _sendBrowserNotif(title, body, options);
         },
 
         /**

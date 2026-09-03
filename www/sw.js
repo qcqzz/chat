@@ -26,6 +26,35 @@ self.addEventListener('activate', function (e) {
     })());
 });
 
+// 点击通知：聚焦已打开的页面；否则新开/回到应用
+self.addEventListener('notificationclick', function (event) {
+    if (typeof event.notification !== 'undefined') { try { event.notification.close(); } catch (e) {} }
+    var target = '/';
+    try {
+        if (event.notification && event.notification.data && event.notification.data.url) {
+            target = event.notification.data.url;
+        } else if (self.registration && self.registration.scope) {
+            target = self.registration.scope;
+        }
+    } catch (e) {}
+    var dispatch = function (url) {
+        return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clients) {
+            for (var i = 0; i < clients.length; i++) {
+                if (!clients[i].focused && clients[i].focus) { try { clients[i].focus(); } catch (e2) {} }
+                if (clients[i].navigate && clients[i].url && url.indexOf(clients[i].url) === 0) {
+                    try { return clients[i].navigate(url); } catch (e2) {}
+                }
+            }
+            if (self.clients.openWindow) { return self.clients.openWindow(url); }
+        });
+    };
+    if (typeof event.waitUntil === 'function') {
+        event.waitUntil(dispatch(target));
+    } else {
+        dispatch(target);
+    }
+});
+
 // 当前待触发的一次"到点通知"任务：{ at, title, body, tag }
 var job = null;
 
