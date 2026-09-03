@@ -426,12 +426,15 @@
             console.log('[PushBridge] 初始化 | Capacitor:', !!global.Capacitor,
                 '| 昵称:', getPartnerName());
 
-            // 浏览器后台增强：注册 SW + Wake Lock 保活 + 监听 SW 到点唤醒（非原生）
+            // 浏览器后台增强：注册 SW + Wake Lock 保活 + 监听 SW 到点唤醒（完全跳过原生环境）
             try {
-                this.webKeepAlive.init();
+                if (!(global.Capacitor && global.Capacitor.Plugins)) {
+                    this.webKeepAlive.init();
+                }
             } catch (e) {}
             try {
-                if (global.navigator && global.navigator.serviceWorker) {
+                if (!(global.Capacitor && global.Capacitor.Plugins)
+                    && global.navigator && global.navigator.serviceWorker) {
                     var self = this;
                     global.navigator.serviceWorker.addEventListener('message', function (event) {
                         self._swDueHandler(event);
