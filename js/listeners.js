@@ -3212,7 +3212,7 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
                                                 (s.sub || '').toLowerCase().includes(searchTerm));
 
         if (filteredSongs.length === 0) {
-            container.innerHTML = `<div class="empty-search-result">未找到 "${searchTerm}" 相关歌曲</div>`;
+            container.innerHTML = `<div class="empty-search-result">未找到 "${_escapeHtml(searchTerm)}" 相关歌曲</div>`;
             return;
         }
 

@@ -590,7 +590,7 @@ window._mToggleLike=function(postId){
     if(btn){btn.className='cs-like-btn'+(likeOn?' on':'');btn.querySelector('i').className=likeOn?'fas fa-heart':'far fa-heart';}
     const lc=document.getElementById('cs-lc-'+postId);if(lc)lc.textContent=likeCount>0?' '+likeCount:'';
     const lr=document.getElementById('cs-lr-'+postId);
-    if(lr){const likers=[];if(p.partnerLiked)likers.push(_mPName());if(p.userLiked)likers.push(_mMName());lr.style.display=likers.length?'flex':'none';lr.innerHTML=likers.length?`<i class="fas fa-heart"></i><span>${likers.join('、')} 赞了</span>`:'';}
+    if(lr){const likers=[];if(p.partnerLiked)likers.push(_escapeHtml(_mPName()));if(p.userLiked)likers.push(_escapeHtml(_mMName()));lr.style.display=likers.length?'flex':'none';lr.innerHTML=likers.length?`<i class="fas fa-heart"></i><span>${likers.join('、')} 赞了</span>`:'';}
 };
 
 // ─── 删除 ───
