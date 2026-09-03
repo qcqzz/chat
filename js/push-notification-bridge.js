@@ -19,6 +19,9 @@
     var _pluginChecked = false;
     var _permissionGranted = false;  // 权限是否已授予
 
+    // 站点品牌图（与 sw.js / manifest 一致），用作通知图标兜底/角标
+    var BRAND_ICON = 'https://file.youtochat.com/images/20260216/1771224856844_qdqqd.jpeg';
+
     // ====== 等待 Capacitor 桥接就绪 ======
     function waitForCapacitor(timeoutMs) {
         timeoutMs = timeoutMs || 5000;
@@ -98,6 +101,15 @@
         return '对方';
     }
 
+    // APK 系统通知的左侧图标：用梦角头像（跟聊天/桌面一致），没有则回退到站点品牌图
+    function _avatarIcon() {
+        try {
+            var img = document.querySelector('#partner-avatar img');
+            if (img && img.src) return img.src;
+        } catch (e) {}
+        return BRAND_ICON;
+    }
+
     // ====== 发送自定义通知插件 ======
     function _sendViaCustomPlugin(title, body, options) {
         if (!_notifPlugin) return Promise.resolve(false);
@@ -155,12 +167,16 @@
             if (!reg || !reg.showNotification) return false;
             options = options || {};
             var tag = options.urgent ? 'partner-invite' : 'partner-msg';
+            var icon = _avatarIcon();
             reg.showNotification(title, {
                 body: body,
-                icon: './assets/ct-heart-wings.png',
-                badge: './assets/ct-heart-wings.png',
+                icon: icon,
+                badge: BRAND_ICON,
                 tag: tag,
                 renotify: true,
+                // 紧急邀请（视频/来电等）对应 APK 的全屏式提醒：通知常驻直到用户处理，并震动
+                requireInteraction: !!options.urgent,
+                vibrate: options.urgent ? [120, 80, 120] : undefined,
                 data: { url: (location && location.href) || '/' }
             }).then(function () {
                 console.log('[PushBridge] Service Worker 浏览器通知:', title, body);
@@ -192,8 +208,12 @@
         try {
             new global.Notification(title, {
                 body: body,
+                icon: _avatarIcon(),
+                badge: BRAND_ICON,
                 tag: options && options.urgent ? 'partner-invite' : 'partner-msg',
-                renotify: true
+                renotify: true,
+                requireInteraction: !!(options && options.urgent),
+                vibrate: (options && options.urgent) ? [120, 80, 120] : undefined
             });
             console.log('[PushBridge] 浏览器通知:', title, body);
             return true;
@@ -521,3 +541,280 @@
     }
 
 })(window);
+
+/* =========================================================================
+ * 离线消息提醒（Periodic Background Sync，源自 Mochi 字卡传讯，零后端）
+ *
+ * 与根目录 sw.js 配合：页面全部关闭后，Chromium 按自身策略定期唤醒 SW，
+ * SW 读本模块写入的「可发文案」快照 → 随机抽一条 → 以梦角名义弹系统通知，
+ * 同时把该条追加进队列；用户回开应用后由本模块把队列安全补投递进聊天。
+ *
+ * 如实边界（照抄 mochi 的坦诚策略，不夸大）：仅 Chromium 系支持；需把站点
+ * “添加到主屏幕”并在主屏图标里打开（standalone）才会被调度；频率由系统决定
+ * （约数小时一次）；iPhone Safari 无此 API；进程被系统杀死后无法唤醒。
+ * ========================================================================= */
+(function () {
+    'use strict';
+
+    var IS_NATIVE = !!(window.Capacitor && window.Capacitor.Plugins);
+
+    var FLAG = 'offlineNotifyEnabled';          // '0' = 关闭，其余 = 开启（默认开启）
+    var TAG = 'chuan-ta-msg';
+    var SNAP_KEY = 'chuan:psync-snap';
+    var QUEUE_KEY = 'chuan:psync-queue';
+    var DB = 'chuan-offline-db';
+    var STORE = 'kv';
+    var TTL = 7 * 24 * 60 * 60 * 1000;          // 快照/队列 7 天未刷新（长期没开应用）提醒自动失效
+
+    var BUILTIN = [
+        '刚看到一句话，想起你了。',
+        '你在忙吗？我这边刚刚想到你。',
+        '没什么事，就是想跟你说句话。',
+        '今天也要好好吃饭呀。',
+        '突然很想你，就说一声。',
+        '记得喝水，别总忘了。',
+        '晚安前跟你说一声，我在。',
+        '有空的时候理理我呀。'
+    ];
+
+    // ---- IndexedDB 读写（与根目录 sw.js 共用同一 DB/表）----
+    function openDb() {
+        return new Promise(function (resolve, reject) {
+            var req = indexedDB.open(DB, 1);
+            req.onupgradeneeded = function () {
+                try {
+                    if (!req.result.objectStoreNames.contains(STORE)) {
+                        req.result.createObjectStore(STORE);
+                    }
+                } catch (e) {}
+            };
+            req.onsuccess = function () { resolve(req.result); };
+            req.onerror = function () { reject(req.error || new Error('offline idb open fail')); };
+        });
+    }
+    function idbGet(key) {
+        return openDb().then(function (db) {
+            return new Promise(function (resolve, reject) {
+                var tx;
+                try {
+                    tx = db.transaction(STORE, 'readonly');
+                } catch (e) { reject(e); return; }
+                var rq = tx.objectStore(STORE).get(key);
+                rq.onsuccess = function () { resolve(rq.result); };
+                rq.onerror = function () { reject(rq.error); };
+            });
+        });
+    }
+    function idbSet(key, val) {
+        return openDb().then(function (db) {
+            return new Promise(function (resolve, reject) {
+                var tx;
+                try {
+                    tx = db.transaction(STORE, 'readwrite');
+                } catch (e) { reject(e); return; }
+                tx.objectStore(STORE).put(val, key);
+                tx.oncomplete = function () { resolve(true); };
+                tx.onerror = function () { reject(tx.error); };
+            });
+        });
+    }
+
+    // ---- 判定与取值（全部静默降级）----
+    function supported() {
+        try { return 'serviceWorker' in navigator && 'PeriodicSyncManager' in window; } catch (e) { return false; }
+    }
+    function standalone() {
+        try {
+            return !!(window.matchMedia &&
+                window.matchMedia('(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)').matches);
+        } catch (e) { return false; }
+    }
+    function enabledProp() { try { return localStorage.getItem(FLAG) !== '0'; } catch (e) { return true; } }
+    function currentCid() {
+        try { return (typeof SESSION_ID !== 'undefined' && SESSION_ID) ? SESSION_ID : 'default'; } catch (e) { return 'default'; }
+    }
+    function partnerName() {
+        try {
+            var s = (typeof settings !== 'undefined') ? settings : null;
+            if (s && s.partnerName) return String(s.partnerName);
+        } catch (e) {}
+        try { var el = document.getElementById('partner-name'); if (el && el.textContent.trim()) return el.textContent.trim(); } catch (e) {}
+        try { var ls = localStorage.getItem('partnerName'); if (ls) return ls; } catch (e) {}
+        return '对方';
+    }
+    function periodicManager(reg) {
+        try { if (navigator.periodicSync && navigator.periodicSync.register) return navigator.periodicSync; } catch (e) {}
+        try { if (reg && reg.periodicSync) return reg.periodicSync; } catch (e) {}
+        return null;
+    }
+
+    // ---- 文案来源：用户「自定义回复」里的短文字字卡 + 内置兜底 ----
+    function plain(t) {
+        if (typeof t !== 'string') return false;
+        var s = t.trim();
+        if (!s || s.length > 60) return false;
+        if (s.indexOf('|||') >= 0) return false;            // 语音卡
+        if (s.indexOf('data:') === 0) return false;         // 图片/表情
+        if (s.indexOf('http:') === 0 || s.indexOf('https:') === 0) return false;
+        return true;
+    }
+    function shuffle(a) {
+        var r = a.slice();
+        for (var i = r.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var t = r[i]; r[i] = r[j]; r[j] = t;
+        }
+        return r;
+    }
+    var _snapCount = 0;
+    function buildSnapshot() {
+        var cc = [];
+        try { cc = (typeof customReplies !== 'undefined' ? customReplies : []).filter(plain).slice(0, 40); } catch (e) { cc = []; }
+        var picks = [];
+        shuffle(cc).forEach(function (t) { picks.push({ t: String(t).trim(), k: 'cc' }); });
+        shuffle(BUILTIN).slice(0, 4).forEach(function (t) { picks.push({ t: t, k: 'bl' }); });
+        var snap = {
+            v: 1,
+            ts: Date.now(),
+            cid: currentCid(),
+            name: partnerName(),
+            texts: shuffle(picks).slice(0, 12)
+        };
+        _snapCount = snap.texts.length;
+        idbSet(SNAP_KEY, snap).catch(function () {});
+        return Promise.resolve(snap);
+    }
+
+    // ---- 注册 / 注销 ----
+    function apply() {
+        if (IS_NATIVE) return Promise.resolve();
+        if (!supported() || !enabledProp()) return Promise.resolve();
+        return navigator.serviceWorker.ready.then(function (reg) {
+            var pm = periodicManager(reg);
+            if (!pm) return;
+            return navigator.permissions.query({ name: 'periodic-background-sync' }).then(function (st) {
+                if (st && st.state === 'denied') return;
+                return pm.register(TAG, { minInterval: 4 * 60 * 60 * 1000 }).then(function () {
+                    return buildSnapshot();
+                });
+            });
+        }).catch(function () {});
+    }
+    function teardown() {
+        if (IS_NATIVE) return Promise.resolve();
+        if (!supported()) return Promise.resolve();
+        return navigator.serviceWorker.ready.then(function (reg) {
+            var pm = periodicManager(reg);
+            if (!pm || !pm.getTags) return;
+            return pm.getTags().then(function (tags) {
+                if (tags.indexOf(TAG) >= 0) { try { return pm.unregister(TAG); } catch (e) {} }
+            });
+        }).catch(function () {});
+    }
+
+    // ---- 把队列补投递进聊天（只投递当前梦角的文案，别的不动）----
+    function deliverIntoChat(it) {
+        var msg = {
+            id: Date.now() + Math.random(),
+            sender: partnerName(),
+            text: it.t,
+            timestamp: new Date(),
+            status: 'received',
+            favorited: false,
+            note: null,
+            replyTo: null,
+            type: 'normal'
+        };
+        try {
+            if (typeof window.addMessage === 'function') { window.addMessage(msg); return true; }
+        } catch (e) {}
+        return false;
+    }
+    function drainQueue() {
+        if (IS_NATIVE) return Promise.resolve(0);
+        if (!supported()) return Promise.resolve(0);
+        return idbGet(QUEUE_KEY).then(function (arr) {
+            if (!Array.isArray(arr) || !arr.length) return 0;
+            var cid = currentCid();
+            var now = Date.now();
+            var remain = [];
+            var delivered = 0;
+            for (var i = 0; i < arr.length; i++) {
+                var it = arr[i];
+                if (!it || typeof it.t !== 'string' || !it.t.trim()) continue;
+                if (!it.ts || now - it.ts > TTL) continue;                       // 过期丢弃
+                if ((it.cid || 'default') !== cid) { remain.push(it); continue; } // 别的梦角的留着
+                // 防重复：当前聊天最近 10 条里 30 分钟内有同文本视为已投递
+                var dup = false;
+                try {
+                    var msgs = (typeof messages !== 'undefined') ? messages : null;
+                    if (Array.isArray(msgs)) {
+                        for (var j = Math.max(0, msgs.length - 10); j < msgs.length; j++) {
+                            var m = msgs[j];
+                            if (m && m.text === it.t && Math.abs((Date.parse(m.timestamp) || 0) - it.ts) < 30 * 60000) {
+                                dup = true; break;
+                            }
+                        }
+                    }
+                } catch (e) {}
+                if (dup) continue;                                   // 已有同文本，丢弃
+                if (deliverIntoChat(it)) delivered++;
+                else remain.push(it);                                // 未投递成功（如聊天未就绪），保留待下次
+            }
+            idbSet(QUEUE_KEY, remain).catch(function () {});
+            return delivered;
+        }).catch(function () { return 0; });
+    }
+
+    // ---- 点击离线通知：聚焦已开窗口（补投递由 drainQueue 在回前台时完成）----
+    try {
+        if (!IS_NATIVE && navigator.serviceWorker) {
+            navigator.serviceWorker.addEventListener('message', function (e) {
+                if (!e || !e.data || e.data.type !== 'CHAT_NOTIFY_CLICK') return;
+                try {
+                    if (document.hidden === false && window.focus) window.focus();
+                    // 回到聊天区：多数页面聊天容器常驻，这里仅确保窗口前置即可
+                } catch (x) {}
+            });
+        }
+    } catch (e) {}
+
+    // ---- 生命周期挂载 ----
+    function boot() {
+        if (IS_NATIVE) return;
+        // 开屏就绪后注册 + 分批发补投递（等聊天权威数据就绪再动队列）
+        setTimeout(function () { apply(); }, 8000);
+        [12000, 27000, 47000].forEach(function (ms) {
+            setTimeout(function () { try { drainQueue(); } catch (e) {} }, ms);
+        });
+        try {
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState !== 'visible') return;
+                try { drainQueue(); } catch (e) {}
+                try {
+                    if (supported() && enabledProp() && standalone()) {
+                        var last = window.__offlineSnapLastAt || 0;
+                        if (Date.now() - last > 300000) { window.__offlineSnapLastAt = Date.now(); apply(); }
+                    }
+                } catch (e) {}
+            });
+        } catch (e) {}
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
+
+    // 暴露：供其他模块/控制台主动刷新快照或补投递
+    window.OfflineReminder = {
+        apply: apply,
+        teardown: teardown,
+        buildSnapshot: buildSnapshot,
+        drain: drainQueue,
+        supported: supported,
+        isStandalone: standalone,
+        isEnabled: enabledProp,
+        snapshotCount: function () { return _snapCount; }
+    };
+})();

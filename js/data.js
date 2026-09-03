@@ -810,9 +810,12 @@ window._sendPartnerNotification = function(title, body, options) {
             if (!document.hidden) return;
             new Notification(title, {
                 body: body,
-                icon: (document.querySelector('#partner-avatar img') || {}).src,
+                icon: (document.querySelector('#partner-avatar img') || {}).src || 'https://file.youtochat.com/images/20260216/1771224856844_qdqqd.jpeg',
+                badge: 'https://file.youtochat.com/images/20260216/1771224856844_qdqqd.jpeg',
                 tag: options.urgent ? 'partner-invite' : 'partner-msg',
-                renotify: true
+                renotify: true,
+                requireInteraction: !!options.urgent,
+                vibrate: options.urgent ? [120, 80, 120] : undefined
             });
         } catch (e) {}
     }
