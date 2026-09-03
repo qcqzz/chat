@@ -2765,11 +2765,6 @@ html[data-theme="dark"] #chat-transition-overlay{
                             <span class="setting-pill-label">进入聊天页动画 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">打开聊天空间的进入动画</span></span>
                             <div class="setting-pill-switch"><div class="setting-pill-knob"></div></div>
                         </div>
-                        <div class="setting-pill-row" id="cs-anim-space" onclick="window._uiAnimToggle&&window._uiAnimToggle('Space','cs-anim-space')" style="border-top:1px solid var(--border-color);">
-                            <span class="setting-pill-icon"><i class="fas fa-home"></i></span>
-                            <span class="setting-pill-label">进入情侣空间动画 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">打开情侣空间的进入动画</span></span>
-                            <div class="setting-pill-switch"><div class="setting-pill-knob"></div></div>
-                        </div>
                         <div class="setting-pill-row" id="cs-anim-ent" onclick="window._uiAnimToggle&&window._uiAnimToggle('Ent','cs-anim-ent')" style="border-top:1px solid var(--border-color);">
                             <span class="setting-pill-icon"><i class="fas fa-sparkles"></i></span>
                             <span class="setting-pill-label">进入娱乐页动画 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">打开娱乐的进入动画</span></span>
@@ -4181,7 +4176,6 @@ window._syncUiAnim=function(){
     el.style.opacity='';el.style.pointerEvents='';
   }
   sync('cs-anim-chat',settings.animChat!==false);
-  sync('cs-anim-space',settings.animSpace!==false);
   sync('cs-anim-ent',settings.animEnt!==false);
 };
 window._syncUiAnim();
