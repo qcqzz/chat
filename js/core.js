@@ -1472,6 +1472,13 @@ function manageAutoSendTimer() {
         const interval = settings.autoSendInterval || 5;
         const intervalMs = interval * 60 * 1000;
         autoSendTimer = setInterval(function() {
+            // 把"下一次自动回复到点时刻"同步给浏览器后台 SW 兜底通知（非原生环境才有意义）
+            try {
+                if (window.PushBridge && PushBridge.webKeepAlive) {
+                    PushBridge.webKeepAlive.syncNext(Date.now() + intervalMs,
+                        settings.partnerName || '对方', '对方发来了一条新消息');
+                }
+            } catch (e) {}
             if (document.body.classList.contains('batch-favorite-mode')) return;
             // 后台不阻断发送：由前台服务 + WakeLock 保活 WebView 持续运行，
             // 到点照常发出真实消息，并让每条真实消息各自触发真实系统通知（不使用原生"虚拟"通知）。

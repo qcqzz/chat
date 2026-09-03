@@ -318,6 +318,105 @@
         },
 
         /**
+         * 浏览器后台增强控制柄（非原生环境才有意义）：把"下一次到点时刻"
+         * 同步给 Service Worker，由 SW 在后台兜底弹系统通知；并尝试 Wake Lock
+         * 降低页面被后台冻结的概率。
+         */
+        webKeepAlive: {
+            _swReg: null,
+            _wakeLock: null,
+            _lastSync: null,
+
+            init: function () {
+                if (global.Capacitor && global.Capacitor.Plugins) return; // APK 走原生，不需要
+                this._registerServiceWorker();
+                this._wakeLockListeners();
+            },
+
+            _registerServiceWorker: function () {
+                try {
+                    if (!('serviceWorker' in global.navigator)) return;
+                    var self = this;
+                    global.navigator.serviceWorker.register('./sw.js', { scope: './' }).then(function (reg) {
+                        self._swReg = reg;
+                        console.log('[PushBridge] 后台兜底 SW 已注册', reg.scope);
+                    }).catch(function (e) {
+                        console.warn('[PushBridge] SW 注册失败（后台兜底通知不可用）:', e.message || e);
+                    });
+                } catch (e) {}
+            },
+
+            /**
+             * 同步下一次到点：at 为毫秒时间戳；title/body 用于 SW 兜底通知文案。
+             */
+            syncNext: function (at, title, body) {
+                if (global.Capacitor && global.Capacitor.Plugins) return; // APK 不走 SW
+                this._lastSync = at;
+                try {
+                    if (this._swReg && this._swReg.active) {
+                        this._swReg.active.postMessage({
+                            type: 'webkeepalive:sync',
+                            at: at, title: title || '', body: body || ''
+                        });
+                    }
+                } catch (e) {}
+            },
+
+            clearNext: function () {
+                if (global.Capacitor && global.Capacitor.Plugins) return;
+                try {
+                    if (this._swReg && this._swReg.active) {
+                        this._swReg.active.postMessage({ type: 'webkeepalive:clear' });
+                    }
+                } catch (e) {}
+            },
+
+            _requestWakeLock: function () {
+                try {
+                    if (!('wakeLock' in global.navigator)) return;
+                    var self = this;
+                    global.navigator.wakeLock.request('screen').then(function (lock) {
+                        self._wakeLock = lock;
+                    }).catch(function () {});
+                } catch (e) {}
+            },
+
+            _releaseWakeLock: function () {
+                try {
+                    if (this._wakeLock) { this._wakeLock.release(); this._wakeLock = null; }
+                } catch (e) {}
+            },
+
+            _wakeLockListeners: function () {
+                var self = this;
+                try {
+                    document.addEventListener('visibilitychange', function () {
+                        if (document.visibilityState === 'hidden') {
+                            self._requestWakeLock();
+                        } else {
+                            self._releaseWakeLock();
+                        }
+                    });
+                } catch (e) {}
+            }
+        },
+
+        /**
+         * 处理来自 SW 的"到点"唤醒：页面仍存活时补一条真实消息（走原 simulateReply）。
+         */
+        _swDueHandler: function (event) {
+            var data = event && event.data;
+            if (!data) return;
+            if (data.type !== 'webkeepalive:due') return;
+            try {
+                if (typeof global.simulateReply === 'function') {
+                    global.simulateReply();
+                    console.log('[PushBridge] SW 唤起到点，补发一条真实消息');
+                }
+            } catch (e) {}
+        },
+
+        /**
          * 初始化
          */
         init: function () {
@@ -326,6 +425,19 @@
 
             console.log('[PushBridge] 初始化 | Capacitor:', !!global.Capacitor,
                 '| 昵称:', getPartnerName());
+
+            // 浏览器后台增强：注册 SW + Wake Lock 保活 + 监听 SW 到点唤醒（非原生）
+            try {
+                this.webKeepAlive.init();
+            } catch (e) {}
+            try {
+                if (global.navigator && global.navigator.serviceWorker) {
+                    var self = this;
+                    global.navigator.serviceWorker.addEventListener('message', function (event) {
+                        self._swDueHandler(event);
+                    });
+                }
+            } catch (e) {}
 
             // 等待 Capacitor 桥接就绪
             var self = this;
