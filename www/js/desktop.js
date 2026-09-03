@@ -854,6 +854,149 @@
         }, 150);
     };
 
+    // ── 桌面第二页：链接状态 + 时间 ──
+    // 内容与风格源（dunian）一致：链接状态 14 条文案随机切换（每 1~2 小时随机刷新，按梦角隔离），
+    // TA 时间 = 本地时间 + 每日随机时差（-12~+12 小时，跨天重摇，按梦角隔离）。
+    var LS_KEY = 'tiDesktopLinkStatus';
+    var TO_KEY = 'tiDesktopTimeOffset';
+    var LS_MIN = 60 * 60 * 1000;          // 链接状态最短间隔 1 小时
+    var LS_MAX = 2 * 60 * 60 * 1000;      // 链接状态最长间隔 2 小时
+    var linkStatusList = [
+        { text: '灵魂共鸣', level: 5 },
+        { text: '魂印相契', level: 5 },
+        { text: '命定归栖', level: 5 },
+        { text: '心律同频', level: 4 },
+        { text: '命理相缠', level: 4 },
+        { text: '星轨交叠', level: 4 },
+        { text: '灵栖此处', level: 4 },
+        { text: '命轨渐合', level: 3 },
+        { text: '潮汐同流', level: 3 },
+        { text: '风缕交织', level: 3 },
+        { text: '心绪时隐', level: 2 },
+        { text: '冥冥相引', level: 2 },
+        { text: '昼夜错频', level: 1 },
+        { text: '频段游离', level: 1 }
+    ];
+    var _lsTextEl = null, _lsHeartsEl = null;
+    function renderLinkStatus(idx) {
+        var item = linkStatusList[idx] || linkStatusList[0];
+        if (!_lsTextEl) _lsTextEl = $('dt-ls-text');
+        if (!_lsHeartsEl) _lsHeartsEl = document.getElementById('dt-ls-hearts');
+        if (_lsTextEl) _lsTextEl.textContent = item.text;
+        if (_lsHeartsEl) {
+            var hs = _lsHeartsEl.querySelectorAll('i');
+            for (var i = 0; i < hs.length; i++) {
+                hs[i].classList.toggle('on', i < item.level);
+                hs[i].classList.toggle('pulse', i < item.level && item.level <= 2);
+            }
+        }
+    }
+    function refreshLinkStatus(force) {
+        var data = null;
+        try { data = JSON.parse(dsGet(LS_KEY) || 'null'); } catch (e) {}
+        var needRoll = !data || typeof data.idx !== 'number' || force ||
+                       !data.next || Date.now() >= data.next;
+        var idx;
+        if (needRoll) {
+            var prev = data ? data.idx : -1;
+            do { idx = Math.floor(Math.random() * linkStatusList.length); }
+            while (idx === prev && linkStatusList.length > 1);
+            // 下次切换时间：1~2 小时之间随机
+            data = { idx: idx, next: Date.now() + LS_MIN + Math.random() * (LS_MAX - LS_MIN) };
+            if (dsSid()) dsSet(LS_KEY, JSON.stringify(data));
+        } else {
+            idx = data.idx;
+        }
+        renderLinkStatus(idx);
+    }
+    function getTimeOffset() {
+        var today = new Date();
+        var key = today.getFullYear() + '-' +
+                  String(today.getMonth() + 1).padStart(2, '0') + '-' +
+                  String(today.getDate()).padStart(2, '0');
+        try {
+            var saved = JSON.parse(dsGet(TO_KEY) || 'null');
+            if (saved && saved.date === key && typeof saved.offset === 'number') return saved.offset;
+        } catch (e) {}
+        var off = Math.floor(Math.random() * 25) - 12;      // -12 ~ +12 小时
+        off += Math.floor(Math.random() * 60) / 60;          // 加一点分钟偏移，更真实
+        if (dsSid()) dsSet(TO_KEY, JSON.stringify({ date: key, offset: off }));
+        return off;
+    }
+    function updateDesktopTimes() {
+        var now = new Date();
+        var myEl = $('dt-my-time'), roleEl = $('dt-role-time');
+        var mm = String(now.getMinutes()).padStart(2, '0');
+        if (myEl) myEl.textContent = String(now.getHours()).padStart(2, '0') + ':' + mm;
+        var off = getTimeOffset();
+        var rn = new Date(now.getTime() + off * 3600000);
+        if (roleEl) roleEl.textContent = String(rn.getHours()).padStart(2, '0') +
+                                         ':' + String(rn.getMinutes()).padStart(2, '0');
+        // TA 标签跟随当前梦角昵称（未取到时兜底为"TA那边"）
+        var who = $('dt-time-partner');
+        if (who) {
+            var pn = (typeof settings !== 'undefined' && settings && settings.partnerName) ? settings.partnerName : '';
+            var label = pn ? pn + '那边' : 'TA那边';
+            if (who.textContent !== label) who.textContent = label;
+        }
+        // 我这边标签跟随用户自己的昵称（未取到时兜底为"我这边"）
+        var myWho = $('dt-time-me');
+        if (myWho) {
+            var myName = $('my-name');
+            var mn = (myName && myName.textContent) ? myName.textContent.trim() : '';
+            var myLabel = mn ? mn + '这边' : '我这边';
+            if (myWho.textContent !== myLabel) myWho.textContent = myLabel;
+        }
+    }
+    // 右侧状态栏：第一排 TA 的心情（跟随心情手账 moodData），第二排 TA 的状态（跟随每日公告）
+    function renderP2Status() {
+        var now = new Date();
+        var todayStr = now.getFullYear() + '-' +
+                       String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                       String(now.getDate()).padStart(2, '0');
+        var pName = (typeof settings !== 'undefined' && settings && settings.partnerName) ? settings.partnerName : '梦角';
+        // 标题「梦角 今日」跟随梦角昵称（保留图标，仅改文字）
+        var stLabelEl = $('dt-st-label');
+        if (stLabelEl) {
+            var want = pName + ' 今日';
+            var ln = stLabelEl.lastChild;
+            if (!ln || ln.nodeType !== 3) {
+                stLabelEl.appendChild(document.createTextNode(want));
+            } else if (ln.textContent !== want) {
+                ln.textContent = want;
+            }
+        }
+        var moodEl = $('dt-st-mood');
+        var statusEl = $('dt-st-status');
+
+        // 心情：取心情手账中今天的 TA 记录（kaomoji + 标签），未记录则给兜底文案
+        var moodText = pName + ' 今天还没有记录';
+        try {
+            var moodDataRaw = window.moodData || {};
+            var todayMood = moodDataRaw[todayStr];
+            var allMoods = (typeof getAllMoodOptions === 'function') ? getAllMoodOptions() : [];
+            if (todayMood && todayMood.partner) {
+                for (var mi = 0; mi < allMoods.length; mi++) {
+                    if (allMoods[mi].key === todayMood.partner) {
+                        moodText = allMoods[mi].kaomoji + '  ' + allMoods[mi].label;
+                        break;
+                    }
+                }
+            }
+        } catch (e) {}
+        if (moodEl && moodEl.textContent !== moodText) moodEl.textContent = moodText;
+
+        // 状态：跟随每日公告（当天固定的随机状态，含用户自定义状态池）
+        var statusText = '—';
+        try {
+            if (typeof _getDailyGreetingData === 'function') {
+                var dg = _getDailyGreetingData();
+                if (dg && dg.status) statusText = dg.status;
+            }
+        } catch (e) {}
+        if (statusEl && statusEl.textContent !== statusText) statusEl.textContent = statusText;
+    }
+
     // ── 初始化 ──
     var _dtInitDone = false;   // 一次性操作（事件绑定/兜底/轮询）只执行一次
     function init() {
@@ -907,6 +1050,10 @@
             // 低端机(data-lite)进一步降到 10s，减少持续渲染开销，避免与快速点击叠加后卡顿
             var dtLite = document.documentElement && document.documentElement.getAttribute('data-lite') === '1';
             setInterval(function () { syncTopbarUsers(); renderAnniversary(); }, dtLite ? 10000 : 3000);
+
+            // 桌面第二页：时间每 30s 刷新（TA 时间基于每日时差），链接状态 1~2h 内自动切换，
+            // 右侧状态栏跟随心情手账与每日公告（心情/公告变化后自动同步）
+            setInterval(function () { updateDesktopTimes(); refreshLinkStatus(false); renderP2Status(); }, 30000);
         }
 
         // 桌面个性化渲染 + 旧数据迁移依赖 SESSION_ID 就绪（core.js 异步初始化，可能晚于
@@ -924,11 +1071,117 @@
         renderPolaroid();
         renderPolaroidGallery();
         renderAnniversary();
+        refreshLinkStatus(false);
+        updateDesktopTimes();
+        renderP2Status();
+    }
+
+    // ── 桌面双页滑动：横向滑动切换两张桌面页（底部图标栏固定，不随页面滑动）──
+    function initDesktopPager() {
+        var pager = document.getElementById('dt-pager');
+        if (!pager) return;
+        var track = pager.querySelector('.dt-pager-track');
+        if (!track) return;
+        var COUNT = 2;                 // 桌面页数量
+        var TARGET = 100 / COUNT;      // 每滑一页，轨道位移 = TARGET%（=50%）
+        var cur = 0;
+        var width = 0, startX = 0, startY = 0, deltaX = 0;
+        var moved = false, dragged = false;
+        var lastSwipeAt = 0;
+
+        // 底部小圆点指示器：放到图标栏(.app-grid)下面
+        var dots = document.createElement('div');
+        dots.className = 'dt-pager-dots';
+        for (var i = 0; i < COUNT; i++) {
+            var d = document.createElement('span');
+            d.className = 'dt-pager-dot' + (i === 0 ? ' active' : '');
+            dots.appendChild(d);
+        }
+        var appGrid = document.querySelector('.app-grid');
+        if (appGrid && appGrid.parentNode) {
+            appGrid.parentNode.insertBefore(dots, appGrid.nextSibling);
+        } else {
+            pager.appendChild(dots);
+        }
+
+        function baseOffset() { return -cur * TARGET; }
+        function render(animate) {
+            pager.classList.toggle('dragging', !animate);
+            track.style.transform = 'translateX(' + baseOffset() + '%)';
+            var ds = dots.children;
+            for (var j = 0; j < ds.length; j++) ds[j].classList.toggle('active', j === cur);
+        }
+        function bound(v) {
+            return Math.max(-(COUNT - 1) * TARGET, Math.min(0, v));
+        }
+        function start(x, y) {
+            width = pager.getBoundingClientRect().width;
+            if (width <= 0) width = pager.offsetWidth || window.innerWidth || 360;
+            startX = x; startY = y; deltaX = 0;
+            moved = false; dragged = false;
+        }
+        function move(x, y, prevent) {
+            var dx = x - startX;
+            var dy = y - startY;
+            deltaX = dx;
+            if (!moved) {
+                // 越过水平阈值才判定为横向滑动，避免误抢页面内部纵向滚动
+                if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) moved = true;
+                else return false;
+            }
+            if (!dragged) { dragged = true; pager.classList.add('dragging'); }
+            track.style.transform = 'translateX(' + bound(baseOffset() + (dx / width) * TARGET) + '%)';
+            if (prevent) { try { prevent(); } catch (e) {} }
+            return true;
+        }
+        function end() {
+            pager.classList.remove('dragging');
+            var w = width || 360;
+            var threshold = w * 0.2;
+            var next = cur;
+            if (moved) {
+                if (deltaX <= -threshold) next = Math.min(COUNT - 1, cur + 1);
+                else if (deltaX >= threshold) next = Math.max(0, cur - 1);
+            }
+            if (next !== cur) { cur = next; lastSwipeAt = Date.now(); }
+            render(true);
+        }
+        function suppressClick(e) {
+            if (Date.now() - lastSwipeAt < 400) {
+                e.preventDefault();
+                e.stopPropagation();
+                lastSwipeAt = 0;
+            }
+        }
+
+        track.addEventListener('touchstart', function (e) {
+            var t = e.touches[0]; start(t.clientX, t.clientY);
+        }, { passive: true });
+        track.addEventListener('touchmove', function (e) {
+            var t = e.touches[0];
+            move(t.clientX, t.clientY, function () { e.preventDefault(); });
+        }, { passive: false });
+        track.addEventListener('touchend', end, { passive: true });
+        track.addEventListener('touchcancel', end, { passive: true });
+
+        track.addEventListener('mousedown', function (e) { start(e.clientX, e.clientY); });
+        document.addEventListener('mousemove', function (e) {
+            move(e.clientX, e.clientY);
+        });
+        document.addEventListener('mouseup', end);
+
+        pager.addEventListener('click', suppressClick, true);
+        render(false);
     }
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initDesktopPager);
+    } else {
+        initDesktopPager();
     }
 })();

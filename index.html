@@ -21,7 +21,7 @@
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
-    <link rel="stylesheet" href="css/styles.css?v=7">
+    <link rel="stylesheet" href="css/styles.css?v=8">
     <link rel="stylesheet" href="css/companion.css">
     <link rel="stylesheet" href="css/cinema.css">
     <link rel="stylesheet" href="css/musichall.css?v=3">
@@ -662,43 +662,117 @@ html[data-theme="dark"] #chat-transition-overlay{
 </div>
 <!-- ── 小手机桌面：顶部栏 + 底部应用图标网格 ── -->
 <div id="phone-desktop">
-    <!-- 桌面顶部栏（个性签名 + 两侧头像昵称，无右上角小图标） -->
-    <div class="dt-topbar" id="dt-topbar">
-        <div class="dt-topbar-card" id="dt-topbar-card">
-            <div class="dt-bg" id="dt-bg"></div>
-            <div class="dt-overlay"></div>
-            <div class="dt-sig" id="dt-signature" title="点击修改个性签名">两颗缠绕的心，会走同一条路</div>
-            <div class="dt-users">
-                <div class="dt-user dt-user-partner">
-                    <div class="dt-avatar" id="dt-avatar-partner"><i class="fas fa-user"></i></div>
-                    <span class="dt-name" id="dt-name-partner">梦角</span>
+    <!-- 桌面页 = 顶部栏 + 中部内容，整体随横向滑动切换；仅底部图标栏(.app-grid)固定不滑动 -->
+    <div class="dt-pager" id="dt-pager">
+        <div class="dt-pager-track">
+            <!-- 第 1 页：原桌面内容（顶部栏 + 拍立得 + 纪念日），进入桌面时默认展示 -->
+            <div class="dt-page">
+                <div class="dt-topbar" id="dt-topbar">
+                    <div class="dt-topbar-card" id="dt-topbar-card">
+                        <div class="dt-bg" id="dt-bg"></div>
+                        <div class="dt-overlay"></div>
+                        <div class="dt-sig" id="dt-signature" title="点击修改个性签名">两颗缠绕的心，会走同一条路</div>
+                        <div class="dt-users">
+                            <div class="dt-user dt-user-partner">
+                                <div class="dt-avatar" id="dt-avatar-partner"><i class="fas fa-user"></i></div>
+                                <span class="dt-name" id="dt-name-partner">梦角</span>
+                            </div>
+                            <div class="dt-heartbeat" aria-hidden="true">
+                                <svg viewBox="0 0 1000 100" preserveAspectRatio="none">
+                                    <polyline class="hb-line hb-shadow" points="0,80 60,80 78,80 90,62 102,98 114,34 126,80 160,80 175,44 190,80 210,80 220,40 226,96 238,88 250,96 262,60 276,96 290,74 304,88 320,80 360,80 380,44 398,88 416,64 432,80 470,80 482,40 498,96 514,80 540,80 560,36 574,96 592,70 610,80 660,80 680,44 698,88 716,64 732,80 800,80 820,80 834,56 850,80 1000,80" vector-effect="non-scaling-stroke"/>
+                                    <polyline class="hb-line hb-main hb-run" points="0,80 60,80 78,80 90,62 102,98 114,34 126,80 160,80 175,44 190,80 210,80 220,40 226,96 238,88 250,96 262,60 276,96 290,74 304,88 320,80 360,80 380,44 398,88 416,64 432,80 470,80 482,40 498,96 514,80 540,80 560,36 574,96 592,70 610,80 660,80 680,44 698,88 716,64 732,80 800,80 820,80 834,56 850,80 1000,80" vector-effect="non-scaling-stroke"/>
+                                </svg>
+                            </div>
+                            <div class="dt-user dt-user-me">
+                                <div class="dt-avatar" id="dt-avatar-me"><i class="fas fa-user"></i></div>
+                                <span class="dt-name" id="dt-name-me">我</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="dt-heartbeat" aria-hidden="true">
-                    <svg viewBox="0 0 1000 100" preserveAspectRatio="none">
-                        <polyline class="hb-line hb-shadow" points="0,80 60,80 78,80 90,62 102,98 114,34 126,80 160,80 175,44 190,80 210,80 220,40 226,96 238,88 250,96 262,60 276,96 290,74 304,88 320,80 360,80 380,44 398,88 416,64 432,80 470,80 482,40 498,96 514,80 540,80 560,36 574,96 592,70 610,80 660,80 680,44 698,88 716,64 732,80 800,80 820,80 834,56 850,80 1000,80" vector-effect="non-scaling-stroke"/>
-                        <polyline class="hb-line hb-main hb-run" points="0,80 60,80 78,80 90,62 102,98 114,34 126,80 160,80 175,44 190,80 210,80 220,40 226,96 238,88 250,96 262,60 276,96 290,74 304,88 320,80 360,80 380,44 398,88 416,64 432,80 470,80 482,40 498,96 514,80 540,80 560,36 574,96 592,70 610,80 660,80 680,44 698,88 716,64 732,80 800,80 820,80 834,56 850,80 1000,80" vector-effect="non-scaling-stroke"/>
-                    </svg>
-                </div>
-                <div class="dt-user dt-user-me">
-                    <div class="dt-avatar" id="dt-avatar-me"><i class="fas fa-user"></i></div>
-                    <span class="dt-name" id="dt-name-me">我</span>
+                <div class="dt-content">
+                    <div class="dt-polaroid" id="dt-polaroid" title="点击切换照片顺序">
+                        <div class="dt-polaroid-card pl-3"><img src="desktop-pl/default.jpg" alt=""><span></span></div>
+                        <div class="dt-polaroid-card pl-2"><img src="desktop-pl/default.jpg" alt=""><span></span></div>
+                        <div class="dt-polaroid-card pl-1"><img src="desktop-pl/default.jpg" alt=""><span></span></div>
+                    </div>
+                    <div class="dt-anniversary" id="dt-anniversary" title="点击切换重要日">
+                        <span class="dt-ann-badge" id="dt-ann-badge"></span>
+                        <div class="dt-ann-icon"><i class="fas fa-heart"></i></div>
+                        <div class="dt-ann-days" id="dt-ann-days">—</div>
+                        <div class="dt-ann-label">纪念日</div>
+                        <div class="dt-ann-meta" id="dt-ann-meta">一起走过的日子</div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
-    <!-- 桌面中部内容：拍立得相册 + 纪念日方块 -->
-    <div class="dt-content">
-        <div class="dt-polaroid" id="dt-polaroid" title="点击切换照片顺序">
-            <div class="dt-polaroid-card pl-3"><img src="desktop-pl/default.jpg" alt=""><span></span></div>
-            <div class="dt-polaroid-card pl-2"><img src="desktop-pl/default.jpg" alt=""><span></span></div>
-            <div class="dt-polaroid-card pl-1"><img src="desktop-pl/default.jpg" alt=""><span></span></div>
-        </div>
-        <div class="dt-anniversary" id="dt-anniversary" title="点击切换重要日">
-            <span class="dt-ann-badge" id="dt-ann-badge"></span>
-            <div class="dt-ann-icon"><i class="fas fa-heart"></i></div>
-            <div class="dt-ann-days" id="dt-ann-days">—</div>
-            <div class="dt-ann-label">纪念日</div>
-            <div class="dt-ann-meta" id="dt-ann-meta">一起走过的日子</div>
+            <!-- 第 2 页：链接状态（顶边即页面顶部）+ 其下紧挨时间方块，右侧 TA 今日状态栏 -->
+            <div class="dt-page" id="dt-page-2">
+                <div class="dt-p2-body">
+                    <!-- 背景装饰：漂浮爱心 / 星光，仅作美化不参与布局 -->
+                    <div class="dt-p2-deco" aria-hidden="true">
+                        <i class="fas fa-heart d1"></i>
+                        <i class="fas fa-heart d2"></i>
+                        <i class="fas fa-sparkles d3"></i>
+                        <i class="fas fa-heart d4"></i>
+                        <i class="fas fa-star d5"></i>
+                    </div>
+                    <div class="dt-p2-row1">
+                        <div class="dt-linkstatus" id="dt-linkstatus" title="链接状态">
+                            <div class="dt-ls-head">
+                                <div class="dt-ls-icon"><i class="fas fa-heartbeat"></i></div>
+                                <div class="dt-ls-label">链接状态</div>
+                            </div>
+                            <div class="dt-ls-body">
+                                <div class="dt-ls-hearts" id="dt-ls-hearts">
+                                    <i class="fas fa-heart"></i>
+                                    <i class="fas fa-heart"></i>
+                                    <i class="fas fa-heart"></i>
+                                    <i class="fas fa-heart"></i>
+                                    <i class="fas fa-heart"></i>
+                                </div>
+                                <div class="dt-ls-text" id="dt-ls-text">共鸣中</div>
+                            </div>
+                            <svg class="dt-ls-line" viewBox="0 0 240 44" preserveAspectRatio="none" aria-hidden="true">
+                                <polyline class="ls-l-s" points="0,22 83,22 97,22 107,13 119,31 131,9 143,22 240,22"/>
+                                <polyline class="ls-l-m" points="0,22 83,22 97,22 107,13 119,31 131,9 143,22 240,22"/>
+                            </svg>
+                        </div>
+                        <div class="dt-times" id="dt-times">
+                            <div class="dt-time-head">
+                                <div class="dt-time-icon"><i class="fas fa-clock"></i></div>
+                                <div class="dt-time-label">时间</div>
+                            </div>
+                            <div class="dt-time-body">
+                                <div class="dt-time-row">
+                                    <div class="dt-time-block">
+                                        <div class="dt-time-who" id="dt-time-partner">TA那边</div>
+                                        <div class="dt-time-value" id="dt-role-time">--:--</div>
+                                    </div>
+                                    <div class="dt-time-sep"></div>
+                                    <div class="dt-time-block">
+                                        <div class="dt-time-who" id="dt-time-me">我这边</div>
+                                        <div class="dt-time-value" id="dt-my-time">--:--</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 第二排：TA 今日（横向排版，心情/状态两栏并排；标题跟随梦角昵称） -->
+                    <div class="dt-p2-status" id="dt-p2-status">
+                        <div class="dt-st-label" id="dt-st-label"><i class="fas fa-sparkles"></i> 梦角 今日</div>
+                        <div class="dt-st-hrow">
+                            <div class="dt-st-row">
+                                <div class="dt-st-row-key"><i class="fas fa-heart"></i>心情</div>
+                                <div class="dt-st-row-val" id="dt-st-mood">—</div>
+                            </div>
+                            <div class="dt-st-row">
+                                <div class="dt-st-row-key"><i class="fas fa-bolt"></i>状态</div>
+                                <div class="dt-st-row-val" id="dt-st-status">—</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     <div class="app-grid">
@@ -3933,7 +4007,7 @@ html[data-theme="dark"] #chat-transition-overlay{
     <script src="js/cloud-sync-ui.js?v=2"></script>
     <script src="js/partner-manager.js?v=216"></script>
     <script src="js/app.js?v=224"></script>
-    <script src="js/desktop.js?v=215"></script>
+    <script src="js/desktop.js?v=216"></script>
     <script src="js/features/cinema.js?v=224"></script>
     <script src="js/features/musichall.js?v=4"></script>
     <script src="js/features/game-room.js"></script>

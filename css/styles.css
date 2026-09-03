@@ -14524,6 +14524,91 @@ html[data-theme="dark"] .app-grid{background:rgba(24,28,40,.5);border-color:rgba
 
 /* ── 桌面中部内容：拍立得相册 + 纪念日方块 ── */
 .dt-content{pointer-events:auto;width:100%;max-width:600px;padding:0 16px;box-sizing:border-box;display:flex;align-items:stretch;justify-content:space-between;gap:14px;margin-top:24px;}
+
+/* ── 桌面双页滑动：中部内容区横向滑动切换两张桌面页，底部图标栏固定不参与滑动 ── */
+.dt-pager{flex:1 1 auto;position:relative;overflow:hidden;width:100%;max-width:600px;pointer-events:auto;}
+.dt-pager-track{position:relative;display:flex;width:200%;height:100%;transform:translateX(0);will-change:transform;transition:transform .32s cubic-bezier(.22,.61,.36,1);}
+#dt-pager.dragging .dt-pager-track{transition:none;}
+.dt-page{flex:0 0 50%;width:50%;height:100%;box-sizing:border-box;overflow-y:auto;display:flex;flex-direction:column;align-items:center;}
+.dt-pager-dots{width:100%;display:flex;justify-content:center;gap:6px;padding-top:10px;pointer-events:none;z-index:2;}
+.dt-pager-dot{width:6px;height:6px;border-radius:50%;background:rgba(0,0,0,.28);opacity:.55;transition:all .25s ease;}
+.dt-pager-dot.active{width:14px;border-radius:3px;background:var(--accent-color);opacity:1;}
+html[data-theme="dark"] .dt-pager-dot{background:rgba(255,255,255,.55);}
+html[data-theme="dark"] .dt-pager-dot.active{background:#ffd9a0;}
+
+/* ── 桌面第二页卡片：第一排 链接状态 + 时间（左右布局），第二排 TA 今日（横向排版）── */
+.dt-p2-body{pointer-events:auto;position:relative;width:100%;max-width:600px;padding:0 16px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:14px;}
+.dt-p2-row1{display:flex;justify-content:center;gap:14px;width:100%;}
+.dt-p2-status{width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:10px;border-radius:22px;background:linear-gradient(135deg,rgba(255,255,255,.55),rgba(255,255,255,.32));border:1px solid rgba(255,255,255,.6);box-shadow:0 10px 30px rgba(0,0,0,.12);padding:12px 14px;color:var(--text-primary);user-select:none;-webkit-tap-highlight-color:transparent;position:relative;z-index:1;overflow:hidden;}
+.dt-p2-status::before{content:"\f004";font-family:"Font Awesome 6 Free";font-weight:900;position:absolute;right:6px;bottom:2px;font-size:44px;line-height:1;color:rgba(var(--accent-color-rgb),.07);pointer-events:none;transform:rotate(-12deg);}
+.dt-st-label{align-self:center;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--text-secondary);letter-spacing:2px;text-align:center;flex-shrink:0;padding:4px 14px;border-radius:20px;background:rgba(var(--accent-color-rgb),.10);border:1px solid rgba(var(--accent-color-rgb),.18);}
+.dt-st-label i{color:var(--accent-color);animation:dtSparkleTw 2.2s ease-in-out infinite;}
+.dt-st-hrow{display:flex;gap:12px;width:100%;}
+.dt-st-row{flex:1;min-width:0;display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;border-radius:16px;background:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.5);padding:11px 12px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.05);}
+.dt-st-row-key{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text-secondary);letter-spacing:1px;flex-shrink:0;white-space:nowrap;}
+.dt-st-row-key i{color:var(--accent-color);font-size:13px;}
+.dt-st-row-val{flex:1;min-width:0;font-size:15px;font-weight:700;color:var(--accent-color);text-align:left;line-height:1.4;word-break:break-word;}
+html[data-theme="dark"] .dt-p2-status{background:rgba(24,28,40,.55);border-color:rgba(255,255,255,.10);}
+html[data-theme="dark"] .dt-st-row{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.10);}
+html[data-theme="dark"] .dt-st-row-val{color:#ffd9a0;}
+html[data-theme="dark"] .dt-p2-status::before{color:rgba(255,217,160,.09);}
+
+/* ── 第二页背景装饰：漂浮爱心 / 星光（不参与布局，仅美化） ── */
+.dt-p2-deco{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0;}
+.dt-p2-deco i{position:absolute;font-size:20px;color:rgba(var(--accent-color-rgb),.15);opacity:.85;animation:dtDecoFloat 7s ease-in-out infinite;}
+.dt-p2-deco .d1{top:6px;left:2px;font-size:22px;animation-delay:0s;}
+.dt-p2-deco .d2{bottom:26px;left:0;font-size:16px;animation-delay:2.4s;}
+.dt-p2-deco .d3{top:16px;right:6px;font-size:18px;animation-delay:1.2s;}
+.dt-p2-deco .d4{top:118px;right:0;font-size:15px;animation-delay:3.6s;}
+.dt-p2-deco .d5{top:64px;left:0;font-size:12px;animation-delay:4.8s;}
+@keyframes dtDecoFloat{0%,100%{transform:translateY(0) rotate(0);}50%{transform:translateY(-12px) rotate(14deg);}}
+html[data-theme="dark"] .dt-p2-deco i{color:rgba(var(--accent-color-rgb),.3);}
+@keyframes dtSparkleTw{0%,100%{transform:scale(1) rotate(0);opacity:.7;}50%{transform:scale(1.25) rotate(18deg);opacity:1;}}
+
+/* ── 第二页卡片：链接状态 + 时间 ── */
+.dt-linkstatus,.dt-times{width:50%;max-width:230px;height:172px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;border-radius:22px;background:rgba(255,255,255,.42);border:1px solid rgba(255,255,255,.6);box-shadow:0 10px 30px rgba(0,0,0,.12);padding:14px 12px 26px;color:var(--text-primary);user-select:none;-webkit-tap-highlight-color:transparent;position:relative;overflow:hidden;}
+.dt-linkstatus{padding-bottom:34px;}
+/* 卡片顶部高光（玻璃质感） */
+.dt-linkstatus::after,.dt-times::after,.dt-p2-status::after{content:"";position:absolute;top:0;left:16px;right:16px;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.95),transparent);pointer-events:none;}
+/* 圆形图标 + 呼吸光环 */
+.dt-ls-icon,.dt-time-icon{width:34px;height:34px;border-radius:50%;background:linear-gradient(145deg,rgba(var(--accent-color-rgb),.85),rgba(var(--accent-color-rgb),.55));color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 4px 12px rgba(var(--accent-color-rgb),.32);position:relative;}
+.dt-ls-icon::before,.dt-time-icon::before{content:"";position:absolute;inset:-4px;border-radius:50%;border:1.5px solid rgba(var(--accent-color-rgb),.45);animation:dtHaloPulse 2.6s ease-in-out infinite;pointer-events:none;}
+@keyframes dtHaloPulse{0%,100%{transform:scale(.94);opacity:.45;}50%{transform:scale(1.1);opacity:.12;}}
+.dt-ls-label,.dt-time-label{font-size:14px;color:var(--text-secondary);letter-spacing:2px;}
+/* 头部（图标+标题）固定顶部对齐；主体内容居中填充剩余空间 */
+.dt-ls-head,.dt-time-head{display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;}
+.dt-ls-body,.dt-time-body{flex:1;min-height:0;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;}
+.dt-ls-hearts{display:flex;gap:5px;align-items:center;justify-content:center;margin-top:22px;}
+.dt-ls-hearts i{font-size:15px;color:rgba(var(--accent-color-rgb),.18);transition:all .3s ease;}
+.dt-ls-hearts i.on{color:var(--accent-color);}
+.dt-ls-hearts i.pulse{animation:dtHeartPulse 1.5s ease-in-out infinite;}
+@keyframes dtHeartPulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(.85);}}
+.dt-ls-text{font-size:16px;font-weight:700;color:var(--accent-color);letter-spacing:1px;text-align:center;}
+/* 链接状态卡片底部跳动的心电线（置于卡片底部留白区，不与状态文字重叠） */
+.dt-ls-line{position:absolute;left:12px;right:12px;bottom:6px;width:calc(100% - 24px);height:18px;pointer-events:none;}
+.dt-ls-line polyline{fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.dt-ls-line .ls-l-s{stroke:rgba(var(--accent-color-rgb),.22);stroke-width:4;}
+.dt-ls-line .ls-l-m{stroke:var(--accent-color);stroke-width:2;stroke-dasharray:500 500;animation:dtLsFlow 3s linear infinite;filter:drop-shadow(0 1px 2px rgba(0,0,0,.15));}
+@keyframes dtLsFlow{0%{stroke-dashoffset:500;}100%{stroke-dashoffset:-500;}}
+.dt-time-row{display:flex;align-items:center;justify-content:center;gap:14px;width:100%;}
+.dt-time-block{flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.dt-time-who{font-size:12px;color:var(--text-secondary);letter-spacing:1px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dt-time-value{font-size:22px;font-weight:800;color:var(--accent-color);line-height:1;letter-spacing:1px;font-variant-numeric:tabular-nums;}
+.dt-time-sep{width:1px;align-self:stretch;background:rgba(0,0,0,.08);}
+html[data-theme="dark"] .dt-linkstatus,html[data-theme="dark"] .dt-times{background:rgba(24,28,40,.5);border-color:rgba(255,255,255,.10);}
+html[data-theme="dark"] .dt-time-sep{background:rgba(255,255,255,.14);}
+html[data-theme="dark"] .dt-ls-text,html[data-theme="dark"] .dt-time-value{color:#ffd9a0;}
+html[data-theme="dark"] .dt-ls-line .ls-l-s{stroke:rgba(255,217,160,.25);}
+html[data-theme="dark"] .dt-ls-line .ls-l-m{stroke:#ffd9a0;}
+/* 窄屏适配：左列方块与右侧状态栏留出间距，防止挤压重叠 */
+@media (max-width:370px){
+    .dt-p2-body{gap:10px;padding:0 12px;}
+    .dt-linkstatus,.dt-times{width:50%;max-width:none;height:150px;}
+    .dt-time-value{font-size:20px;}
+    .dt-p2-status{padding:10px 10px;}
+    .dt-st-row{padding:10px 8px;}
+    .dt-st-row-val{font-size:14px;}
+}
 /* 拍立得设置：三张固定位，每张一个设置栏；设置栏内嵌网格排版完全同聊天背景图库(.bg-gallery/.bg-item) */
 .pl-list{display:flex;flex-direction:column;gap:16px;padding:6px 2px 4px;max-height:480px;overflow-y:auto;}
 .pl-slot{display:flex;flex-direction:column;gap:6px;}
