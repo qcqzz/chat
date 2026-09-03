@@ -772,34 +772,52 @@ window.showSystemInfoPopup = function (title, body, options) {
 
 window._sendPartnerNotification = function(title, body, options) {
     options = options || {};
-    // 应用内"系统信息弹窗"：让所有梦角消息类型（聊天/视频/陪伴/拍一拍/电影/音乐/空间动态）都能弹出提醒
-    if (typeof window.showSystemInfoPopup === 'function') {
-        window.showSystemInfoPopup(title || '传讯', body || '对方发来了消息', options);
-    }
-
-    // 统一使用 PushBridge 推送层（自动适配浏览器 / APK 环境）
-    if (typeof PushBridge !== 'undefined') {
-        PushBridge.send(title, body, options);
-        return;
-    }
-
-    // APK 环境检测（即使 PushBridge 未就绪）
+    title = title || '传讯';
+    body = body || '对方发来了消息';
     var isApk = !!(window.Capacitor && window.Capacitor.Plugins);
 
-    // 回退：原有的 Web Notification API
+    // 1) 应用内"系统信息弹窗"：独立 try，任何情况都不可阻塞系统通知
     try {
-        if (localStorage.getItem('notifEnabled') !== '1') return;
-        if (!('Notification' in window)) return;
-        if (Notification.permission !== 'granted') return;
-        // APK 模式下不检查 document.hidden，确保无论前台/息屏都能推送通知
-        if (!isApk && !document.hidden) return;
-        new Notification(title || '传讯', {
-            body: body || '对方发来了消息',
-            icon: (document.querySelector('#partner-avatar img') || {}).src,
-            tag: options.urgent ? 'partner-invite' : 'partner-msg',
-            renotify: true
-        });
-    } catch(e) {}
+        if (typeof window.showSystemInfoPopup === 'function') {
+            window.showSystemInfoPopup(title, body, options);
+        }
+    } catch (e) { console.warn('[notify] 应用内弹窗异常(不影响系统通知):', e); }
+
+    // 2) 系统通知：统一走 PushBridge（浏览器 / APK 自适应）。独立 try + 到点重试，
+    //    确保"新内容已生成"就必定送达——尤其 梦角来信 / 空间动态 这类一次性触发，
+    //    若触发瞬间原生桥尚未就绪/抖动，不再静默吞掉而是稍后重试。
+    function doSystemSend(attempt) {
+        attempt = attempt || 1;
+        try {
+            if (typeof PushBridge !== 'undefined') {
+                PushBridge.send(title, body, options);
+                return;
+            }
+        } catch (e) { console.warn('[notify] PushBridge 发送异常，稍后重试:', e); }
+        // 已确认非原生/无桥，走 Web Notification 回退
+        if (!isApk) { doBrowserSend(); return; }
+        // 原生环境但 PushBridge 未就绪：短延迟重试（最多 3 次）
+        if (attempt < 3) {
+            setTimeout(function () { try { doSystemSend(attempt + 1); } catch (e2) {} }, 700 * attempt);
+        }
+    }
+
+    function doBrowserSend() {
+        try {
+            if (localStorage.getItem('notifEnabled') !== '1') return;
+            if (!('Notification' in window)) return;
+            if (Notification.permission !== 'granted') return;
+            if (!document.hidden) return;
+            new Notification(title, {
+                body: body,
+                icon: (document.querySelector('#partner-avatar img') || {}).src,
+                tag: options.urgent ? 'partner-invite' : 'partner-msg',
+                renotify: true
+            });
+        } catch (e) {}
+    }
+
+    doSystemSend(1);
 };
 
 window.handleNotifToggle = function(checkbox) {
