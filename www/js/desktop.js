@@ -1049,7 +1049,12 @@
             // 所有设备统一降到 3s 一轮（1.5s 对异步加载同步来说过密，属明显可省的高频渲染）；
             // 低端机(data-lite)进一步降到 10s，减少持续渲染开销，避免与快速点击叠加后卡顿
             var dtLite = document.documentElement && document.documentElement.getAttribute('data-lite') === '1';
-            setInterval(function () { syncTopbarUsers(); renderAnniversary(); }, dtLite ? 10000 : 3000);
+            setInterval(function () {
+                syncTopbarUsers(); renderAnniversary();
+                // 名称/昵称随存储异步加载，这里在每次同步时顺带刷新「TA那边/我这边/梦角今日」标签，
+                // 避免首屏误显示静态默认值（此前仅 init 一次 + 30s 一次，加载晚于 settings 时就一直错直到重进页面）。
+                updateDesktopTimes(); renderP2Status();
+            }, dtLite ? 10000 : 3000);
 
             // 桌面第二页：时间每 30s 刷新（TA 时间基于每日时差），链接状态 1~2h 内自动切换，
             // 右侧状态栏跟随心情手账与每日公告（心情/公告变化后自动同步）
