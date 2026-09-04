@@ -1020,6 +1020,40 @@ function _stickerPoolSet(key, val) {
     }
 }
 let _stickerScrollHandler = null; // 当前贴纸列表的滚动加载处理器，重渲染时先解绑，避免重复叠加
+// 本地 base64 表情的懒加载：直接 set src 会让一批(PAGE=60) base64 同时解码，主线程卡顿。
+// 改用 IntersectionObserver(列表容器为 root)，只对进入可视/预加载区(300px)的图片解码，
+// 既避免首屏空白（可见区相交立即解码显示），又杜绝一次性全量解码造成的卡顿。
+const _LOCAL_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+let _localLazyObserver = null;
+function _localIsDecoded(imgEl) {
+    // 已解码 = 数据 src 已写入且未带待解码标记
+    return imgEl.getAttribute('data-lazy-src') === null && !imgEl.classList.contains('cloud-media-pending');
+}
+function _localLazyImage(imgEl, src, list) {
+    if (!('IntersectionObserver' in window)) { imgEl.src = src; _stickerPoolSet(src, imgEl); return; }
+    imgEl.src = _LOCAL_PLACEHOLDER;
+    imgEl.classList.add('cloud-media-pending');
+    const root = list || null;
+    if (!_localLazyObserver || _localLazyObserver.root !== root) {
+        if (_localLazyObserver) _localLazyObserver.disconnect();
+        _localLazyObserver = new IntersectionObserver(function (entries) {
+            entries.forEach(function (en) {
+                if (!en.isIntersecting) return;
+                const el = en.target;
+                _localLazyObserver.unobserve(el);
+                const real = el.getAttribute('data-lazy-src');
+                if (real) {
+                    el.removeAttribute('data-lazy-src');
+                    el.classList.remove('cloud-media-pending');
+                    el.src = real; // 进入可视/预加载区才解码，单批数量少，主线程不卡
+                    _stickerPoolSet(real, el); // 解码后入池，重渲染复用已解码 img
+                }
+            });
+        }, { root: root, rootMargin: '300px' });
+    }
+    imgEl.setAttribute('data-lazy-src', src);
+    _localLazyObserver.observe(imgEl);
+}
 function _renderStickerTab(list, itemsToRender) {
     const disabledSet = _getDisabledStickerItemsSet();
     // 分批渲染 + 滚动加载：导入大量贴纸后一次性创建/解码几百个 base64 <img> 会把主线程拖卡，
@@ -1041,8 +1075,8 @@ function _renderStickerTab(list, itemsToRender) {
         `;
         const imgEl = div.querySelector('img');
         const cached = _stickerPoolGet(item);
-        if (cached) {
-            // 复用旧 <img>（已解码），直接迁移到新格子，避免重新解码/加载造成闪烁
+        if (cached && _localIsDecoded(cached)) {
+            // 复用已解码的旧 <img>，直接迁移到新格子，避免重新解码/加载造成闪烁
             div.replaceChild(cached, imgEl);
         } else if (isCloud) {
             if (window.CloudMedia) {
@@ -1055,10 +1089,11 @@ function _renderStickerTab(list, itemsToRender) {
                 _stickerPoolSet(item, imgEl);
             }
         } else {
-            // 本地 base64：原生 loading="lazy" 对 data:URL 会延迟解码导致首屏空白（需滑动才显示），
-            // 这里直接赋 src 即时解码显示。数量由分批渲染(PAGE)控制，不会一次性全量解码。
-            imgEl.src = item;
-            _stickerPoolSet(item, imgEl);
+            // 本地 base64：用 IO(容器为 root) 懒加载，进入可视/预加载区才解码。
+            // 既避免首屏空白，也避免一批内全部 base64 同时解码导致表情库页面卡顿。
+            // 未解码的占位图不入池（解码完成后由 _localLazyImage 在 IO 回调中入池），
+            // 确保池里只缓存已解码图片、重渲染复用不会出现空白。
+            _localLazyImage(imgEl, item, list);
         }
         div.addEventListener('click', () => {
             if (!_batchModeActive) return;
