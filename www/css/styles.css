@@ -7542,6 +7542,16 @@
     object-fit: cover; 
     display: block;
         }
+        /* v4.0.1：云端表情由懒加载 IO 拉取远端图片，加载瞬间是「灰底→图」的生硬切换（会闪一下），
+           这里让云端图淡入过渡，弱化闪烁感。仅作用于带 data-cloud-ref 的云端 img，本地 base64 不受影响。 */
+        .sticker-item img[data-cloud-ref] {
+    opacity: 0;
+    transition: opacity 0.22s ease;
+        }
+        .sticker-item img[data-cloud-ref].cloud-media-loaded,
+        .sticker-item img[data-cloud-ref].cloud-media-error {
+    opacity: 1;
+        }
 
         .sticker-item:hover {
     border-color: var(--accent-color);

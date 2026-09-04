@@ -272,22 +272,27 @@
     }
 
     // ==== 懒加载图片元素 ====
-    var _lazyObserver = null;
+    // v4.0.1：改为按 root 缓存独立 Observer。此前单一 Observer 以 viewport 为 root，
+    // 但聊天/表情库等图片通常是放在「自定义滚动容器」里滚动，viewport 判定不跟随容器，
+    // 导致进入列表时图片不即时加载、需要人为上下滑动才出图。传入容器 root 后，
+    // IO 以容器视口判定，进入即可见区图片立即加载。不传 root 仍为 viewport，兼容旧调用。
+    var _lazyObservers = new Map();
 
-    function _ensureObserver() {
-        if (_lazyObserver) return _lazyObserver;
+    function _ensureObserver(root) {
+        if (_lazyObservers.has(root)) return _lazyObservers.get(root);
         if (!('IntersectionObserver' in window)) return null;
-        _lazyObserver = new IntersectionObserver(function (entries) {
+        var obs = new IntersectionObserver(function (entries) {
             entries.forEach(function (entry) {
                 if (!entry.isIntersecting) return;
                 var img = entry.target;
-                _lazyObserver.unobserve(img);
+                obs.unobserve(img);
                 var ref = img.getAttribute('data-cloud-ref');
                 if (!ref) return;
                 _loadImageElement(img, ref);
             });
-        }, { rootMargin: '200px' });
-        return _lazyObserver;
+        }, { root: root || null, rootMargin: '200px' });
+        _lazyObservers.set(root, obs);
+        return obs;
     }
 
     async function _loadImageElement(img, ref) {
@@ -312,7 +317,7 @@
      * @param {string} ref  云端引用（oss://xxx）
      * @param {string} [placeholder]  占位图 base64/URL
      */
-    function bindLazyImage(imgEl, ref, placeholder) {
+    function bindLazyImage(imgEl, ref, placeholder, root) {
         if (!imgEl || !ref) return;
         imgEl.setAttribute('data-cloud-ref', ref);
         // 占位图
@@ -323,7 +328,7 @@
             imgEl.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
         }
         imgEl.classList.add('cloud-media-pending');
-        var obs = _ensureObserver();
+        var obs = _ensureObserver(root);
         if (obs) {
             obs.observe(imgEl);
         } else {

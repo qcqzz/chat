@@ -1035,7 +1035,7 @@ function _renderStickerTab(list, itemsToRender) {
         // 阶段三B：识别 oss:// 走懒加载
         const isCloud = typeof item === 'string' && item.indexOf('oss://') === 0;
         div.innerHTML = `
-            <img loading="lazy">
+            <img>
             <div class="sticker-batch-check">✓</div>
             <div class="sticker-delete-btn"><i class="fas fa-times"></i></div>
         `;
@@ -1046,10 +1046,17 @@ function _renderStickerTab(list, itemsToRender) {
             div.replaceChild(cached, imgEl);
         } else if (isCloud) {
             if (window.CloudMedia) {
-                window.CloudMedia.bindLazyImage(imgEl, item);
+                // v4.0.1：把表情列表容器当作懒加载 IO 的 root —— 此前以 viewport 为 root，
+                // 容器内滚动不触发加载，导致进入表情库空白、需上下滑动才出图。
+                window.CloudMedia.bindLazyImage(imgEl, item, undefined, list);
+                _stickerPoolSet(item, imgEl);
+            } else {
+                imgEl.src = item;
                 _stickerPoolSet(item, imgEl);
             }
         } else {
+            // 本地 base64：原生 loading="lazy" 对 data:URL 会延迟解码导致首屏空白（需滑动才显示），
+            // 这里直接赋 src 即时解码显示。数量由分批渲染(PAGE)控制，不会一次性全量解码。
             imgEl.src = item;
             _stickerPoolSet(item, imgEl);
         }
