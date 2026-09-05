@@ -308,7 +308,7 @@
     function downloadBlob(blob, fileName) {
         // 优先：全量备份直接保存到手机「下载」目录（无需分享面板选位置）
         if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ExportPlugin) {
-            _saveViaExportPlugin(blob, fileName, function (ok) {
+            _saveViaExportPluginStreaming(blob, fileName, function (ok) {
                 if (!ok && typeof downloadFileFallback === 'function') downloadFileFallback(blob, fileName);
             });
             return;
@@ -374,11 +374,67 @@
         reader.readAsDataURL(blob);
     }
 
+    // ---- 分块流式保存（Android 15 低内存机闪退修复）----
+    // 旧 saveBase64 会把整个 Blob 一次性 base64 再交给原生整写：备份越大内存峰值越高，
+    // 在部分机型（尤其 Android 15 低内存 WebView）会直接 OOM 闪退。改为分块上传：
+    // 前端一次只读一个切片（256KB）转 base64，Native 端 openSave → 多次 writeChunk → finishSave
+    // 边收边写，全程峰值内存≈一块大小，不再因大备份崩溃。
+    var _BACKUP_CHUNK_BYTES = 256 * 1024; // 256KB 二进制/块
+
+    function _readBlobSliceBase64(blobSlice) {
+        return new Promise(function (resolve, reject) {
+            var r = new FileReader();
+            r.onload = function () {
+                try { resolve(r.result.split(',')[1]); } catch (e) { reject(e); }
+            };
+            r.onerror = function () { reject(r.error || new Error('读取分块失败')); };
+            r.readAsDataURL(blobSlice);
+        });
+    }
+
+    async function _saveViaExportPluginStreaming(blob, fileName, onDone) {
+        var plugin = (window.Capacitor && window.Capacitor.Plugins)
+            ? window.Capacitor.Plugins.ExportPlugin : null;
+        if (!plugin) { if (onDone) onDone(false); return; }
+        // 旧版本原生插件没有分块方法：回退到一次性 saveBase64
+        if (typeof plugin.openSave !== 'function' || typeof plugin.writeChunk !== 'function' ||
+            typeof plugin.finishSave !== 'function') {
+            _saveViaExportPlugin(blob, fileName, onDone);
+            return;
+        }
+        var mimeType = blob.type || 'application/octet-stream';
+        var token = null;
+        try {
+            var openRes = await plugin.openSave({ fileName: fileName, mimeType: mimeType });
+            token = (openRes && openRes.token) || null;
+            if (!token) throw new Error('openSave 未返回 token');
+            var i = 0;
+            while (i < blob.size) {
+                var end = Math.min(blob.size, i + _BACKUP_CHUNK_BYTES);
+                var b64 = await _readBlobSliceBase64(blob.slice(i, end));
+                await plugin.writeChunk({ token: token, data: b64 });
+                i = end;
+            }
+            await plugin.finishSave({ token: token });
+            token = null;
+            if (typeof showNotification === 'function') {
+                showNotification('备份已保存到手机「下载/ChuanXun」目录', 'success', 4000);
+            }
+            if (onDone) onDone(true);
+        } catch (err) {
+            console.warn('[backup] 分块导出失败，回退:', err);
+            if (token && typeof plugin.abortSave === 'function') {
+                try { await plugin.abortSave({ token: token }); } catch (e) {}
+            }
+            if (onDone) onDone(false);
+        }
+    }
+
     // 把 Blob 真正保存到手机「下载/ChuanXun」目录（MediaStore 写入，文件管理器立即可见），返回 Promise
     function _saveToDevice(blob, fileName) {
         return new Promise(function (resolve, reject) {
             if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ExportPlugin) {
-                _saveViaExportPlugin(blob, fileName, function (ok) {
+                _saveViaExportPluginStreaming(blob, fileName, function (ok) {
                     if (ok) {
                         if (typeof showNotification === 'function') {
                             showNotification('备份已保存到手机「下载/ChuanXun」目录', 'success', 4000);
