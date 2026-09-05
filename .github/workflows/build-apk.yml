@@ -62,9 +62,9 @@ jobs:
       - name: 设置版本号
         run: |
           # 更新 versionCode 和 versionName（覆盖 Capacitor 默认值）
-          sed -i 's/versionCode 1/versionCode 40/' android/app/build.gradle
-          sed -i 's/versionName "1.0"/versionName "4.0.0"/' android/app/build.gradle
-          echo "Updated versionCode to 40, versionName to 4.0.0"
+          sed -i 's/versionCode 1/versionCode 41/' android/app/build.gradle
+          sed -i 's/versionName "1.0"/versionName "4.1.0"/' android/app/build.gradle
+          echo "Updated versionCode to 41, versionName to 4.1.0"
 
       - name: 注入前台服务保活代码
         run: |
@@ -177,13 +177,13 @@ jobs:
           $ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose android/app/build/outputs/apk/release/app-release.apk
           rm release.keystore
 
-      - name: 发布到 Release v4.0.0
+      - name: 发布到 Release v4.1.0
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           # 若 v4.0.0 release 不存在则先创建，存在则用 --clobber 覆盖同名 APK
-          gh release view v4.0.0 >/dev/null 2>&1 || gh release create v4.0.0 --title "v4.0.0" --notes "传讯 v4.0.0"
-          gh release upload v4.0.0 android/app/build/outputs/apk/release/app-release.apk --clobber
+          gh release view v4.1.0 >/dev/null 2>&1 || gh release create v4.1.0 --title "v4.1.0" --notes "传讯 v4.1.0"
+          gh release upload v4.1.0 android/app/build/outputs/apk/release/app-release.apk --clobber
 
       - name: 上传 APK
         uses: actions/upload-artifact@v4

@@ -11,6 +11,9 @@
         }
         html {
             max-width: 100vw;
+            /* 禁用 WebView 自动字体放大（保险丝），避免系统字体/显示缩放把整页 UI 和图标撑大 */
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
         }
 
         :root {

@@ -2627,6 +2627,12 @@ if (!isBatchMode && type === 'normal') {
         window._replyQueue = [];
         function _drainReplyQueue() {
             if (!window._replyQueue || window._replyQueue.length === 0) return;
+            // ── 正在输入/回复进行中时，不启动下一条：等当前回复整条产出完毕再处理，
+            //    否则新消息会立刻触发回复，打断"对方正在输入"并让前后两条回复互相穿插。──
+            if (window._replyInFlight) {
+                setTimeout(_drainReplyQueue, 120);
+                return;
+            }
             const task = window._replyQueue[0];
             // 只当"后面还有排队回复"时才插入节奏间隔（用于串联多条消息的回复）；
             // 单独一条消息立即执行，避免在 simulateReply 内部的回复延迟之外再叠一层，
@@ -2717,6 +2723,12 @@ if (!isBatchMode && type === 'normal') {
                 return;
             }
             window._simulateReplyLockUntil = now + 2000;
+            // 已有回复仍在"正在输入"/发送中（上一条回复还没发完时又来了新消息/新触发）：
+            // 直接转交队列排队，等当前回复完成后回自动补发，绝不覆盖、丢弃进行中的回复。
+            if (window._replyInFlight) {
+                if (window._queueReply) window._queueReply(simulateReply);
+                return;
+            }
             window._lastReplyTs = now;
             window._replyScheduledAt = 0; // 回复已在产出，清除待补发标记
 
@@ -2827,6 +2839,8 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
             showTypingIndicator();
             // 按实际回复条数收紧超时兜底：正常路径会在最后一条回复到达时主动隐藏并清除计时器
             _scheduleTypingAutoHide((settings.replyDelayMax || 7000) * replyCount + 2500);
+            // 标记"回复链进行中"：排队/新触发的新回复要等本轮回复全部产出，避免打断正在输入
+            window._replyInFlight = true;
             let delay = 0;
             // 陪伴页静默触发时不引用用户消息（陪伴中的触发不是用户发了某条具体消息）
             const recentUserMsgs = (settings.replyEnabled && !window._companionSilentTrigger)
@@ -2869,6 +2883,7 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                         }
                         playSound('message');
                         if (i === replyCount - 1) {
+                            window._replyInFlight = false; // 本轮回复产出完毕
                             (function(){try{if(window._typingIndicatorAutoHideTimer){clearTimeout(window._typingIndicatorAutoHideTimer);window._typingIndicatorAutoHideTimer=null;}}catch(e){}var _tiW=document.getElementById('typing-indicator-wrapper');if(_tiW){var _tiInner=_tiW.querySelector('.typing-indicator');if(_tiInner){_tiInner.classList.add('hiding');setTimeout(function(){_tiW.style.display='none';if(_tiInner)_tiInner.classList.remove('hiding');},240);}else{_tiW.style.display='none';}}})();
                         }
                     } else {
@@ -2895,6 +2910,7 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                         }
                     }
                     if (!replyText && i === replyCount - 1) {
+                        window._replyInFlight = false;
                         (function(){try{if(window._typingIndicatorAutoHideTimer){clearTimeout(window._typingIndicatorAutoHideTimer);window._typingIndicatorAutoHideTimer=null;}}catch(e){}var _tiW=document.getElementById('typing-indicator-wrapper');if(_tiW){var _tiInner=_tiW.querySelector('.typing-indicator');if(_tiInner){_tiInner.classList.add('hiding');setTimeout(function(){_tiW.style.display='none';if(_tiInner)_tiInner.classList.remove('hiding');},240);}else{_tiW.style.display='none';}}})();
                         return;
                     }
@@ -2980,6 +2996,9 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                     }
 
                     if (i === replyCount - 1) {
+                        // 本轮回复产出完毕：待跟随的表情/贴纸也发完（约1秒内）后再让下一条回复启动，
+                        // 避免新消息在表情/贴纸还没跟完时就把"正在输入"顶掉
+                        setTimeout(function(){ window._replyInFlight = false; }, 1000);
                         (function() {
                             try {
                                 if (window._typingIndicatorAutoHideTimer) {
@@ -3005,6 +3024,7 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                     }
                     } catch (e) {
                         console.error('[simulateReply] 渲染/回填出错:', e);
+                        window._replyInFlight = false; // 出错也要放行排队中的下一条，避免假死
                         // 机制性兜底：出错时至少让“正在输入中”消失，避免假死
                         try {
                             (function(){
