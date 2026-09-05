@@ -64,8 +64,24 @@
     // 把 Blob 读成 data:URL 字符串（供备份链路承载二进制；分块编码避免大文件内存峰值）
     async function blobToDataUrl(blob) {
         var mime = blob.type || 'application/octet-stream';
-        var buf = await blob.arrayBuffer();
-        return binaryToDataUrl(mime, new Uint8Array(buf));
+        var u8;
+        // 优先用 Blob.arrayBuffer()；较老的 Android WebView 不实现该方法，则走 FileReader 兜底，
+        // 否则遇到备份里的本地音频 Blob 会抛 "arrayBuffer is not a function"，导致导出在读取阶段直接失败。
+        if (typeof blob.arrayBuffer === 'function') {
+            u8 = new Uint8Array(await blob.arrayBuffer());
+        } else {
+            u8 = await blobToUint8Compat(blob);
+        }
+        return binaryToDataUrl(mime, u8);
+    }
+
+    function blobToUint8Compat(blob) {
+        return new Promise(function (resolve, reject) {
+            var r = new FileReader();
+            r.onload = function () { resolve(new Uint8Array(r.result)); };
+            r.onerror = function () { reject(r.error || new Error('读取 Blob 失败')); };
+            r.readAsArrayBuffer(blob);
+        });
     }
 
     // 递归把子树中的 Blob 替换成 data:URL 字符串（原地）
@@ -277,9 +293,14 @@
         var lfOut = {};
         for (var k in lfData) {
             if (!Object.prototype.hasOwnProperty.call(lfData, k)) continue;
-            // 先把 Blob 直存的本地音频等二进制转成 data:URL，交给 extractMediaTree 抽到 mediaStore
-            lfData[k] = await blobToDataUrlTree(lfData[k]);
-            lfOut[k] = extractMediaTree(lfData[k], state);
+            try {
+                // 先把 Blob 直存的本地音频等二进制转成 data:URL，交给 extractMediaTree 抽到 mediaStore
+                lfData[k] = await blobToDataUrlTree(lfData[k]);
+                lfOut[k] = extractMediaTree(lfData[k], state);
+            } catch (e) {
+                // 单条数据异常（如个别损坏 Blob）不得中断整包导出：跳过该键并告警
+                console.warn('[backup] 处理局部数据失败，跳过该键:', k, e);
+            }
         }
         var lsOut = {};
         for (var k2 in lsData) {
