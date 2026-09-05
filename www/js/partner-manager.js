@@ -123,6 +123,34 @@
                 });
             }
         });
+
+        // 已删除的对象（软删除，数据桶仍在）→ 提供一键还原。
+        // 还原不回滚删除动作本身，只把对象重新加回清单，所有历史数据立即恢复可用。
+        var deletedList = await findDeletedObjects(list);
+        if (deletedList.length) {
+            var delTitle = document.createElement('div');
+            delTitle.className = 'pm-group-title';
+            delTitle.textContent = '已删除的对象（可还原）';
+            listEl.appendChild(delTitle);
+
+            deletedList.forEach(function (d) {
+                var bg = 'linear-gradient(135deg,' + avatarGradient(d.id) + ')';
+                var it = document.createElement('div');
+                it.className = 'pm-item pm-item-del';
+                it.innerHTML =
+                    '<div class="pm-avatar" style="background:' + bg + '">' + esc(firstLetter(d.name)) + '</div>' +
+                    '<div class="pm-item-info">' +
+                    '<div class="pm-item-name">' + esc(d.name) + '</div>' +
+                    '<div class="pm-item-hint">已软删除 · 数据完整保留</div>' +
+                    '</div>' +
+                    '<button class="pm-restore-btn" title="还原该对象，所有历史数据立即恢复">还原</button>';
+                it.querySelector('.pm-restore-btn').addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    restorePartner(d.id);
+                });
+                listEl.appendChild(it);
+            });
+        }
     }
 
     // 为每个对象生成各自的头像主题色（同名字也能区分）
@@ -178,6 +206,73 @@
         }
         window.location.hash = newId;
         window.location.reload();
+    };
+
+    // 找出"已软删除"的对象：会话数据桶仍在、但已不在 sessionList 清单里。
+    // 判定依据：每个对象都有唯一的 `${P}${id}_chatSettings` 桶（createPartner 必写），
+    // 凡存在该桶、id 又不在当前清单中的，即为被软删除、可还原的对象。
+    async function findDeletedObjects(activeList) {
+        var activeIds = {};
+        (activeList || []).forEach(function (s) { if (s && s.id) activeIds[s.id] = true; });
+        var deleted = [];
+        try {
+            var keys = await localforage.keys();
+            var seen = {};
+            for (var i = 0; i < keys.length; i++) {
+                var k = keys[i];
+                if (k.indexOf(P) !== 0) continue;              // 只关心本项目命名空间
+                var rest = k.slice(P.length);
+                var at = rest.indexOf('_chatSettings');
+                if (at <= 0) continue;                          // 不是对象设置桶（或无 id）
+                var id = rest.slice(0, at);
+                // 跳过仅作指针兜底的 'default' 命名空间，避免把并非"对象"的遗留桶误判为已删除
+                if (id === 'default') continue;
+                if (!id || activeIds[id] || seen[id]) continue;
+                seen[id] = true;
+                var nm = id, createdAt = Date.now();
+                try {
+                    var cs = await localforage.getItem(k);
+                    if (cs && cs.partnerName) nm = cs.partnerName;
+                    if (cs && cs.createdAt) createdAt = cs.createdAt;
+                } catch (e) {}
+                deleted.push({ id: id, name: nm, createdAt: createdAt });
+            }
+        } catch (e) { console.warn('[partner-manager] 扫描软删除对象失败', e); }
+        return deleted;
+    }
+
+    // 还原：把该对象的【原 id】重新写回 sessionList，数据桶原样复用，即完整找回。
+    window.restorePartner = async function (id) {
+        if (!id) return;
+        var list = await loadSessionList();
+        if (list.some(function (s) { return s && s.id === id; })) {
+            if (typeof showNotification === 'function') showNotification('该对象本来就在清单中', 'info');
+            renderPartnerManager(document.getElementById('partner-manager-modal'));
+            return;
+        }
+        try {
+            var cs = null;
+            try { cs = await localforage.getItem(P + id + '_chatSettings'); } catch (e) {}
+            var nm = (cs && cs.partnerName) ? cs.partnerName : '还原对象';
+            list.push({
+                id: id,
+                name: nm,
+                createdAt: (cs && cs.createdAt) || Date.now()
+            });
+            await localforage.setItem(P + 'sessionList', list);
+            // 同步内存中的全局 sessionList，reload/切换前其它模块读到的是完整清单
+            try {
+                if (typeof sessionList !== 'undefined') {
+                    sessionList.length = 0;
+                    for (var _i = 0; _i < list.length; _i++) sessionList.push(list[_i]);
+                }
+            } catch (e) {}
+            if (typeof showNotification === 'function') showNotification('已还原：' + nm, 'success');
+            renderPartnerManager(document.getElementById('partner-manager-modal'));
+        } catch (e) {
+            console.error('[partner-manager] 还原失败', e);
+            if (typeof showNotification === 'function') showNotification('还原失败', 'error');
+        }
     };
 
     // 删除对象：软删除（仅从清单移除，数据桶保留）
