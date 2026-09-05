@@ -46,15 +46,6 @@ public class MainActivity extends BridgeActivity {
                 // https 页面请求 http 音频会被 WebView 当 Mixed Content 直接拦截，导致导入的歌曲在
                 // 手机里能下、非 VIP、CORS 全开却依然"无法播放"。这里放行混合内容解决该问题。
                 bridge.getWebView().getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-                // 忽略系统字体/显示缩放：Android 12+ 系统「字体大小/显示大小」较大时，WebView 会把整页
-                // （UI 文字 + 字体图标）一起放大导致排版错乱。这里按系统 fontScale 反算出 setTextZoom 补偿，
-                // 将页面文字/图标恢复为设计稿的 100% 比例。字体字体族（样式）不受影响，仍由网页 CSS 决定。
-                try {
-                    float sysFs = getResources().getConfiguration().fontScale;
-                    bridge.getWebView().getSettings().setTextZoom(Math.round(100f / Math.max(sysFs, 1.0f)));
-                } catch (Exception tzE) {
-                    android.util.Log.w("MainActivity", "忽略系统字体缩放失败: " + tzE.getMessage());
-                }
 
                 bridge.getWebView().setWebChromeClient(new BridgeWebChromeClient(bridge) {
                     @Override
