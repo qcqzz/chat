@@ -397,11 +397,8 @@
             ? window.Capacitor.Plugins.ExportPlugin : null;
         if (!plugin) { if (onDone) onDone(false); return; }
         // 旧版本原生插件没有分块方法：回退到一次性 saveBase64
-        if (typeof plugin.openSave !== 'function' || typeof plugin.writeChunk !== 'function' ||
-            typeof plugin.finishSave !== 'function') {
-            _saveViaExportPlugin(blob, fileName, onDone);
-            return;
-        }
+        // 注意：Capacitor 插件是 Proxy，typeof 探测任何方法都返回 function，所以这里不靠 typeof
+        // 判定，改为"先试流式，失败即回退"，既兼容旧原生包也避免硬探测误判。
         var mimeType = blob.type || 'application/octet-stream';
         var token = null;
         try {
@@ -422,11 +419,13 @@
             }
             if (onDone) onDone(true);
         } catch (err) {
-            console.warn('[backup] 分块导出失败，回退:', err);
+            console.warn('[backup] 分块导出失败，回退 saveBase64:', err);
             if (token && typeof plugin.abortSave === 'function') {
                 try { await plugin.abortSave({ token: token }); } catch (e) {}
             }
-            if (onDone) onDone(false);
+            // 回退到一次性 saveBase64（旧原生包或 openSave 因权限等失败时）：原生侧 saveBase64
+            // 自带旧系统 WRITE_EXTERNAL_STORAGE 授权流程；成功则视为导出成功。
+            _saveViaExportPlugin(blob, fileName, onDone);
         }
     }
 
@@ -441,7 +440,20 @@
                         }
                         resolve();
                     } else {
-                        reject(new Error('保存到「下载/ChuanXun」失败'));
+                        // 原生保存（流式 + saveBase64）均失败：兜底走系统分享/浏览器下载，保证文件不丢。
+                        // Capacitor 下 downloadFileFallback 走分享面板或系统下载，用户可自行选位置。
+                        // 注意不要回退到 downloadBlob——它在 Capacitor+ExportPlugin 下会再次进入流式保存，形成重复尝试。
+                        console.warn('[backup] ExportPlugin 保存失败，回退系统分享/下载');
+                        try {
+                            if (typeof downloadFileFallback === 'function') {
+                                downloadFileFallback(blob, fileName);
+                                resolve();
+                            } else {
+                                reject(new Error('保存失败且无兜底函数 downloadFileFallback'));
+                            }
+                        } catch (fbErr) {
+                            reject(new Error('保存失败且兜底也未成功: ' + (fbErr && fbErr.message)));
+                        }
                     }
                 });
                 return;
