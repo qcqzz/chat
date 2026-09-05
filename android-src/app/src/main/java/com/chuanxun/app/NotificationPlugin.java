@@ -221,3 +221,271 @@ public class NotificationPlugin extends Plugin {
             call.reject("Failed: " + e.getMessage());
         }
     }
+
+
+    @PluginMethod
+    public void requestPermission(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+ 需要 POST_NOTIFICATIONS 运行时权限
+            if (getContext().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED) {
+                call.resolve(new JSObject().put("granted", true));
+            } else {
+                // 真正弹出系统授权框，而不是只检查
+                requestPermissionForAlias("notification", call, "notificationPermissionCallback");
+            }
+        } else {
+            call.resolve(new JSObject().put("granted", true));
+        }
+    }
+
+    /**
+     * 系统授权框返回后回调
+     */
+    @PermissionCallback
+    private void notificationPermissionCallback(PluginCall call) {
+        boolean granted = getContext().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED;
+        Log.i(TAG, "通知权限回调 granted=" + granted);
+        call.resolve(new JSObject().put("granted", granted));
+    }
+
+    @PluginMethod
+    public void cancel(PluginCall call) {
+        int id = call.getInt("id", -1);
+        if (id >= 0) {
+            NotificationManagerCompat.from(getContext()).cancel(id);
+            Log.i(TAG, "Notification cancelled: id=" + id);
+        }
+        call.resolve();
+    }
+
+    /**
+     * 预定"下一条自动消息"的原生通知：由 AlarmManager 到点弹通知，供 JS 在进入后台时调用，
+     * 使得即使 WebView JS 被暂停 / 进程被杀，后台仍能准点收到消息通知。
+     * 会先取消旧的预定再按新时刻调度（替换式）。
+     */
+    @PluginMethod
+    public void scheduleMessage(PluginCall call) {
+        String title = call.getString("title", "传讯");
+        String body = call.getString("body", "给你发来一条新消息");
+        Long at = call.getLong("atMs");
+        long atMs = (at == null) ? 0L : at.longValue();
+        Long interval = call.getLong("intervalMs");
+        long intervalMs = (interval == null) ? 5 * 60 * 1000L : interval.longValue();
+        if (atMs <= 0) {
+            call.resolve();
+            return;
+        }
+        MessageAlarmReceiver.cancel(getContext());
+        MessageAlarmReceiver.schedule(getContext(), title, body, atMs, intervalMs);
+        Log.i(TAG, "scheduleMessage: at=" + atMs + " interval=" + intervalMs);
+        call.resolve();
+    }
+
+    /**
+     * 取消已预定的后台消息通知（例如回到前台时由 JS 调用，把控制权交还给 WebView 定时器）。
+     */
+    @PluginMethod
+    public void cancelScheduledMessage(PluginCall call) {
+        MessageAlarmReceiver.cancel(getContext());
+        call.resolve();
+    }
+
+    // 下载状态跟踪（供 JS 轮询进度）
+    private static volatile DownloadState sDownloadState = null;
+
+    private static class DownloadState {
+        volatile boolean active = false;
+        volatile long totalBytes = 0;
+        volatile long downloadedBytes = 0;
+        volatile int progress = 0;
+        volatile String error = null;
+        volatile boolean complete = false;
+    }
+
+    /**
+     * 获取当前下载进度（JS 轮询调用）
+     */
+    @PluginMethod
+    public void getDownloadProgress(PluginCall call) {
+        DownloadState state = sDownloadState;
+        if (state == null || !state.active) {
+            call.resolve(new JSObject().put("active", false));
+            return;
+        }
+        JSObject result = new JSObject();
+        result.put("active", state.active);
+        result.put("totalBytes", state.totalBytes);
+        result.put("downloadedBytes", state.downloadedBytes);
+        result.put("progress", state.progress);
+        result.put("complete", state.complete);
+        if (state.error != null) {
+            result.put("error", state.error);
+        }
+        call.resolve(result);
+    }
+
+    /**
+     * 下载 APK 并触发系统安装
+     * 下载过程中更新 DownloadState，JS 可通过 getDownloadProgress 轮询进度。
+     * 仅在下载完成并触发安装后才 resolve。
+     */
+    @PluginMethod
+    public void downloadApk(PluginCall call) {
+        String urlStr = call.getString("url");
+        String version = call.getString("version", "");
+
+        if (urlStr == null || urlStr.isEmpty()) {
+            call.reject("URL is required");
+            return;
+        }
+
+        // 初始化下载状态
+        final DownloadState state = new DownloadState();
+        state.active = true;
+        sDownloadState = state;
+
+        new Thread(() -> {
+            try {
+                Context ctx = getContext();
+                File cacheDir = ctx.getExternalCacheDir();
+                if (cacheDir == null) {
+                    cacheDir = ctx.getCacheDir();
+                }
+                File apkFile = new File(cacheDir, "update-v" + version + ".apk");
+
+                Log.i(TAG, "Downloading APK from: " + urlStr);
+                URL url = new URL(urlStr);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setConnectTimeout(60000);
+                conn.setReadTimeout(300000);
+                conn.setInstanceFollowRedirects(true);
+                conn.connect();
+
+                int responseCode = conn.getResponseCode();
+                if (responseCode != HttpURLConnection.HTTP_OK) {
+                    Log.e(TAG, "Download failed: HTTP " + responseCode);
+                    state.error = "HTTP " + responseCode;
+                    state.active = false;
+                    final int code = responseCode;
+                    getBridge().executeOnMainThread(() -> {
+                        call.reject("Download failed: HTTP " + code);
+                    });
+                    return;
+                }
+
+                state.totalBytes = conn.getContentLengthLong();
+                Log.i(TAG, "Content-Length: " + state.totalBytes + " bytes");
+
+                // 删除旧文件
+                if (apkFile.exists()) {
+                    apkFile.delete();
+                }
+
+                try (InputStream in = new BufferedInputStream(conn.getInputStream());
+                     FileOutputStream out = new FileOutputStream(apkFile)) {
+                    byte[] buffer = new byte[8192];
+                    int bytesRead;
+                    while ((bytesRead = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, bytesRead);
+                        state.downloadedBytes += bytesRead;
+                        if (state.totalBytes > 0) {
+                            state.progress = (int) ((state.downloadedBytes * 100) / state.totalBytes);
+                        }
+                    }
+                    out.flush();
+                }
+
+                conn.disconnect();
+                state.progress = 100;
+                state.complete = true;
+                state.active = false;
+                Log.i(TAG, "APK downloaded: " + apkFile.getAbsolutePath() + " size=" + apkFile.length());
+
+                // 通过 FileProvider 获取 URI 并触发安装
+                Uri apkUri = FileProvider.getUriForFile(ctx, ctx.getPackageName() + ".fileprovider", apkFile);
+
+                Intent installIntent = new Intent(Intent.ACTION_VIEW);
+                installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                ctx.startActivity(installIntent);
+                Log.i(TAG, "Install intent launched for: " + apkUri);
+
+                getBridge().executeOnMainThread(() -> {
+                    call.resolve(new JSObject().put("success", true).put("message", "Download complete, installing"));
+                });
+
+            } catch (Exception e) {
+                Log.e(TAG, "APK download/install failed: " + e.getMessage());
+                state.error = e.getMessage();
+                state.active = false;
+                getBridge().executeOnMainThread(() -> {
+                    call.reject("Download failed: " + e.getMessage());
+                });
+            }
+        }).start();
+    }
+
+    /**
+     * 安装已下载的 APK 文件
+     * 接收 base64 编码的 APK 数据，写入文件后触发安装
+     */
+    @PluginMethod
+    public void installApk(PluginCall call) {
+        String base64Data = call.getString("data");
+        String version = call.getString("version", "");
+
+        if (base64Data == null || base64Data.isEmpty()) {
+            call.reject("APK data is required");
+            return;
+        }
+
+        new Thread(() -> {
+            try {
+                Context ctx = getContext();
+                File cacheDir = ctx.getExternalCacheDir();
+                if (cacheDir == null) {
+                    cacheDir = ctx.getCacheDir();
+                }
+                File apkFile = new File(cacheDir, "update-v" + version + ".apk");
+
+                // 删除旧文件
+                if (apkFile.exists()) {
+                    apkFile.delete();
+                }
+
+                byte[] apkBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT);
+                try (FileOutputStream out = new FileOutputStream(apkFile)) {
+                    out.write(apkBytes);
+                    out.flush();
+                }
+
+                Log.i(TAG, "APK written: " + apkFile.getAbsolutePath() + " size=" + apkFile.length());
+
+                // 通过 FileProvider 获取 URI 并触发安装
+                Uri apkUri = FileProvider.getUriForFile(ctx, ctx.getPackageName() + ".fileprovider", apkFile);
+
+                Intent installIntent = new Intent(Intent.ACTION_VIEW);
+                installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                ctx.startActivity(installIntent);
+                Log.i(TAG, "Install intent launched for: " + apkUri);
+
+                getBridge().executeOnMainThread(() -> {
+                    call.resolve(new JSObject().put("success", true).put("message", "Install triggered"));
+                });
+
+            } catch (Exception e) {
+                Log.e(TAG, "APK install failed: " + e.getMessage());
+                getBridge().executeOnMainThread(() -> {
+                    call.reject("Install failed: " + e.getMessage());
+                });
+            }
+        }).start();
+    }
+}
