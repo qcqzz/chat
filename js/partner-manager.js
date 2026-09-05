@@ -79,10 +79,22 @@
         }
 
         list.forEach(function (sess) {
+            if (!sess || !sess.id) return;
             var isCur = (typeof SESSION_ID !== 'undefined' && sess.id === SESSION_ID);
+            var fallbackNm = (sess && sess.name) ? sess.name : '未命名对象';
 
-            localforage.getItem(P + sess.id + '_chatSettings').then(function (cs) {
-                var nm = (cs && cs.partnerName) ? cs.partnerName : (sess.name || '未命名对象');
+            // 异步读取每个对象的展示信息。
+            // 关键：某个对象 chatSettings 读取失败/出错时，绝不能让它在列表里"消失"——
+            // 此前 .catch(()=>{}) 会静默跳过该项，导致该对象从清单里看不到（数据其实还在）。
+            // 这里无论成功失败都用兜底信息把该对象项渲染出来，保证清单与 sessionList 一致。
+            Promise.resolve(localforage.getItem(P + sess.id + '_chatSettings')).then(
+                function (cs) { buildItem(cs); },
+                function () { buildItem(null); }
+            );
+
+            function buildItem(cs) {
+                cs = (cs && typeof cs === 'object') ? cs : null;
+                var nm = (cs && cs.partnerName) ? cs.partnerName : fallbackNm;
                 var st = (cs && cs.partnerStatus) ? cs.partnerStatus : '未知';
                 var bg = (cs && cs.partnerColor) ? cs.partnerColor : ('linear-gradient(135deg,' + avatarGradient(sess.id) + ')');
 
@@ -109,7 +121,7 @@
                     e.stopPropagation();
                     deletePartner(sess.id);
                 });
-            }).catch(function () {});
+            }
         });
     }
 
@@ -132,10 +144,11 @@
         var nm = String(name || '').trim();
         if (!nm) nm = '新的梦角';
 
-        var list = await loadSessionList();
+        var list = (await loadSessionList()).filter(function (s) { return s && s.id; });
         var newId = makeNewId();
         var sess = { id: newId, name: nm, createdAt: Date.now() };
-        list.push(sess);
+        // 防重复：极端情况下同 id 已存在则不再次追加，避免清单出现重复对象
+        if (!list.some(function (s) { return s.id === newId; })) list.push(sess);
 
         var seed = Object.assign({}, currentPartner(), { partnerName: nm, partnerStatus: '在线' });
         // 头像/外观字段不随人设克隆，避免新对象沿用原对象的头像、配色与样式。
@@ -149,6 +162,15 @@
             await localforage.setItem(P + 'sessionList', list);
             await localforage.setItem(P + newId + '_chatSettings', seed);
             await localforage.setItem(P + 'lastSessionId', newId);
+            // 同步内存中的全局 sessionList：新增对象用的是独立读取的数组写入存储，
+            // 若不回写全局变量，reload 前其它模块（如会话切换器）会读到缺了新增对象的旧清单，
+            // 造成"新建后其它对象/清单不一致"。写入后立即让内存与存储保持一致。
+            try {
+                if (typeof sessionList !== 'undefined') {
+                    sessionList.length = 0;
+                    for (var _i = 0; _i < list.length; _i++) sessionList.push(list[_i]);
+                }
+            } catch (e) {}
         } catch (e) {
             console.error('[partner-manager] 新建对象失败', e);
             if (typeof showNotification === 'function') showNotification('新建对象失败', 'error');
