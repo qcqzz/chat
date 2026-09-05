@@ -92,8 +92,58 @@
     // 头像单独存 localStorage（与聊天页头像完全解耦），昵称仍跟随聊天设置
     var DTAV_P_KEY = 'tiDesktopAvatarPartner';
     var DTAV_M_KEY = 'tiDesktopAvatarMe';
+    // 头像的 localStorage 按梦角分桶仅作快速镜像；权威存储走 IndexedDB(localforage，容量大)，
+    // 规避部分真机上 localStorage 已被病历库/壁纸等占满时，dsSet 静默写失败导致"保存了却仍是默认图标"。
+    // 内存镜像 _dtAvLfP/_dtAvLfM 兼作"localStorage 写失败时当前页立即生效"的兜底。
+    var _dtAvLfP = '', _dtAvLfM = '';
+    function avLfKey(key) {
+        if (typeof getStorageKey === 'function' && typeof SESSION_ID !== 'undefined' && SESSION_ID) {
+            try { return getStorageKey('LF_DTAV_' + key); } catch (e) {}
+        }
+        return dsScope(key) + '_LF';
+    }
+    // 读取：优先 localStorage 镜像，其次 IndexedDB 内存镜像；两者都空则返回空。
     function getDtAvatar(key) {
-        try { return dsGet(key) || ''; } catch (e) { return ''; }
+        var v = null;
+        try { v = dsGet(key); } catch (e) { v = null; }
+        if (v) return v;
+        return (key === DTAV_P_KEY) ? _dtAvLfP : _dtAvLfM;
+    }
+    // 写：本地镜像尽量写 localStorage（失败静默忽略）；权威写 IndexedDB，写失败用内存镜像保证当前页立即生效。
+    function persistDtAvatar(key, val) {
+        var lfOk = false;
+        try { localStorage.setItem(dsScope(key), val); lfOk = localStorage.getItem(dsScope(key)) === val; } catch (e) { lfOk = false; }
+        if (typeof localforage !== 'undefined') {
+            try { localforage.setItem(avLfKey(key), val).catch(function () {}); } catch (e) {}
+        }
+        if (!lfOk) {
+            if (key === DTAV_P_KEY) _dtAvLfP = val; else _dtAvLfM = val;
+        }
+    }
+    function clearDtAvatar(key) {
+        try { localStorage.removeItem(dsScope(key)); } catch (e) {}
+        if (key === DTAV_P_KEY) _dtAvLfP = ''; else _dtAvLfM = '';
+        if (typeof localforage !== 'undefined') {
+            try { localforage.removeItem(avLfKey(key)).catch(function () {}); } catch (e) {}
+        }
+        renderDesktopAvatars();
+    }
+    // 启动时从 IndexedDB 读回权威头像，localStorage 里有就用那边的，没有则用 IndexedDB 值兜底刷新。
+    function prefillDtAvatars() {
+        if (typeof localforage === 'undefined') return;
+        var keys = [[DTAV_P_KEY, '_dtAvLfP'], [DTAV_M_KEY, '_dtAvLfM']];
+        for (var i = 0; i < keys.length; i++) {
+            (function (key, mirrorName) {
+                try {
+                    localforage.getItem(avLfKey(key)).then(function (v) {
+                        if (!v) return;
+                        if (mirrorName === '_dtAvLfP') _dtAvLfP = v; else _dtAvLfM = v;
+                        try { localStorage.setItem(dsScope(key), v); } catch (e) {}
+                        renderDesktopAvatars();
+                    }).catch(function () {});
+                } catch (e) {}
+            })(keys[i][0], keys[i][1]);
+        }
     }
     var _dtAvHtmlP = null, _dtAvHtmlM = null;   // 缓存上次渲染的 HTML，3s 轮询里内容未变则跳过
     function renderDesktopAvatars() {
@@ -175,8 +225,7 @@
         upBtn.addEventListener('click', function () { fileInput.click(); });
         cancelBtn.addEventListener('click', function () { hideModal(m); });
         delBtn.addEventListener('click', function () {
-            dsRemove(getDtAvKey(_dtAvTarget));
-            renderDesktopAvatars();
+            clearDtAvatar(getDtAvKey(_dtAvTarget));
             if (typeof showNotification === 'function') showNotification('桌面头像已清除', 'success');
             hideModal(m);
         });
@@ -199,7 +248,7 @@
         });
         saveBtn.addEventListener('click', function () {
             if (!_dtAvCurrent) return;
-            dsSet(getDtAvKey(_dtAvTarget), _dtAvCurrent);
+            persistDtAvatar(getDtAvKey(_dtAvTarget), _dtAvCurrent);
             renderDesktopAvatars();
             if (typeof showNotification === 'function') showNotification('桌面头像已更新', 'success');
             hideModal(m);
@@ -1068,6 +1117,7 @@
         bindAvatarEdit();
         renderSignature();
         syncTopbarUsers();
+        prefillDtAvatars();
         renderTopbarBgGallery();
         applyTopbarBg(getActive());
         renderDesktopBgGallery();
