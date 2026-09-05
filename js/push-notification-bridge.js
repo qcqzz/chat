@@ -19,6 +19,15 @@
     var _pluginChecked = false;
     var _permissionGranted = false;  // 权限是否已授予
 
+    // 通知 id 生成：单调递增并加固定大基数，保证与后台闹钟固定 id(8823481) 完全错开，
+    // 相邻多条消息也不会互相覆盖（此前用 Date.now() 取模，一连发几条可能撞同 id 把上一条顶掉）。
+    var _NOTIF_ID_BASE = 100000000; // 1e8 >> 后台固定 id 8823481
+    var _notifSeq = 0;
+    function _nextNotifId() {
+        _notifSeq = (_notifSeq + 1) % _NOTIF_ID_BASE;
+        return _NOTIF_ID_BASE + _notifSeq;
+    }
+
     // 站点品牌图（与 sw.js / manifest 一致），用作通知图标兜底/角标
     var BRAND_ICON = 'https://file.youtochat.com/images/20260216/1771224856844_qdqqd.jpeg';
 
@@ -114,12 +123,17 @@
     function _sendViaCustomPlugin(title, body, options) {
         if (!_notifPlugin) return Promise.resolve(false);
         options = options || {};
-        var id = (Date.now() + Math.floor(Math.random() * 10000)) % 1000000;
+        // 用单调递增的大基数 id，杜绝多条消息/与后台闹钟固定 id 撞在一起互相顶掉
+        var id = _nextNotifId();
         var payload = {
             title: title,
             body: body,
             id: id
         };
+        // 通知里的发件人小字（对方名字），与左侧大图和标题呼应
+        if (options.sender) payload.sender = options.sender;
+        // 左侧大头像：优先用对方头像，System 插件会异步加载后更新通知
+        if (options.avatar) payload.avatar = options.avatar;
         if (options.urgent) payload.urgent = true;
         if (options.fullScreen) payload.urgent = true; // 别名兼容
         return _notifPlugin.send(payload).then(function (result) {
@@ -136,18 +150,23 @@
         if (!_lnPlugin) return Promise.resolve(false);
         options = options || {};
         var now = Date.now();
-        var id = (now + Math.floor(Math.random() * 10000)) % 1000000;
+        var id = _nextNotifId();
+        var notif = {
+            title: title,
+            body: body,
+            id: id,
+            schedule: { at: new Date(now + 50) },
+            channelId: 'partner-messages',
+            importance: 5,
+            visibility: 1,
+            iconColor: '#488AFF',
+            // 与自定义插件同分组，避免各自独立图标造成割裂
+            group: 'chuanxun-partner',
+            groupSummary: false
+        };
+        if (options.avatar) notif.largeIcon = options.avatar;
         return _lnPlugin.schedule({
-            notifications: [{
-                title: title,
-                body: body,
-                id: id,
-                schedule: { at: new Date(now + 50) },
-                channelId: 'partner-messages',
-                importance: 5,
-                visibility: 1,
-                iconColor: '#488AFF'
-            }]
+            notifications: [notif]
         }).then(function () {
             console.log('[PushBridge] LocalNotifications 通知已发送 #' + id + ':', title, body);
             return id;

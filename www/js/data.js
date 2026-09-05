@@ -776,6 +776,18 @@ window._sendPartnerNotification = function(title, body, options) {
     body = body || '对方发来了消息';
     var isApk = !!(window.Capacitor && window.Capacitor.Plugins);
 
+    // 默认带发件人名字与对方头像：让 APK 系统通知呈现"联系人式"大图 + 发件人小字，
+    // 与聊天/桌面头像一致，比纯文字更醒目可辨认。
+    if (!options.sender) {
+        try { if (window.settings && settings.partnerName) options.sender = settings.partnerName; } catch (e) {}
+    }
+    if (!options.avatar) {
+        try {
+            var av = document.querySelector('#partner-avatar img,[id*="partner-avatar"] img,.partner-avatar img');
+            if (av && av.src) options.avatar = av.src;
+        } catch (e) {}
+    }
+
     // 1) 应用内"系统信息弹窗"：独立 try，任何情况都不可阻塞系统通知
     try {
         if (typeof window.showSystemInfoPopup === 'function') {
