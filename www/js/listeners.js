@@ -4076,7 +4076,9 @@ window._scheduleQuestionAnswer = function(data) {
             // 单选问题：只能回复 1 个选项
             plan = [idx[0]];
         }
-        var answer = plan.map(function (k) { return opts[k]; });
+        // 按"选项索引"存储答案（而非选项文本）：当多个选项内容相同时，文本无法区分，
+        // 会导致渲染时把这些相同内容的选项全都标记为选中；存索引即可精确定位被选中的那一个。
+        var answer = plan.slice();
         var partner = (typeof settings === 'object' && settings && settings.partnerName) ? settings.partnerName : '对方';
         var push = window.addMessage || (typeof addMessage === 'function' ? addMessage : null);
         if (typeof push !== 'function') return;
@@ -4106,7 +4108,7 @@ window._scheduleQuestionAnswer = function(data) {
         } catch (e) {}
         // 梦角作答回答卡片：弹系统通知
         if (typeof window._sendPartnerNotification === 'function') {
-            window._sendPartnerNotification(partner, '回答了你《' + (data.question || '') + '》：' + answer.join('、'));
+            window._sendPartnerNotification(partner, '回答了你《' + (data.question || '') + '》：' + answer.map(function (k) { return opts[k]; }).join('、'));
         }
     }, delay);
 };
