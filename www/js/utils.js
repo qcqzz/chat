@@ -83,12 +83,20 @@ function getRandomItem(arr) {
     window.resolveAudioUrl = function (raw) {
         return new Promise(function (resolve) {
             var s = String(raw || '');
-            // 非 http:// 远程音频直接返回（data/blob/oss/相对/https 都原样走）
-            if (!s || !/^http:\/\//i.test(s)) { resolve(s); return; }
+            // 需要解析的目标：http:// 直链，或网易云"外链歌曲"的 https 地址
+            // (https://music.163.com/song/media/outer/url?id=X.mp3)。
+            // 网易云这类外链即使入口是 https，其 302 最终仍落到 http:// 的 music.126.net CDN，
+            // 在 https WebView 里会被当混合内容拦截。此前仅处理 http:// 入口，导致导入的
+            // 网易云歌单歌曲(入口是 https)压根没走本函数、CDN http 直链未被升级而播放失败。
+            var isHttp = /^http:\/\//i.test(s);
+            var isNeteaseOuter = isHttp || /song\/media\/outer\/url/i.test(s);
+            // 其余(data/blob/oss/相对/普通 https)直接原样返回
+            if (!s || !isNeteaseOuter) { resolve(s); return; }
             if (__audioHttpsCache[s]) { resolve(__audioHttpsCache[s]); return; }
-            var httpsUrl = 'https:' + s.slice(5);
+            // 统一用 https 入口探测：http 直链升级为 https，网易云外链本来就是 https 保持原样
+            var probeUrl = isHttp ? ('https:' + s.slice(5)) : s;
             try {
-                fetch(httpsUrl, {
+                fetch(probeUrl, {
                     method: 'GET',
                     redirect: 'follow',
                     headers: { 'Range': 'bytes=0-0' },
@@ -98,17 +106,17 @@ function getRandomItem(arr) {
                         try { r.body.cancel(); } catch (e) {}
                     }
                     // response.url 即使跨源也能拿到(跟随重定向后的最终地址)
-                    var fin = (r && r.url) ? r.url : httpsUrl;
+                    var fin = (r && r.url) ? r.url : probeUrl;
                     var out = /^http:\/\//i.test(fin) ? ('https:' + fin.slice(5)) : fin;
                     __audioHttpsCache[s] = out;
                     resolve(out);
                 }).catch(function () {
-                    // 探测失败(如被混合内容拦截)：退而直接用 https 原链
-                    __audioHttpsCache[s] = httpsUrl;
-                    resolve(httpsUrl);
+                    // 探测失败(如被混合内容/CORS 拦截)：退而直接用 https 原链
+                    __audioHttpsCache[s] = probeUrl;
+                    resolve(probeUrl);
                 });
             } catch (e) {
-                resolve(httpsUrl);
+                resolve(probeUrl);
             }
         });
     };
