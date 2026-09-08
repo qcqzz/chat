@@ -902,11 +902,15 @@
         if (typeof showLoading === 'function') showLoading(true);
         if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '正在获取歌单…'; statusEl.className = 'mh-nm-status'; }
 
-        // 优先使用带播放地址的社区镜像接口，失败再回退官方开放接口（支持 JSONP，规避 CORS）
+        // 优先使用带播放地址的社区镜像接口（music.3e0.cn 目前可解析 HTTPS 直链），
+        // 失败再回退官方开放接口（支持 JSONP，规避 CORS）。
+        // 注意：网易云官方外链 music.163.com/song/media/outer/url?id=.. 现已对未登录返回 404，
+        // 因此必须依赖能输出可播放端点的镜像接口。
         var apis = [
+            function () { return fetchJson('https://music.3e0.cn/?server=netease&type=playlist&id=' + id + '&r=' + Math.random()); },
             function () { return fetchJson('https://api.i-meto.com/meting/api?server=netease&type=playlist&id=' + id + '&r=' + Math.random()); },
-            function () { return fetchJsonp('https://music.163.com/api/playlist/detail?id=' + id); },
-            function () { return fetchJson('https://meting.qjqq.cn/api?server=netease&type=playlist&id=' + id); }
+            function () { return fetchJson('https://meting.jmstrand.cn/?type=playlist&id=' + id + '&r=' + Math.random()); },
+            function () { return fetchJsonp('https://music.163.com/api/playlist/detail?id=' + id); }
         ];
 
         runNetEaseApis(apis, function (songsData) {
@@ -1015,12 +1019,17 @@
             var title = (it.title || it.name || '').trim();
             var sub = (it.author || it.artist || '').trim();
             var url = it.url || it.audio || '';
-            // 网易云：meting 镜像(type=url)或其返回的播放端点常已失效(404)，而官方接口也不回 mp3Url。
-            // 只要能拿到歌曲 id，就拼装网易云标准外链 music.163.com/song/media/outer/url?id=.. 更稳定可播。
             var idMatch = /[?&]id=(\d+)/.exec(url);
             var netId = idMatch ? idMatch[1] : (it.id != null ? String(it.id) : '');
-            if (netId && (!url || /(type=url|song\/media\/outer)/.test(url) || /^https?:\/\/api\.i-meto\.com|qjqq\.cn/i.test(url))) {
-                url = 'https://music.163.com/song/media/outer/url?id=' + netId + '.mp3';
+            // 网易云官方外链(music.163.com/song/media/outer/url?id=..)现对未登录一律 404，直接丢弃；
+            // 旧镜像(i-meto/qjqq)的 type=url 端点也大多失效。优先保留镜像已返回的可播放 https 端点
+            // (music.3e0.cn 的 type=url，服务端 302 到 HTTPS CDN 直链，无需 VIP 即可播)。
+            // 仅当 url 为空/是失效外链时，用可用的解析型端点重建。
+            var dead = !url || /music\.163\.com\/song\/media\/outer|api\.i-meto\.com|qjqq\.cn|jmstrand\.cn/i.test(url);
+            if (dead && netId) {
+                url = 'https://music.3e0.cn/?server=netease&type=url&id=' + netId;
+            } else if (dead) {
+                url = '';
             }
             if (!title || titleSet[title]) continue;
             titleSet[title] = true;
