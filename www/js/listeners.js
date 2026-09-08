@@ -2938,8 +2938,9 @@ const savedCover = safeGetItem(APP_PREFIX + 'playerCover');
                 if (forcePlay || isPlaying) {
                     audio.play().then(() => _markPlaying(true)).catch(() => {});
                 }
-            } else if (typeof song.url === 'string' && /^http:\/\//i.test(song.url) && typeof window.resolveAudioUrl === 'function') {
-                // 外链歌曲(http://)：先做 https 兜底解析再播放，规避 https 页面混合内容拦截
+            } else if (typeof song.url === 'string' && /^https?:\/\//i.test(song.url) && typeof window.resolveAudioUrl === 'function') {
+                // 外链歌曲(http/https)：先做解析/兜底再播放，规避 https 页面混合内容拦截，
+                // 并让残留的失效链接(如 music.163.com/song/media/outer/url?id=.. 已 404)自动改走可用镜像。
                 window.resolveAudioUrl(song.url).then((opsrc) => {
                     audio.src = opsrc;
                     if (forcePlay || isPlaying) {

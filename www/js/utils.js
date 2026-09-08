@@ -71,15 +71,15 @@ function getRandomItem(arr) {
 /**
  * 音乐外链 → 可播放地址解析。
  *
- * 背景：网易云等"外链歌曲"（music.163.com/song/media/outer/url?id=xxx.mp3）会 302 跳到
- * http:// 的 CDN（m*.music.126.net）。
- *  - APK：WebView 以 https 加载，默认把 http 音频当混合内容拦截 → 全部播放失败。已在原生
- *    侧放行混合内容(allowMixedContent)，所以 APK 里直接用外链即可播。
- *  - 浏览器：浏览器对混合内容限制无法关闭，只能把它升级/替换成 https 可播直链才能播。
+ * 背景：网易云官方外链（music.163.com/song/media/outer/url?id=xxx.mp3）现已对未登录一律
+ * 返回 404，旧镜像(i-meto/qjqq)的 type=url 端点也大多失效，无法直接作为可播地址。
+ * 可用的做法是交给能输出播放端点的镜像（music.3e0.cn 等）：type=url 端点会由服务端 302
+ * 到 HTTPS 的 CDN 直链（m*.music.126.net/...mp3），无需 VIP 即可播，且是 https，不会触发
+ * 浏览器混合内容拦截（APK WebView 也已在原生侧放行混合内容）。
  *
- * 故此函数的解析链：(1) http:// 直链 → 升级 https 探测拿最终 https CDN 地址；
- * (2) 网易云外链 → 先探测拿最终 https CDN 直链，拿不到再走 meting 类镜像(type=url)取 https
- * 可播直链，最后回退外链本身；结果按来源地址缓存。
+ * 故此函数的解析链：(1) 其它 https 直链 → 原样返回；(2) http:// 直链 → 升级 https；
+ * (3) 残留的网易云外链 → 探测升级后若拿到非 404 的 https CDN 直链则用之，否则交给
+ * meting 类镜像(type=url)取可播放的 https 解析型端点；结果按来源地址缓存。
  */
 (function () {
     'use strict';
@@ -108,30 +108,19 @@ function getRandomItem(arr) {
     // 从 meting 类镜像(type=url)取网易云歌曲的可播放 https 直链（浏览器混合内容下兜底）。
     function neteaseProxyUrl(id) {
         if (__neteaseProxyCache[id]) return Promise.resolve(__neteaseProxyCache[id]);
-        var mirrors = [
-            'https://meting.qjqq.cn/api?server=netease&type=url&id=' + encodeURIComponent(id),
-            'https://api.i-meto.com/meting/api?server=netease&type=url&id=' + encodeURIComponent(id) + '&r=' + Math.random()
+        // 解析型端点(type=url)：服务端会把请求 302 到 HTTPS 的 CDN 直链，可直接作可播地址使用。
+        var endpoints = [
+            'https://music.3e0.cn/?server=netease&type=url&id=' + encodeURIComponent(id),
+            'https://meting.jmstrand.cn/?type=url&id=' + encodeURIComponent(id),
+            'https://api.injahow.cn/meting/?server=netease&type=url&id=' + encodeURIComponent(id)
         ];
-        function pick(data) {
-            if (!data) return null;
-            var arr = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
-            if (Array.isArray(arr)) {
-                for (var i = 0; i < arr.length; i++) {
-                    var u = arr[i] && (arr[i].url || arr[i].playUrl);
-                    if (u) return u;
-                }
-                return null;
-            }
-            return (typeof data.url === 'string' && data.url) ? data.url : null;
-        }
         function next(i) {
-            if (i >= mirrors.length) return Promise.resolve(null);
-            return fetch(mirrors[i]).then(function (r) { return r.json(); })
-                .then(function (d) {
-                    var u = pick(d);
-                    return u ? u : next(i + 1);
-                })
-                .catch(function () { return next(i + 1); });
+            if (i >= endpoints.length) return Promise.resolve(null);
+            // 探测该端点能否 302/拿到最终地址；只要与入口不同(说明能落到 CDN)，就返回端点本身。
+            return audioProbe(endpoints[i]).then(function (finalUrl) {
+                if (finalUrl && finalUrl !== endpoints[i]) return endpoints[i];
+                return next(i + 1);
+            }).catch(function () { return next(i + 1); });
         }
         return next(0).then(function (u) { if (u) __neteaseProxyCache[id] = u; return u; });
     }
@@ -158,8 +147,10 @@ function getRandomItem(arr) {
 
             audioProbe(base).then(function (probed) {
                 var probedHttps = /^http:\/\//i.test(probed) ? ('https:' + probed.slice(5)) : probed;
-                // 探测拿到与入口不同的最终地址 → 已升级成 CDN 直链，直接用
-                if (probedHttps && probedHttps !== base) { done(probedHttps); return; }
+                // 只有当探测落到的是真正的音频直链(CDN mp3 或 126.net)时才采用；否则可能是 404 页面，
+                // 不能把页面当音频地址，需继续走镜像解析。
+                var looksAudio = /\.(mp3|m4a|aac|flac|wav)([?#]|$|\/)/i.test(probedHttps) || /music\.126\.net/i.test(probedHttps);
+                if (probedHttps && probedHttps !== base && looksAudio) { done(probedHttps); return; }
                 // 网易云：再尝试 meting 镜像直链，兜底用外链本身
                 if (netId) {
                     neteaseProxyUrl(netId).then(function (pu) { done(pu || base); });
@@ -1060,7 +1051,7 @@ async function importAllData(file) {
 }
 
 // ====== 软件更新检查 ======
-var APP_VERSION = '4.2.0';
+var APP_VERSION = '4.3.0';
 var GITHUB_REPO = 'qcqzz/chat';
 var GITHUB_RELEASES_URL = 'https://github.com/' + GITHUB_REPO + '/releases/latest';
 var GITHUB_API_URL = 'https://api.github.com/repos/' + GITHUB_REPO + '/releases/latest';
