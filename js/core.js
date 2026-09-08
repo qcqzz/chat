@@ -1686,19 +1686,33 @@ function _questionCardHTML(msg) {
         : '<span class="question-mode-tag">单选</span>';
     const icon = answered ? '💌' : '🌸';
     const marks = ['A','B','C','D','E','F','G','H','I','J'];
+    // 兼容两种 answer 格式：新数据按"选项索引"存储（可区分文本相同的多个选项，单选只会亮一个）；
+    // 旧数据按"选项文本"存储，无法区分重复文本，仅作兜底。
+    const isIdxAnswer = answered && msg.answer.every(function (a) {
+        const n = (typeof a === 'number') ? a : (typeof a === 'string' && a.trim() !== '' ? Number(a) : NaN);
+        return Number.isInteger(n) && n >= 0 && n < opts.length;
+    });
     let optsHtml = '';
     for (let i = 0; i < opts.length; i++) {
         const label = marks[i] || (i + 1);
         const v = _escapeHtml(opts[i]);
         let cls = 'question-option';
         let check = '';
-        if (answered && msg.answer.indexOf(opts[i]) > -1) { cls += ' chosen'; check = '<span class="question-opt-check">✓</span>'; }
+        if (answered) {
+            const chosen = isIdxAnswer ? (msg.answer.indexOf(i) > -1) : (msg.answer.indexOf(opts[i]) > -1);
+            if (chosen) { cls += ' chosen'; check = '<span class="question-opt-check">✓</span>'; }
+        }
         optsHtml += '<div class="' + cls + '"><span class="question-opt-tag">' + label + '</span><span class="question-opt-text">' + v + '</span>' + check + '</div>';
     }
     let answerLine = '';
     if (answered) {
-        const shown = msg.answer.map(function (a) { return _escapeHtml(String(a)); }).join('、');
-        answerLine = '<div class="question-answer-line"><span class="question-answer-label">TA 的选择</span><span class="question-answer-val">' + shown + '</span></div>';
+        let shown;
+        if (isIdxAnswer) {
+            shown = msg.answer.map(function (idx) { return opts[idx] != null ? String(opts[idx]) : ''; }).join('、');
+        } else {
+            shown = msg.answer.map(function (a) { return String(a); }).join('、');
+        }
+        answerLine = '<div class="question-answer-line"><span class="question-answer-label">TA 的选择</span><span class="question-answer-val">' + _escapeHtml(shown) + '</span></div>';
     }
     const mid = String(msg.id).replace(/['"`\\]/g, '');
     return '<div class="question-card' + (answered ? ' question-card-answer' : '') + '" data-mid="' + _escapeHtml(mid) + '">'
