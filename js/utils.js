@@ -69,34 +69,28 @@ function getRandomItem(arr) {
 }
 
 /**
- * 音乐外链 http→https 兜底解析。
+ * 音乐外链 → 可播放地址解析。
  *
  * 背景：网易云等"外链歌曲"（music.163.com/song/media/outer/url?id=xxx.mp3）会 302 跳到
- * http:// 的 CDN（m*.music.126.net）。在 https 页面/WebView 里，http 音频属于混合内容会被拦截，
- * 导致明明能下、非 VIP 却播不了。此函数通过一次轻量 Range 请求跟随重定向拿到最终地址，
- * 并把 http:// 升级为 https://（CDN 已实测支持 https + Range），从而绕过混合内容拦截。
- * 命中 data: / blob: / oss: / 或已是 https 的地址原样返回，不做额外请求。结果按原地址缓存。
+ * http:// 的 CDN（m*.music.126.net）。
+ *  - APK：WebView 以 https 加载，默认把 http 音频当混合内容拦截 → 全部播放失败。已在原生
+ *    侧放行混合内容(allowMixedContent)，所以 APK 里直接用外链即可播。
+ *  - 浏览器：浏览器对混合内容限制无法关闭，只能把它升级/替换成 https 可播直链才能播。
+ *
+ * 故此函数的解析链：(1) http:// 直链 → 升级 https 探测拿最终 https CDN 地址；
+ * (2) 网易云外链 → 先探测拿最终 https CDN 直链，拿不到再走 meting 类镜像(type=url)取 https
+ * 可播直链，最后回退外链本身；结果按来源地址缓存。
  */
 (function () {
     'use strict';
     var __audioHttpsCache = {};
-    window.resolveAudioUrl = function (raw) {
-        return new Promise(function (resolve) {
-            var s = String(raw || '');
-            // 需要解析的目标：http:// 直链，或网易云"外链歌曲"的 https 地址
-            // (https://music.163.com/song/media/outer/url?id=X.mp3)。
-            // 网易云这类外链即使入口是 https，其 302 最终仍落到 http:// 的 music.126.net CDN，
-            // 在 https WebView 里会被当混合内容拦截。此前仅处理 http:// 入口，导致导入的
-            // 网易云歌单歌曲(入口是 https)压根没走本函数、CDN http 直链未被升级而播放失败。
-            var isHttp = /^http:\/\//i.test(s);
-            var isNeteaseOuter = isHttp || /song\/media\/outer\/url/i.test(s);
-            // 其余(data/blob/oss/相对/普通 https)直接原样返回
-            if (!s || !isNeteaseOuter) { resolve(s); return; }
-            if (__audioHttpsCache[s]) { resolve(__audioHttpsCache[s]); return; }
-            // 统一用 https 入口探测：http 直链升级为 https，网易云外链本来就是 https 保持原样
-            var probeUrl = isHttp ? ('https:' + s.slice(5)) : s;
+    var __neteaseProxyCache = {};
+
+    // 轻量探测：GET + Range 跟随重定向，返回最终地址（跨源也能通过 response.url 读到）。
+    function audioProbe(url) {
+        return new Promise(function (res) {
             try {
-                fetch(probeUrl, {
+                fetch(url, {
                     method: 'GET',
                     redirect: 'follow',
                     headers: { 'Range': 'bytes=0-0' },
@@ -105,19 +99,74 @@ function getRandomItem(arr) {
                     if (r && r.body && typeof r.body.cancel === 'function') {
                         try { r.body.cancel(); } catch (e) {}
                     }
-                    // response.url 即使跨源也能拿到(跟随重定向后的最终地址)
-                    var fin = (r && r.url) ? r.url : probeUrl;
-                    var out = /^http:\/\//i.test(fin) ? ('https:' + fin.slice(5)) : fin;
-                    __audioHttpsCache[s] = out;
-                    resolve(out);
-                }).catch(function () {
-                    // 探测失败(如被混合内容/CORS 拦截)：退而直接用 https 原链
-                    __audioHttpsCache[s] = probeUrl;
-                    resolve(probeUrl);
-                });
-            } catch (e) {
-                resolve(probeUrl);
+                    res((r && r.url) ? r.url : url);
+                }).catch(function () { res(url); });
+            } catch (e) { res(url); }
+        });
+    }
+
+    // 从 meting 类镜像(type=url)取网易云歌曲的可播放 https 直链（浏览器混合内容下兜底）。
+    function neteaseProxyUrl(id) {
+        if (__neteaseProxyCache[id]) return Promise.resolve(__neteaseProxyCache[id]);
+        var mirrors = [
+            'https://meting.qjqq.cn/api?server=netease&type=url&id=' + encodeURIComponent(id),
+            'https://api.i-meto.com/meting/api?server=netease&type=url&id=' + encodeURIComponent(id) + '&r=' + Math.random()
+        ];
+        function pick(data) {
+            if (!data) return null;
+            var arr = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
+            if (Array.isArray(arr)) {
+                for (var i = 0; i < arr.length; i++) {
+                    var u = arr[i] && (arr[i].url || arr[i].playUrl);
+                    if (u) return u;
+                }
+                return null;
             }
+            return (typeof data.url === 'string' && data.url) ? data.url : null;
+        }
+        function next(i) {
+            if (i >= mirrors.length) return Promise.resolve(null);
+            return fetch(mirrors[i]).then(function (r) { return r.json(); })
+                .then(function (d) {
+                    var u = pick(d);
+                    return u ? u : next(i + 1);
+                })
+                .catch(function () { return next(i + 1); });
+        }
+        return next(0).then(function (u) { if (u) __neteaseProxyCache[id] = u; return u; });
+    }
+
+    window.resolveAudioUrl = function (raw) {
+        return new Promise(function (resolve) {
+            var s = String(raw || '');
+            var isHttp = /^http:\/\//i.test(s);
+            var isNetease = isHttp || /song\/media\/outer\/url/i.test(s) || /music\.163\.com\/(#\/)?song/i.test(s);
+            // data:/blob:/oss:/相对路径等直接原样返回
+            if (!s || !isNetease) { resolve(s); return; }
+            if (__audioHttpsCache[s]) { resolve(__audioHttpsCache[s]); return; }
+
+            var base = isHttp ? ('https:' + s.slice(5)) : s;   // 统一 https 入口
+            var netId = '';
+            var m = /[?&]id=(\d+)/.exec(base);
+            if (m) netId = m[1];
+
+            function done(u) {
+                u = /^http:\/\//i.test(u || '') ? ('https:' + u.slice(5)) : u;
+                __audioHttpsCache[s] = u;
+                resolve(u);
+            }
+
+            audioProbe(base).then(function (probed) {
+                var probedHttps = /^http:\/\//i.test(probed) ? ('https:' + probed.slice(5)) : probed;
+                // 探测拿到与入口不同的最终地址 → 已升级成 CDN 直链，直接用
+                if (probedHttps && probedHttps !== base) { done(probedHttps); return; }
+                // 网易云：再尝试 meting 镜像直链，兜底用外链本身
+                if (netId) {
+                    neteaseProxyUrl(netId).then(function (pu) { done(pu || base); });
+                } else {
+                    done(base);
+                }
+            });
         });
     };
 })();
