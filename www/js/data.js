@@ -255,16 +255,28 @@
     // 已在内存引用估算过的大键，后续不再从 IndexedDB getItem（否则巨键 structuredClone + stringify 会卡死打开面板）
     var MEM_EST_KEYS = ['messages', 'stickerLibrary', 'myStickerLibrary', 'voiceCards', 'customThemes'];
     // 这些大键实际的 IndexedDB 存储键（带前缀/会话隔离）。步骤3跳过它们，避免与步骤2的内存估算重复计数。
-    var MEM_EST_STORES = [
-        getStorageKey('chatMessages'),
-        getStorageKey('stickerLibrary'),
-        getStorageKey('myStickerLibrary'),
-        getStorageKey('customVoiceCards'),
-        ((typeof APP_PREFIX !== 'undefined' && APP_PREFIX) ? APP_PREFIX : 'CHAT_APP_V3_') + 'customThemes'
-    ];
+    // 注意：只能在 updateStats 运行时惰性构建——模块加载期 SESSION_ID 未必就绪，
+    // 直接调用 getStorageKey 会抛 ReferenceError 把 data.js 初始化中断，导致"数据管理"面板无法打开（4.4.0 回归）。
+    function memEstStores() {
+        var stores = [];
+        try {
+            var _P = (typeof APP_PREFIX !== 'undefined' && APP_PREFIX) ? APP_PREFIX : 'CHAT_APP_V3_';
+            var _sid = (typeof SESSION_ID !== 'undefined' && SESSION_ID) ? String(SESSION_ID) : '';
+            if (_sid) {
+                stores.push(_P + _sid + '_chatMessages');
+                stores.push(_P + _sid + '_stickerLibrary');
+                stores.push(_P + _sid + '_myStickerLibrary');
+                stores.push(_P + _sid + '_customVoiceCards');
+            }
+            // customThemes 不带会话前缀
+            stores.push(_P + 'customThemes');
+        } catch (e) {}
+        return stores;
+    }
 
     function updateStats() {
         var total = 0, msgs = 0, cfg = 0, media = 0;
+        var MEM_EST_STORES = memEstStores();
         // 1) localStorage 即时累加（轻量，仅字符串长度）
         for (var i = 0; i < localStorage.length; i++) {
             var k = localStorage.key(i) || '';
