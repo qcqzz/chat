@@ -902,14 +902,15 @@
         if (typeof showLoading === 'function') showLoading(true);
         if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '正在获取歌单…'; statusEl.className = 'mh-nm-status'; }
 
-        // 优先使用带播放地址的社区镜像接口（music.3e0.cn 目前可解析 HTTPS 直链），
-        // 失败再回退官方开放接口（支持 JSONP，规避 CORS）。
-        // 注意：网易云官方外链 music.163.com/song/media/outer/url?id=.. 现已对未登录返回 404，
-        // 因此必须依赖能输出可播放端点的镜像接口。
+        // 首选 api.injahow.cn：目前可用，返回歌单并输出可播放的 https 直链(type=url 会 302
+        // 到音乐 CDN)，且带 Access-Control-Allow-Origin:*，浏览器可直接读取。
+        // 再回退 music.3e0.cn 与官方接口。注意两点：
+        //  · 网易云官方外链 music.163.com/song/media/outer/url?id=.. 现已对未登录返回 404；
+        //  · 官方 api/playlist/detail 不再回填 callback(非 JSONP)，浏览器下 CORS 又被拦截，
+        //    因此必须以能输出可播放端点的镜像接口为主源。
         var apis = [
+            function () { return fetchJson('https://api.injahow.cn/meting/?server=netease&type=playlist&id=' + id + '&r=' + Math.random()); },
             function () { return fetchJson('https://music.3e0.cn/?server=netease&type=playlist&id=' + id + '&r=' + Math.random()); },
-            function () { return fetchJson('https://api.i-meto.com/meting/api?server=netease&type=playlist&id=' + id + '&r=' + Math.random()); },
-            function () { return fetchJson('https://meting.jmstrand.cn/?type=playlist&id=' + id + '&r=' + Math.random()); },
             function () { return fetchJsonp('https://music.163.com/api/playlist/detail?id=' + id); }
         ];
 
@@ -1022,12 +1023,12 @@
             var idMatch = /[?&]id=(\d+)/.exec(url);
             var netId = idMatch ? idMatch[1] : (it.id != null ? String(it.id) : '');
             // 网易云官方外链(music.163.com/song/media/outer/url?id=..)现对未登录一律 404，直接丢弃；
-            // 旧镜像(i-meto/qjqq)的 type=url 端点也大多失效。优先保留镜像已返回的可播放 https 端点
-            // (music.3e0.cn 的 type=url，服务端 302 到 HTTPS CDN 直链，无需 VIP 即可播)。
-            // 仅当 url 为空/是失效外链时，用可用的解析型端点重建。
-            var dead = !url || /music\.163\.com\/song\/media\/outer|api\.i-meto\.com|qjqq\.cn|jmstrand\.cn/i.test(url);
+            // 旧镜像(i-meto/qjqq/jmstrand)与 music.3e0.cn 的 type=url 端点也大多失效或返回 525。
+            // 优先保留镜像已返回的可播放 https 端点(api.injahow.cn 的 type=url，服务端 302 到
+            // HTTPS CDN 直链，无需 VIP 即可播)。仅当 url 为空/是失效外链时用它重建。
+            var dead = !url || /music\.163\.com\/song\/media\/outer|music\.3e0\.cn|api\.i-meto\.com|qjqq\.cn|jmstrand\.cn/i.test(url);
             if (dead && netId) {
-                url = 'https://music.3e0.cn/?server=netease&type=url&id=' + netId;
+                url = 'https://api.injahow.cn/meting/?server=netease&type=url&id=' + netId;
             } else if (dead) {
                 url = '';
             }

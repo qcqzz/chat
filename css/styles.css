@@ -7632,6 +7632,7 @@
     border: 2px solid transparent;
     transition: all 0.2s;
     position: relative;
+    overflow: hidden;
         }
 
         .emoji-item:hover {

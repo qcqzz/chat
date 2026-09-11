@@ -425,6 +425,8 @@
         var table = [2000, 5000, 15000, 60000];
         return attempt < table.length ? table[attempt] : 60000;
     }
+    // 已达到重试上限，判定为永久失败（调用 onFailure 并停止）
+    var MAX_UPLOAD_RETRIES = 5;
 
     function _pendingKey(taskId) {
         return _pendingKeyPrefix + taskId;
@@ -491,6 +493,17 @@
         } catch (err) {
             task.attempts++;
             console.warn('[cloud-media] 上传失败，第 ' + task.attempts + ' 次，将重试', err);
+            // 永久失败（如鉴权 401/403、媒体非法）不应无限重传同一份大 base64：
+            // 达到上限即视为失败：清队列/缓存/持久化，并通知调用方 onFailure
+            if (task.attempts >= MAX_UPLOAD_RETRIES) {
+                _uploadQueue.delete(taskId);
+                _pendingBase64Cache.delete(taskId);
+                try { await localforage.removeItem(_pendingKey(taskId)); } catch (e) {}
+                if (typeof task.onFailure === 'function') {
+                    try { await task.onFailure(err); } catch (e) { console.warn('[cloud-media] onFailure 回调出错', e); }
+                }
+                return;
+            }
             task.timerId = setTimeout(function () { _tryUpload(taskId); }, _retryDelay(task.attempts - 1));
         }
     }

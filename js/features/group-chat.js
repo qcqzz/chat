@@ -231,7 +231,7 @@ window.startEditDgWeather = function(el) {
     input.addEventListener('blur', saveWeather);
     input.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') { e.preventDefault(); saveWeather(); }
-        if (e.key === 'Escape') { el.style.display = ''; input.remove(); }
+        if (e.key === 'Escape') { input.removeEventListener('blur', saveWeather); el.style.display = ''; input.remove(); }
     });
 };
 

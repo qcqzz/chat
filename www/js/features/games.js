@@ -578,6 +578,12 @@
         }
         var win = state.game === 'gomoku' && checkWin(r, c, USER);
         if (win) { afterRound('', true); }
+        else if (boardFull() && state.game === 'gomoku') {
+            // 五子棋盘满且无五连 → 平局收场，不走 AI（否则 aiGomoku 会因 cand 为空崩溃死锁）
+            state.over = true;
+            notify('棋盘已满，本局平局', 'info');
+            renderScreen();
+        }
         else if (boardFull() && state.game === 'go') { scoreGo(); }
         else { state.turn = 'dream'; refresh(); scheduleAi(); }
     }

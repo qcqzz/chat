@@ -254,6 +254,14 @@
     }
     // 已在内存引用估算过的大键，后续不再从 IndexedDB getItem（否则巨键 structuredClone + stringify 会卡死打开面板）
     var MEM_EST_KEYS = ['messages', 'stickerLibrary', 'myStickerLibrary', 'voiceCards', 'customThemes'];
+    // 这些大键实际的 IndexedDB 存储键（带前缀/会话隔离）。步骤3跳过它们，避免与步骤2的内存估算重复计数。
+    var MEM_EST_STORES = [
+        getStorageKey('chatMessages'),
+        getStorageKey('stickerLibrary'),
+        getStorageKey('myStickerLibrary'),
+        getStorageKey('customVoiceCards'),
+        ((typeof APP_PREFIX !== 'undefined' && APP_PREFIX) ? APP_PREFIX : 'CHAT_APP_V3_') + 'customThemes'
+    ];
 
     function updateStats() {
         var total = 0, msgs = 0, cfg = 0, media = 0;
@@ -288,7 +296,7 @@
             (function next(batchIdx) {
                 if (batchIdx >= end) { setTimeout(function () { doMore(keys, end); }, 0); return; }
                 var kk = keys[batchIdx];
-                if (MEM_EST_KEYS.indexOf(kk) !== -1) { next(batchIdx + 1); return; } // 已在内存估算，跳过
+                if (MEM_EST_STORES.indexOf(kk) !== -1) { next(batchIdx + 1); return; } // 已在内存估算，跳过（跳过实际存储键，而非裸名字）
                 localforage.getItem(kk).then(function (raw) {
                     if (raw != null) {
                         var bb = estimateValueBytes(raw);
@@ -746,12 +754,24 @@ window._sysInfoPopup = {
         setTimeout(function(){ if (self.wrapEl) self.wrapEl.style.transform = 'translateY(-140%)'; self.unread = 0; }, 300);
         this.jumpWorthy = false;
     },
-    // 点击系统信息弹窗：收起弹窗；若是普通消息，顺手关掉盖在聊天上的弹窗/情侣空间并跳回最新消息
+    // 点击系统信息弹窗：收起弹窗并跳转。
+    // 未接来电/错过的陪伴邀请在被自动关闭后，对应记录(未接来电/错过邀请)已经写入聊天；
+    // 因此无论弹窗是否是紧急邀请，只要对应接听浮层已不再显示，就跳回最新消息让用户看到该记录，
+    // 避免出现"有来电通知但点进去什么都没有"。若接听浮层仍显示(尚未超时)，则保持浮层供用户接听/拒绝。
     tap: function () {
-        if (!this.jumpWorthy) { this.hide(); return; }
         this.hide();
         var self = this;
         setTimeout(function () {
+            // 紧急邀请浮层仍显示时，交给用户去接听/拒绝，不强行跳转打断流程
+            var stillInviting = false;
+            try {
+                var callOv = document.getElementById('call-incoming-overlay');
+                var compOv = document.getElementById('companion-incoming-overlay');
+                if (callOv && callOv.classList.contains('visible')) stillInviting = true;
+                if (compOv && compOv.isConnected) stillInviting = true;
+            } catch (e) {}
+            if (stillInviting) return;
+
             try {
                 document.querySelectorAll('.modal').forEach(function (m) {
                     if (getComputedStyle(m).display !== 'none' && typeof window.hideModal === 'function') {

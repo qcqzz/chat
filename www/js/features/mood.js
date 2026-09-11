@@ -899,7 +899,7 @@ window.tempSelectMood = function(key) {
     renderMoodOptionsGrid(key);
 }
 
-document.getElementById('confirm-mood-save').addEventListener('click', () => {
+document.getElementById('confirm-mood-save')?.addEventListener('click', () => {
     if (!selectedDateStr) return;
     if (!currentMoodSelection) {
         showNotification('请先选择一个心情图标', 'warning');
@@ -1192,6 +1192,17 @@ function initMoodListeners() {
 }
 
 // 供 csSwitchTab 调用：切到心情手账 tab 时初始化
-window._moodInit = function() {
+window._moodInit = async function() {
+    // 每次进入心情手账，先重新读取已保存的日历/自定义心情/回收站，再渲染。
+    // 避免内存副本为空或陈旧时（例如切到该 tab 时启动期的异步加载还没完成、
+    // 或自定义心情列表没跟上）日历上"已记录却显示空白"。
+    try {
+        const savedMoods = await localforage.getItem(getStorageKey('moodCalendar'));
+        if (savedMoods && typeof savedMoods === 'object') { moodData = savedMoods; window.moodData = moodData; }
+        const savedCustomMoods = await localforage.getItem(getStorageKey('customMoodOptions'));
+        if (savedCustomMoods && Array.isArray(savedCustomMoods) && savedCustomMoods.length > 0) { customMoodOptions = savedCustomMoods; }
+        const savedTrash = await localforage.getItem(getStorageKey('moodTrash'));
+        if (savedTrash && Array.isArray(savedTrash)) { moodTrash = savedTrash; window.moodTrash = moodTrash; }
+    } catch (e) { console.warn('[mood] _moodInit 重新读取数据失败，按内存数据渲染:', e); }
     renderMoodCalendar();
 };

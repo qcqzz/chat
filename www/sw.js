@@ -159,17 +159,34 @@ function _wkFire() {
       try { cs[0].postMessage({ type: 'webkeepalive:due' }); } catch (x) {}
       return;
     }
-    // 页面全关：直接弹系统通知
-    try {
-      self.registration.showNotification((p.title || '对方'), {
-        body: (p.body || ''),
-        tag: 'chuan-wk-due',
-        renotify: true,
-        icon: 'https://file.youtochat.com/images/20260216/1771224856844_qdqqd.jpeg',
-        badge: 'https://file.youtochat.com/images/20260216/1771224856844_qdqqd.jpeg'
-      }).catch(function () {
-        try { self.registration.showNotification((p.title || '对方'), { body: (p.body || ''), tag: 'chuan-wk-due' }); } catch (e2) {}
-      });
-    } catch (x) {}
+    // 页面全关：弹系统通知，同时把文本写进待投递队列——
+    // 这样用户回开应用后页面端 drainQueue 会把这条真实消息补进聊天，
+    // 避免出现"有系统通知但点进去聊天里没有新消息"的情况（与 periodicsync 行为一致）。
+    var body = (p.body || '').trim();
+    (async function () {
+      if (body) {
+        var arr = [];
+        try {
+          var snap = await psyncIdbGet(PSYNC_SNAP_KEY);
+          var q = await psyncIdbGet(PSYNC_QUEUE_KEY);
+          if (Array.isArray(q)) arr = q;
+          var cid = (snap && snap.cid) ? snap.cid : (p.cid || 'default');
+          arr.push({ t: body, cid: cid, ts: Date.now(), k: '' });
+          while (arr.length > 20) arr.shift();
+          await psyncIdbSet(PSYNC_QUEUE_KEY, arr);
+        } catch (e) {}
+      }
+      try {
+        await self.registration.showNotification((p.title || '对方'), {
+          body: body || (p.title || '对方发来了一条新消息'),
+          tag: 'chuan-wk-due',
+          renotify: true,
+          icon: 'https://file.youtochat.com/images/20260216/1771224856844_qdqqd.jpeg',
+          badge: 'https://file.youtochat.com/images/20260216/1771224856844_qdqqd.jpeg'
+        }).catch(function () {
+          try { self.registration.showNotification((p.title || '对方'), { body: (p.body || ''), tag: 'chuan-wk-due' }); } catch (e2) {}
+        });
+      } catch (x) {}
+    })();
   }).catch(function () {});
 }

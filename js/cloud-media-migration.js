@@ -115,8 +115,10 @@
         for (var i = 0; i < gallery.length; i++) {
             var bg = gallery[i];
             if (!bg || typeof bg !== 'object') { newGallery.push(bg); continue; }
-            // 已经是云端引用了：跳过
-            if (typeof bg.value === 'string' && bg.value.indexOf('oss://') === 0) {
+            // 已上云（value 或 cloudUrl 为 oss:// 引用）→ 跳过，避免重复上传生成孤儿副本、浪费存储
+            var valIsCloud = typeof bg.value === 'string' && bg.value.indexOf('oss://') === 0;
+            var clUrlIsCloud = typeof bg.cloudUrl === 'string' && bg.cloudUrl.indexOf('oss://') === 0;
+            if (valIsCloud || clUrlIsCloud) {
                 newGallery.push(bg);
                 continue;
             }
@@ -136,13 +138,13 @@
                 } catch (thumbErr) {
                     console.warn('[migration] 缩略图生成失败，跳过', thumbErr);
                 }
-                newGallery.push({
-                    id: bg.id,
-                    type: bg.type,
+                // 保留原对象其它字段（name/addedAt/自定义字段等），只覆盖迁移相关的云字段，避免丢字段
+                newGallery.push(Object.assign({}, bg, {
                     value: uploadResult.url,
                     thumbnail: thumb,
-                    cloudKey: uploadResult.key
-                });
+                    cloudKey: uploadResult.key,
+                    cloudUrl: uploadResult.url
+                }));
                 _state.completed++;
             } catch (e) {
                 console.warn('[migration] ' + label + '上传失败', e);

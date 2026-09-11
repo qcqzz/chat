@@ -438,16 +438,9 @@
             } catch (e) {}
             if (!index || !index.sessions) index = { version: 1, sessions: {} };
 
-            // 按名字去重：如果已有同名梦角（但 SESSION_ID 不同），
-            // 把旧的那条删掉，只保留最新的 SESSION_ID。
-            // 这样换设备/恢复操作不会在列表里累积重复条目。
-            for (var existingSid in index.sessions) {
-                if (!Object.prototype.hasOwnProperty.call(index.sessions, existingSid)) continue;
-                if (existingSid === sid) continue; // 自己不删
-                if (index.sessions[existingSid].name === name) {
-                    delete index.sessions[existingSid];
-                }
-            }
+            // 登记的每个 SESSION_ID 都保留，不再按"名字"删掉同名的其它梦角：
+            // 两个真实对象若恰好同名，按名字去重会把其中一条从可恢复列表里永久抹掉（数据仍在云端却找不回）。
+            // 换设备/恢复产生的"重复"条目是可删/可误删的软删除场景，不至于丢失数据。
 
             index.sessions[sid] = {
                 name: name,

@@ -988,9 +988,7 @@ function _renderEmojiTab(list, itemsToRender) {
             const div = document.createElement('div');
             div.className = 'emoji-item';
             div.style.position = 'relative';
-            div.innerHTML = `<span style="pointer-events:none;">${item}</span><span class="emoji-custom-del" style="position:absolute;top:-4px;right:-4px;font-size:10px;background:var(--text-secondary);color:#fff;border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity 0.2s;">×</span>`;
-            div.addEventListener('mouseenter', () => div.querySelector('.emoji-custom-del').style.opacity = '1');
-            div.addEventListener('mouseleave', () => div.querySelector('.emoji-custom-del').style.opacity = '0');
+            div.innerHTML = `<span style="pointer-events:none;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-all;line-height:1.15;">${item}</span><span class="emoji-custom-del" style="position:absolute;top:2px;right:2px;font-size:10px;background:var(--text-secondary);color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:1;transition:opacity 0.2s;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,0.3);">×</span>`;
             div.querySelector('.emoji-custom-del').addEventListener('click', e => {
                 e.stopPropagation();
                 customEmojis.splice(idx, 1);
@@ -1285,7 +1283,7 @@ function _createVoiceCard(vc, index) {
         </div>
     `;
 
-    div.querySelector('[data-action="delete"]').onclick = (e) => { e.stopPropagation(); _deleteVoiceCard(index); };
+    div.querySelector('[data-action="delete"]').onclick = (e) => { e.stopPropagation(); _deleteVoiceCard(vc); };
     div.querySelector('[data-action="edit"]').onclick = (e) => { e.stopPropagation(); _openVoiceEditor(index); };
     div.querySelector('[data-action="disable"]').onclick = (e) => { e.stopPropagation(); _toggleVoiceDisable(vc); };
     div.querySelector('[data-action="tag"]').onclick = (e) => { e.stopPropagation(); _showSingleItemGroupPicker(vcId, _getVoiceGroupCtx()); };
@@ -1354,9 +1352,13 @@ function _playVcCard(bubble, audio) {
     });
 }
 
-function _deleteVoiceCard(index) {
+function _deleteVoiceCard(vc) {
     if (!confirm('确定删除此语音字卡吗？')) return;
-    const removed = (voiceCards || [])[index];
+    const removed = vc;
+    // 卡片可能在搜索/分组过滤子集里渲染，不能用“过滤后的下标”直接 splice 原数组；
+    // 需按对象引用定位其在 voiceCards 中的真实下标，否则会误删/删不动。
+    const index = Array.isArray(voiceCards) ? voiceCards.indexOf(vc) : -1;
+    if (index === -1) return;
     voiceCards.splice(index, 1);
     // 同步从其所在分组中移除（与主字卡一致）
     if (removed && window.customVoiceGroups) {

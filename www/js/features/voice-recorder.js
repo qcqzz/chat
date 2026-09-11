@@ -197,6 +197,8 @@
         if (startErr) {
             if (state.timer) { clearInterval(state.timer); state.timer = null; }
             notify('无法开始录音：' + (startErr && startErr.message ? startErr.message : '未知原因'), 'error');
+            state.recording = false; // 原生 start 失败：复位状态，否则界面停在"录音中"且无法再次录音
+            resetHoldUI();
             return;
         }
         if (!shouldSend || tooShort) {

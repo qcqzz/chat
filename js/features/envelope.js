@@ -44,6 +44,9 @@ async function checkEnvelopeStatus() {
             changed = true;
         }
         if (letter.willReply && letter.status === 'received' && letter.replyTime && now >= letter.replyTime) {
+            // 字卡池是空的时拼不出正常回信，先跳过这次回信（与 _generatePartnerLetter 一致），等配好字卡自然会补上
+            const hasUsableReplies = Array.isArray(customReplies) && customReplies.some(function(r) { return typeof r === 'string' && r.trim(); });
+            if (!hasUsableReplies) { console.warn('[envelope] 字卡池为空，跳过本次自动回信'); return; }
             letter.status = 'replied';
             const replyContent = generateEnvelopeReplyText();
             const replyId = 'reply_' + Date.now() + '_' + Math.random().toString(36).substr(2,4);

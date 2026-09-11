@@ -54,7 +54,9 @@
 
             if (typeof playSound === 'function') playSound('poke');
 
-            if (typeof simulateReply === 'function' && typeof settings !== 'undefined') {
+            if (typeof window._scheduleReply === 'function') {
+                window._scheduleReply();
+            } else if (typeof simulateReply === 'function' && typeof settings !== 'undefined') {
                 const range = (settings.replyDelayMax || 3000) - (settings.replyDelayMin || 1000);
                 const delay = (settings.replyDelayMin || 1000) + Math.random() * range;
                 setTimeout(simulateReply, delay);

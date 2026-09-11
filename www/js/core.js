@@ -2578,10 +2578,16 @@ if (!isBatchMode && type === 'normal') {
                     playSound('send');
                 }, index * 300);
             });
-            const delayRange = settings.replyDelayMax - settings.replyDelayMin;
-            const randomDelay = settings.replyDelayMin + Math.random() * delayRange;
             window._replyScheduledAt = Date.now(); // 排期回复：后台冻结时回到前台立即补发
-            setTimeout(simulateReply, batchMessages.length * 300 + randomDelay);
+            // 批量消息全部发完后，再走统一调度入口进入回复队列：
+            // 只保留 simulateReply 内部的一次延迟（不再多叠一层 randomDelay），避免回复超过设定时限。
+            setTimeout(() => {
+                if (typeof window._scheduleReply === 'function') {
+                    window._scheduleReply();
+                } else {
+                    simulateReply();
+                }
+            }, batchMessages.length * 300);
             isBatchMode = false; batchMessages = [];
             DOMElements.batchBtn.classList.remove('active'); DOMElements.batchPreview.style.display = 'none';
             const placeholder = "";
@@ -2648,12 +2654,10 @@ if (!isBatchMode && type === 'normal') {
                 return;
             }
             const task = window._replyQueue[0];
-            // 只当"后面还有排队回复"时才插入节奏间隔（用于串联多条消息的回复）；
-            // 单独一条消息立即执行，避免在 simulateReply 内部的回复延迟之外再叠一层，
-            // 否则正在输入会超出发送的回复节奏（总等待时长接近翻倍）。
-            const hasNext = window._replyQueue.length > 1;
-            const delayRange = settings.replyDelayMax - settings.replyDelayMin;
-            const randomDelay = hasNext ? settings.replyDelayMin + Math.random() * delayRange : 0;
+            // 不再额外插入"节奏间隔"：每个排队任务本身就是一个完整的 simulateReply，
+            // 内部已按 replyDelayMin~Max 产生延迟，且由 _replyInFlight 串行化（上一条未产出完不启动下一条）。
+            // 若再叠一层间隔，多条消息连发时第一条回复会是"间隔+内部延迟"两段时限，叠加后超过用户设定上限。
+            const randomDelay = 0;
             setTimeout(() => {
                 if (window._replyQueue.length > 0) window._replyQueue.shift();
                 try {
@@ -2670,6 +2674,20 @@ if (!isBatchMode && type === 'normal') {
             if (wasEmpty) _drainReplyQueue();
         }
         window._queueReply = _queueReply;
+
+        // 统一的"玩家侧触发回复"入口：拍一拍、图片上传等所有需要"对方回复"的触发都从这里走。
+        // 进入回复队列串行执行（队列会先清掉防抖窗口再执行，见 _drainReplyQueue），从而保证：
+        //  1. 只保留 simulateReply 内部的一次延迟（replyDelayMin~Max），不再叠加外层 setTimeout，
+        //     避免"超过用户设定时限"；
+        //  2. 被防抖窗口/进行中的回复拦下的触发也不会丢失，排入队列后仍然会回复，
+        //     避免"小概率直接没回复"。
+        window._scheduleReply = function() {
+            if (typeof window._queueReply === 'function') {
+                window._queueReply(function () { simulateReply(); });
+            } else {
+                simulateReply();
+            }
+        };
 
         window._triggerDelayedReply = function(isUserMessage) {
             if (isBatchMode) return false;

@@ -54,9 +54,9 @@ function applyAvatarShapeToDOM(type, shape) {
 
                 const updateControls2 = () => {
                     const frame = settings[settingsKey];
-                    if (sizeSlider) { sizeSlider.value = frame?.size || 100; sizeValue.textContent = `${sizeSlider.value}%`; }
-                    if (xSlider) { xSlider.value = frame?.offsetX || 0; xValue.textContent = `${xSlider.value}px`; }
-                    if (ySlider) { ySlider.value = frame?.offsetY || 0; yValue.textContent = `${ySlider.value}px`; }
+                    if (sizeSlider) { sizeSlider.value = frame?.size || 100; if (sizeValue) sizeValue.textContent = `${sizeSlider.value}%`; }
+                    if (xSlider) { xSlider.value = frame?.offsetX || 0; if (xValue) xValue.textContent = `${xSlider.value}px`; }
+                    if (ySlider) { ySlider.value = frame?.offsetY || 0; if (yValue) yValue.textContent = `${ySlider.value}px`; }
                     updatePreview2();
                 };
 
@@ -294,6 +294,7 @@ function initThemeEditor() {
 
         function populateThemeEditor(currentColors = null) {
             const grid = document.getElementById('theme-editor-grid');
+            if (!grid) return;
             grid.innerHTML = '';
             const rootStyle = getComputedStyle(document.documentElement);
 

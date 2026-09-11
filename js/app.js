@@ -43,6 +43,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const acceptDisclaimerBtn = document.getElementById('accept-disclaimer');
 
     const updateLoader = (text, width) => {
+        // 标题在 loadData 完成前也固定为品牌名，避免开屏一直显示静态占位文案
+        (function () { const t = document.getElementById('welcome-title-glitch'); if (t) t.textContent = '传讯'; })();
         if (welcomeSubtitle) welcomeSubtitle.textContent = text;
         if (loaderBar) loaderBar.style.width = width;
     };
@@ -325,6 +327,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         setInterval(() => {
             saveData().catch(e => console.warn('[autoBackup] 定时保存失败:', e));
         }, 3 * 60 * 1000);
+
+        // 周期性核对信封回信状态：网页保持在前台长时间打开（不切走、不刷新）时，
+        // 之前只有"加载/启动/回到前台"才会核对，若用户开着页面超过回信时长，回信就不会生成。
+        // 这里每 60 秒补一次前台核对，确保 replyTime 到点后回信能在 1 分钟内生成。
+        setInterval(() => {
+            if (typeof checkEnvelopeStatus === 'function') {
+                try {
+                    checkEnvelopeStatus().catch(function(e) { console.warn('[envelope] 周期回信核对失败:', e); });
+                } catch (e) { console.warn('[envelope] 周期回信核对异常:', e); }
+            }
+        }, 60 * 1000);
 
         (() => {
             const REMIND_KEY = 'exportReminderLastShown';

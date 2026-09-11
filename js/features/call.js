@@ -91,6 +91,7 @@
     backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
 }
 #call-incoming-overlay.visible{display:flex;animation:cFi .35s ease;}
+.call-inc-bg{position:absolute;top:0;right:0;bottom:0;left:0;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;display:none;}
 .call-inc-card{
     width:272px;
     background:linear-gradient(160deg,rgba(255,255,255,.11),rgba(255,255,255,.04));
@@ -413,6 +414,7 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         root.id = 'call-feature-root';
         root.innerHTML = `
 <div id="call-incoming-overlay">
+  <img id="call-inc-bg-img" src="" alt="" class="call-inc-bg">
   <div class="call-inc-card">
     <div class="call-inc-ring">
       <div class="call-inc-avatar" id="call-inc-avatar"><i class="fas fa-user" id="call-inc-av-icon"></i></div>
@@ -640,10 +642,12 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
     }
 
     function applyBg() {
-        const img = document.getElementById('call-bg-img');
-        if (!img) return;
-        if (S.bgImage) { img.src = S.bgImage; img.style.display = 'block'; }
-        else { img.src = ''; img.style.display = 'none'; }
+        const imgs = [document.getElementById('call-bg-img'), document.getElementById('call-inc-bg-img')];
+        imgs.forEach(img => {
+            if (!img) return;
+            if (S.bgImage) { img.src = S.bgImage; img.style.display = 'block'; }
+            else { img.src = ''; img.style.display = 'none'; }
+        });
     }
 
     function positionWindow() {
@@ -804,6 +808,7 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         if (!ov) return;
         fillAv('call-inc-avatar'); fillNm('call-inc-name');
         ov.classList.add('visible');
+        applyBg(); // 来电界面复用 call-bg-img，重新套用持久化的背景（防止每次来电都重置）
         clearTimeout(S.incomingTimer);
 
         // 播放视频通话邀请音效

@@ -272,6 +272,7 @@
         for (var i = 0; i < keys.length; i++) {
             var key = keys[i];
             if (onlyPfx && key.indexOf(onlyPfx) !== 0) continue;
+            if (key.indexOf(ROLLBACK_PREFIX) === 0) continue; // 自动回滚快照整包打进备份会体积膨胀，且恢复时会污染回滚历史
             if (shouldSkipKeyGroupChat(key, flags)) continue;
             try {
                 var rawVal = await localforage.getItem(key);

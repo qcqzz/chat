@@ -340,9 +340,13 @@ if (target.classList.contains('delete-btn')) {
                 }
                 hideModal(DOMElements.pokeModal.modal);
                 DOMElements.pokeModal.input.value = settings.myPokeText || '';
-                const delayRange = settings.replyDelayMax - settings.replyDelayMin;
-                const randomDelay = settings.replyDelayMin + Math.random() * delayRange;
-                setTimeout(simulateReply, randomDelay);
+                if (typeof window._scheduleReply === 'function') {
+                    window._scheduleReply();
+                } else {
+                    const delayRange = settings.replyDelayMax - settings.replyDelayMin;
+                    const randomDelay = settings.replyDelayMin + Math.random() * delayRange;
+                    setTimeout(simulateReply, randomDelay);
+                }
             });
 
 
@@ -3827,9 +3831,13 @@ playlist.style.top = (rect.top + (player.classList.contains('collapsed') ? 65 : 
                             playSound('send');
                             currentReplyTo = null;
                             updateReplyPreview();
-                            const delayRange = settings.replyDelayMax - settings.replyDelayMin;
-                            const randomDelay = settings.replyDelayMin + Math.random() * delayRange;
-                            setTimeout(simulateReply, randomDelay);
+                            if (typeof window._scheduleReply === 'function') {
+                                window._scheduleReply();
+                            } else {
+                                const delayRange = settings.replyDelayMax - settings.replyDelayMin;
+                                const randomDelay = settings.replyDelayMin + Math.random() * delayRange;
+                                setTimeout(simulateReply, randomDelay);
+                            }
 
 
                             closeModal();

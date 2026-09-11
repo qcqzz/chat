@@ -827,9 +827,13 @@ function showPokeTab() {
                 type: 'system'
             });
             document.getElementById('user-sticker-picker').classList.remove('active');
-            const delayRange = settings.replyDelayMax - settings.replyDelayMin;
-            const randomDelay = settings.replyDelayMin + Math.random() * delayRange;
-            setTimeout(simulateReply, randomDelay);
+            if (typeof window._scheduleReply === 'function') {
+                window._scheduleReply();
+            } else {
+                const delayRange = settings.replyDelayMax - settings.replyDelayMin;
+                const randomDelay = settings.replyDelayMin + Math.random() * delayRange;
+                setTimeout(simulateReply, randomDelay);
+            }
         };
         area.appendChild(btn);
     });
@@ -1103,9 +1107,13 @@ function showPokeTab() {
                             playSound('send');
                             currentReplyTo = null;
                             updateReplyPreview();
-                            const delayRange = settings.replyDelayMax - settings.replyDelayMin;
-                            const randomDelay = settings.replyDelayMin + Math.random() * delayRange;
-                            setTimeout(simulateReply, randomDelay);
+                            if (typeof window._scheduleReply === 'function') {
+                                window._scheduleReply();
+                            } else {
+                                const delayRange = settings.replyDelayMax - settings.replyDelayMin;
+                                const randomDelay = settings.replyDelayMin + Math.random() * delayRange;
+                                setTimeout(simulateReply, randomDelay);
+                            }
 
 
                             closeModal();

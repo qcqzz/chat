@@ -157,7 +157,7 @@
     function avatarGradient(seed) {
         var h = 0;
         for (var i = 0; i < String(seed).length; i++) h = (h * 31 + String(seed).charCodeAt(i)) % 360;
-        return (h + 30) + 'deg, hsl(' + h + ',62%,62%), hsl(' + ((h + 50) % 360) + ',58%,48%)';
+        return 'hsl(' + h + ',62%,62%), hsl(' + ((h + 50) % 360) + ',58%,48%)';
     }
 
     // 切换对象：非目标对象数据不动，只改指针 + hash → reload 重载到新世界

@@ -47,6 +47,7 @@
                 }
                 if (Date.now() - start > timeoutMs) {
                     console.log('[PushBridge] Capacitor 桥接超时，回退到浏览器模式');
+                    _waitPromise = null; // 不缓存超时结果：慢启动设备下次 send 会重新探测，避免原生通知永久失效
                     resolve(false);
                     return;
                 }
