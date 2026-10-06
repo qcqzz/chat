@@ -1981,10 +1981,13 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
     }
     messageDiv.innerHTML = messageHTML;
     // 阶段三B：innerHTML 塞完后，找带 data-lazy-cloud-ref 的图绑定懒加载
+    // 以聊天滚动容器（#chat-container）作为 IO root：聊天记录在自定义滚动容器内滚动，
+    // 若仍用 viewport 作 root，容器内滚出的云端图不会即时触发加载，表情/图片会一直停留在空白占位。
     if (window.CloudMedia) {
+        const lazyRoot = (DOMElements && DOMElements.chatContainer) || null;
         messageDiv.querySelectorAll('img[data-lazy-cloud-ref]').forEach(function (imgEl) {
             const ref = imgEl.getAttribute('data-lazy-cloud-ref');
-            window.CloudMedia.bindLazyImage(imgEl, ref);
+            window.CloudMedia.bindLazyImage(imgEl, ref, null, lazyRoot);
         });
         // 阶段三B：pending 图从本地 base64 显示
         messageDiv.querySelectorAll('img[data-pending-ref]').forEach(function (imgEl) {
