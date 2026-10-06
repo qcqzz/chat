@@ -182,6 +182,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                         });
                     }
                 } catch(e) {}
+                // Android 12+：精确闹钟(SCHEDULE_EXACT_ALARM)默认不授予，未授权时后台定时唤醒
+                // 会退化为非精确、Doze 下推送延迟/不稳定。启动时检查一次并引导授权（仅提示一次）。
+                try {
+                    if (!localStorage.getItem('exactAlarmGuided')) {
+                        ForegroundBridge.requestExactAlarm(function (r) {
+                            if (r && r.needAction) {
+                                try {
+                                    if (typeof showNotification === 'function') {
+                                        showNotification('为准时后台提醒，请允许"闹钟和提醒"权限', 'info', 3000);
+                                    }
+                                } catch (e3) {}
+                            }
+                            localStorage.setItem('exactAlarmGuided', '1');
+                        });
+                    }
+                } catch (e3) {}
                 // 首次启动：国产厂商(小米/华为/OPPO/vivo/魅族)系统级保活白名单引导，仅一次；
                 // 非原生或非国产自动跳过。引导用户把 App 加入"自启动/后台/省电"白名单，
                 // 显著提升真实设备上被厂商省电策略杀掉前的存活率。

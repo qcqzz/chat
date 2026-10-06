@@ -298,6 +298,9 @@
                 // 先把 Blob 直存的本地音频等二进制转成 data:URL，交给 extractMediaTree 抽到 mediaStore
                 lfData[k] = await blobToDataUrlTree(lfData[k]);
                 lfOut[k] = extractMediaTree(lfData[k], state);
+                // 大 base64 媒体已被抽到 state.store（字符串引用共享、不复制字节），
+                // 立即释放 lfData 里那份“内联 base64”的整棵结构副本，避免提取结果与内联树同时常驻内存。
+                lfData[k] = null;
             } catch (e) {
                 // 单条数据异常（如个别损坏 Blob）不得中断整包导出：跳过该键并告警
                 console.warn('[backup] 处理局部数据失败，跳过该键:', k, e);
@@ -727,6 +730,11 @@
                         mediaIndex[sid2] = { path: txtPath, mime: 'text/plain+dataurl' };
                     }
                     doneMedia++;
+                    // 内存峰值优化：mediaStore 里的 base64 字符串体积约为媒体二进制的 4/3，
+                    // 解码成 zip 需要的 bytes 后这条 base64 即可丢弃——逐条释放，避免“全部 base64 + 全部解出 bytes + 压缩产物”三份同时常驻，
+                    // 这是大数据量(大量 base64 图片/语音)备份时 OOM 闪退的主要来源。
+                    // （仅影响内存；v5 ZIP 的媒体本体已写入 zip、mediaIndex 记录了 path/mime，导入侧 parseZipBackup 不受影响。）
+                    store[sid2] = null;
                     // 媒体压缩阶段：35% → 60%
                     report(35 + Math.round(25 * doneMedia / (totalMedia || 1)), '正在压缩媒体文件…');
                 }
@@ -747,13 +755,18 @@
                 var zipBlob = await zip.generateAsync({
                     type: 'blob',
                     compression: 'DEFLATE',
-                    compressionOptions: { level: 6 }
+                    // 图片/音频媒体多为已压缩格式，DEFLATE level 6 的 CPU 与内存开销大、体积收益极小，
+                    // 降到 level 1 显著降低打包阶段耗时与峰值内存，减少低内存机型打包时 ANR/OOM。
+                    compressionOptions: { level: 1 }
                 }, function (meta) {
                     // 压缩阶段：65% → 88%
                     if (meta && typeof meta.percent === 'number') {
                         report(65 + Math.round(23 * meta.percent / 100), '正在压缩文件…');
                     }
                 });
+                // 生成完成后立即释放 zip 对象：其内部仍持有所有媒体文件的未压缩字节(约 1x 媒体总量)，否则会与
+                // 压缩产物 zipBlob 同时常驻内存，抬高大备份的峰值。zip 在本路径后续不再使用。
+                zip = null;
                 // Capacitor 环境：直接保存到手机「下载/ChuanXun」目录（文件管理器可见）
                 if (_isCapacitorEnv()) {
                     report(92, '正在保存到手机「下载/ChuanXun」…');

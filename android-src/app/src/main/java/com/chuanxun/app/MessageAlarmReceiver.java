@@ -56,10 +56,16 @@ public class MessageAlarmReceiver extends BroadcastReceiver {
             intent.putExtra("intervalMs", intervalMs);
             PendingIntent pi = pendingIntent(context, intent);
 
-            // 精确闹钟优先，权限被拒/受限时回退非精确，保证能到点唤醒
+            // 精确闹钟优先。Android 12+ 的 setExactAndAllowWhileIdle 需要 SCHEDULE_EXACT_ALARM
+            // 特殊访问授权，未授权时抛 SecurityException；先主动判断 canScheduleExactAlarms()，
+            // 未授权直接退非精确，避免依赖异常路径（个别厂商实现不抛异常而是静默降级/丢弃）。
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                boolean canExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+                        || alarmManager.canScheduleExactAlarms();
+                if (canExact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMs, pi);
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMs, pi);
                 } else {
                     alarmManager.setExact(AlarmManager.RTC_WAKEUP, atMs, pi);
                 }

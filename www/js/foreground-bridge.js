@@ -92,6 +92,25 @@
         },
 
         /**
+         * 精确闹钟（SCHEDULE_EXACT_ALARM）授权引导。
+         * Android 12+ 未授权时后台定时唤醒与消息闹钟会退化为非精确，Doze 下延迟数分钟到数小时，
+         * 导致"后台推送不稳定"。这里检查并引导用户跳转到系统"闹钟和提醒"设置页。
+         * callback({alreadyGranted, needAction})
+         */
+        requestExactAlarm: function (callback) {
+            var fg = getCapacitor();
+            if (!fg) {
+                if (callback) callback({ alreadyGranted: true, needAction: false });
+                return;
+            }
+            fg.requestExactAlarm().then(function (result) {
+                if (callback) callback(result || {});
+            }).catch(function () {
+                if (callback) callback({ alreadyGranted: false, needAction: false });
+            });
+        },
+
+        /**
          * 检查是否已忽略电池优化
          */
         isBatteryOptimized: function (callback) {

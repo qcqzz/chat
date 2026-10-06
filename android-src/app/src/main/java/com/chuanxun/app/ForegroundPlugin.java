@@ -1,5 +1,6 @@
 package com.chuanxun.app;
 
+import android.app.AlarmManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -115,6 +116,47 @@ public class ForegroundPlugin extends Plugin {
             ret.put("alreadyGranted", true);
             ret.put("needAction", false);
             call.resolve(ret);
+        }
+    }
+
+    /**
+     * 精确闹钟（SCHEDULE_EXACT_ALARM）授权引导。
+     * Android 12+ 该特殊访问默认不授予，未授权时后台定时唤醒与消息闹钟会退化为非精确
+     * （Doze 下可能延迟数分钟到数小时），导致"后台推送不稳定"。这里检查并跳转到系统
+     * "闹钟和提醒"设置页让用户一次性授权。
+     */
+    @PluginMethod
+    public void requestExactAlarm(PluginCall call) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            JSObject ret = new JSObject();
+            ret.put("alreadyGranted", true);
+            ret.put("needAction", false);
+            call.resolve(ret);
+            return;
+        }
+        try {
+            AlarmManager am = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
+            if (am != null && am.canScheduleExactAlarms()) {
+                JSObject ret = new JSObject();
+                ret.put("alreadyGranted", true);
+                ret.put("needAction", false);
+                call.resolve(ret);
+                return;
+            }
+        } catch (Exception e) {
+            // 查询失败按未授权处理，继续走引导
+        }
+        try {
+            Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                    Uri.parse("package:" + getContext().getPackageName()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            JSObject ret = new JSObject();
+            ret.put("alreadyGranted", false);
+            ret.put("needAction", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("无法打开精确闹钟设置");
         }
     }
 

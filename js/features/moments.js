@@ -114,6 +114,9 @@ async function loadMomentsData() {
     } catch(e){console.warn('[Moments] load 失败',e);}
 }
 async function saveMomentsData() {
+    // 导入/恢复完成、刷新前禁止写入：此时内存里的 momentsData 仍是旧数据，
+    // 若在 reload 前的窗口内写入，会用旧数据覆盖刚刚导入进 IndexedDB 的动态数据（表现为导入后动态丢失）。
+    if (window._importGuarded) return;
     if (!_momentsDataLoaded) { console.warn('[Moments] 本次会话还没有确认加载成功过动态数据，为了避免覆盖历史记录，跳过这次保存'); return; }
     try{await localforage.setItem(getStorageKey(_M_STORAGE_KEY),momentsData);}catch(e){console.warn('[Moments] save 失败',e);}
 }

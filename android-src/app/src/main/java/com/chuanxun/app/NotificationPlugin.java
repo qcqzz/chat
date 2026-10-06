@@ -189,6 +189,17 @@ public class NotificationPlugin extends Plugin {
 
         createChannel();
 
+        // Android 13+ 必须持有 POST_NOTIFICATIONS 运行时权限，否则 NotificationManager.notify()
+        // 不会抛异常而是被系统静默丢弃——此前会误报"发送成功"但后台实际收不到任何通知。
+        // 这里显式拦截并给出明确错误，由前端引导授权后重试。
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && getContext().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "POST_NOTIFICATIONS 未授予，通知无法送达: id=" + id);
+            call.reject("notifications_permission_denied");
+            return;
+        }
+
         Context context = getContext();
         PendingIntent pendingIntent = contentIntent(context, id);
 

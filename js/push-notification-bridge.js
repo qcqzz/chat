@@ -141,7 +141,20 @@
             console.log('[PushBridge] 自定义通知已发送 #' + id + ' urgent=' + (payload.urgent || false) + ':', title, body);
             return id;
         }).catch(function (e) {
-            console.warn('[PushBridge] 自定义通知失败:', e.message || e);
+            var msg = (e && e.message) ? String(e.message) : '';
+            console.warn('[PushBridge] 自定义通知失败:', msg);
+            // Android 13+ 未授予 POST_NOTIFICATIONS 时原生侧会明确拒绝（此前被系统静默丢弃、
+            // 前端误以为成功）。此处主动请求权限，授权后重试一次，尽量不漏后台消息。
+            if (msg.indexOf('permission') >= 0) {
+                return _notifPlugin.requestPermission().then(function (r) {
+                    if (r && r.granted === true) {
+                        _permissionGranted = true;
+                        return _notifPlugin.send(payload).then(function () { return id; })
+                            .catch(function () { return null; });
+                    }
+                    return null;
+                }).catch(function () { return null; });
+            }
             return null;
         });
     }

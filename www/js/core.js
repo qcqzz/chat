@@ -665,6 +665,7 @@ const loadData = async () => {
                 messages = [];
             }
         }
+        _messagesLoaded = true; // messages 已从磁盘（或备份）确认读回，此后 saveData 才允许重写 chatMessages
 
         if (savedBgGallery) {
             savedBackgrounds = savedBgGallery;
@@ -1025,6 +1026,9 @@ let _lastBackupRev = -1;
 // 消息主存储落库节流：见 saveData 内 chatMessages 分支的说明。JS 变量在下方定义，保证闭包可读。
 let _MSG_PERSIST_INTERVAL = 3000;
 let _msgPersistAt = 0;
+// chatMessages 整数组结构化克隆的“在途”守卫：上一次 localforage.setItem(chatMessages) 的克隆尚未完成时
+// 不再叠加新的克隆，避免在低内存/慢写机型上出现“原数组 + 在途克隆×2”三份内存同驻导致的 OOM 闪退。
+let _msgPersistInFlight = false;
 window._markChatDataChanged = function () { _saveRev++; };
 window._getChatDataRev = function () { return _saveRev; };
 // 字卡"就绪"闩锁：loadData 把字卡读回内存之前为 false，期间 saveData 与紧急备份都不落写字卡，
@@ -1035,6 +1039,10 @@ let _restoredCards = false;
 // 数据整体"就绪"闩锁：loadData 完成前为 false。与 _cardsReady 同类，用于全局兜底——
 // 防止任何在加载完成前触发的保存/备份用"尚未就绪(空数组/默认值)"的内存数据覆盖磁盘上已存在的数据。
 let _dataReady = false;
+// 消息"已确认从磁盘加载成功"闩锁：loadData 真正把 messages 从主存储/备份读回内存后才置 true。
+// 与 _dataReady 不同，它专门保护 chatMessages 主存储：当 loadData 在读到 messages 之前就抛错时，
+// messages 仍是初始空数组，若此时 saveData 落盘会把空数组覆盖磁盘上的全部聊天记录。
+let _messagesLoaded = false;
 // ── 重数据键（含 base64 音频/图片）的写入守卫 ──
 // saveData 每次被节流触发都会把所有键重新写入 IndexedDB；导入大量数据后
 // voiceCards(语音音频)/stickers(贴纸)/themes(主题图) 可能达到数 MB，
@@ -1070,6 +1078,9 @@ function _backupCriticalData(force) {
     // 导入/恢复完成、刷新前不让任何写入覆盖刚导入的数据：
     // 内存仍是旧数据（_saveRev 未变），此时若写入会用旧数据覆盖 IndexedDB/localStorage 的新数据
     if (window._importGuarded) return;
+    // 数据加载完成前（含启动瞬间 App 被切后台触发 visibilitychange/pagehide）不写备份：
+    // 此刻内存 messages 仍是空数组/默认值，写进去会清掉昨天的有效备份，导致「主存储读空时无从恢复」。
+    if (!_dataReady) return;
     // 落盘整体延后到当前事件(输入/渲染)处理完再执行：真正写 localStorage 是一次同步 JSON.stringify+setItem，
     // 直接在消息推送/已读回执的主流程里同步跑会拖住主线程导致可见卡顿。force(页面隐藏/退出)时仍即时执行。
     const doBackup = () => {
@@ -1251,6 +1262,9 @@ const saveData = async (force) => {
         { key: 'customThemes',           val: () => _writeHeavyIfChanged(`${APP_PREFIX}customThemes`, () => customThemes) },
         { key: 'themeSchemes',           val: () => _writeHeavyIfChanged(`${APP_PREFIX}themeSchemes`, () => themeSchemes) },
         { key: 'chatMessages',           val: () => {
+            // 消息尚未从磁盘确认读回（如 loadData 在读消息前抛错、_dataReady 被异常解锁）时禁止写 chatMessages，
+            // 防止用内存中的空数组覆盖磁盘上的全部聊天记录。
+            if (!_messagesLoaded) return Promise.resolve();
             const msgLen = Array.isArray(messages) ? messages.length : 0;
             // 消息未发生变更(长度未变 且 无追加/撤回/已读等变更标记)时跳过重写，避免每条消息都重拷整份含 base64 的数组
             if (_saveRev !== _lastSavedSaveRev || msgLen !== _lastSavedMsgLen) {
@@ -1261,10 +1275,17 @@ const saveData = async (force) => {
                 // 保证退出前最新消息都能落盘（不会丢数据）。
                 const now = Date.now();
                 if (!force && now - (_msgPersistAt || 0) < _MSG_PERSIST_INTERVAL) return Promise.resolve();
+                // 在途守卫：上一次整数组克隆尚未完成时不再叠加新的克隆（低内存/慢写机型上重叠克隆会
+                // 出现“原数组 + 在途克隆×2”三份内存同驻，是聊天中偶发 OOM 闪退的来源之一）。
+                // force（退出/切后台）时仍允许绕过，优先保证最新消息落盘不丢失。
+                if (_msgPersistInFlight && !force) return Promise.resolve();
                 _msgPersistAt = now;
+                _msgPersistInFlight = true;
                 return localforage.setItem(getStorageKey('chatMessages'), messages).then(() => {
                     _lastSavedSaveRev = _saveRev;
                     _lastSavedMsgLen = msgLen;
+                }).finally(() => {
+                    _msgPersistInFlight = false;
                 });
             }
             return Promise.resolve();

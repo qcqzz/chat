@@ -26,6 +26,9 @@ async function loadEnvelopeData() {
 }
 
 function saveEnvelopeData() {
+    // 导入/恢复完成、刷新前禁止写入：此时内存里的 envelopeData 仍是旧数据，
+    // 若在 reload 前的窗口内写入，会用旧数据覆盖刚刚导入进 IndexedDB 的信箱数据（表现为导入后信箱内容丢失）。
+    if (window._importGuarded) return;
     if (!_envelopeDataLoaded) {
         console.warn('[envelope] 本次会话还没有确认加载成功过信箱数据，为了避免覆盖历史记录，跳过这次保存');
         return;
