@@ -859,11 +859,7 @@
             display: flex;
             align-items: center;
             gap: 2px;
-            position: absolute;
-            left: 50%;
-            top: 0;
-            bottom: 0;
-            transform: translateX(-50%);
+            flex-shrink: 0;
             z-index: 2;
         }
         .action-btn {

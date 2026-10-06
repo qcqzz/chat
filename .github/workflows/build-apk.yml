@@ -75,9 +75,9 @@ jobs:
       - name: 设置版本号
         run: |
           # 更新 versionCode 和 versionName（覆盖 Capacitor 默认值）
-          sed -i 's/versionCode 1/versionCode 52/' android/app/build.gradle
-          sed -i 's/versionName "1.0"/versionName "5.2.0"/' android/app/build.gradle
-          echo "Updated versionCode to 52, versionName to 5.2.0"
+          sed -i 's/versionCode 1/versionCode 51/' android/app/build.gradle
+          sed -i 's/versionName "1.0"/versionName "5.1.0"/' android/app/build.gradle
+          echo "Updated versionCode to 51, versionName to 5.1.0"
 
       - name: 注入前台服务保活代码
         run: |
@@ -190,13 +190,13 @@ jobs:
           $ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose android/app/build/outputs/apk/release/app-release.apk
           rm release.keystore
 
-      - name: 发布到 Release v5.2.0
+      - name: 发布到 Release v5.1.0
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # 若 v5.2.0 release 不存在则先创建，存在则用 --clobber 覆盖同名 APK
-          gh release view v5.2.0 >/dev/null 2>&1 || gh release create v5.2.0 --title "v5.2.0" --notes "传讯 v5.2.0"
-          gh release upload v5.2.0 android/app/build/outputs/apk/release/app-release.apk --clobber
+          # 若 v5.1.0 release 不存在则先创建，存在则用 --clobber 覆盖同名 APK
+          gh release view v5.1.0 >/dev/null 2>&1 || gh release create v5.1.0 --title "v5.1.0" --notes "传讯 v5.1.0"
+          gh release upload v5.1.0 android/app/build/outputs/apk/release/app-release.apk --clobber
 
       - name: 上传 APK
         uses: actions/upload-artifact@v4
