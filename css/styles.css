@@ -551,9 +551,6 @@
             color: var(--text-primary);
             transition: background-color 0.5s ease, color 0.5s ease;
             height: 100vh;
-            /* 键盘弹出时用动态视口高度：安卓 Chrome 108+ 中 100vh 固定为「大视口」不随键盘收缩，
-               会导致底部输入框与键盘之间残留大段空白；100dvh 会随软键盘收起/展开实时变化。 */
-            height: 100dvh;
             display: flex;
             flex-direction: column;
             overflow: hidden; 
