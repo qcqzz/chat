@@ -640,7 +640,8 @@ const loadData = async () => {
         if (savedIntros) customIntros = savedIntros;
         else customIntros = CONSTANTS.WELCOME_ANIMATIONS.map(a => `${a.line1}|${a.line2}`);
 
-        if (savedMessages && Array.isArray(savedMessages)) {
+        const hasSavedMessages = Array.isArray(savedMessages) && savedMessages.length > 0;
+        if (hasSavedMessages) {
             messages = savedMessages.map(m => ({
                 ...m, timestamp: new Date(m.timestamp)
             }));
@@ -3861,16 +3862,48 @@ function showModal(modalElement, focusElement = null) {
 window.initializeSession = async function() {
     await migrateData();
 
-    const sessionsData = await localforage.getItem(`${APP_PREFIX}sessionList`);
-    sessionList = sessionsData || [];
+    // 诊断：记录当前 localforage 实际驱动，便于定位"读空"是否由 IndexedDB 驱动漂移/启动不稳定导致
+    try {
+        if (localforage.driver) console.log('[boot][session] localforage driver =', localforage.driver());
+    } catch (e) {}
+
+    let sessionsData = await localforage.getItem(`${APP_PREFIX}sessionList`);
+    sessionList = Array.isArray(sessionsData) ? sessionsData : [];
 
     const hash = window.location.hash.substring(1);
-    if (hash && sessionList.some(s => s.id === hash)) {
+
+    // 交叉验证：sessionList 读空时，先看 localStorage 里是否还有 lastSessionId 历史镜像。
+    // 部分机型 IndexedDB 启动初期不稳定或驱动漂移，getItem 会瞬间读空；若此时直接走 createNewSession，
+    // 会用 [新会话] 覆盖 IndexedDB 里真实的 sessionList 并把 lastSessionId 改指向新 id，导致旧对象
+    // 命名空间下的全部数据（含聊天记录）"失联"，表现为所有数据被吞。故这里先用镜像 + 重试 + 兜底重建，
+    // 只有在确确实实没有任何历史痕迹时才允许创建新会话。
+    let fsLastId = null;
+    try { fsLastId = localStorage.getItem(APP_PREFIX + 'lastSessionId'); } catch (e) {}
+
+    if (sessionList.length === 0 && fsLastId) {
+        console.warn('[boot][session] sessionList 读空但存在 lastSessionId 镜像，重试读取（疑似读失败，非首次使用）');
+        for (let attempt = 0; attempt < 3 && sessionList.length === 0; attempt++) {
+            await new Promise(function (r) { setTimeout(r, 250 + attempt * 250); });
+            sessionsData = await localforage.getItem(`${APP_PREFIX}sessionList`);
+            if (Array.isArray(sessionsData) && sessionsData.length > 0) sessionList = sessionsData;
+        }
+    }
+
+    // 重试后仍为空：IndexedDB 里的 sessionList 确实读不到。用 lastSessionId 镜像兜底重建单会话列表，
+    // 保持 SESSION_ID 不回退、不重生成，使 localStorage 紧急备份能按 sessionId 匹配恢复出聊天记录。
+    if (sessionList.length === 0 && fsLastId) {
+        console.warn('[boot][session] sessionList 仍空，用 lastSessionId 镜像兜底重建，避免会话被重置');
+        sessionList = [{ id: fsLastId, name: '恢复的会话', createdAt: Date.now() }];
+        try { await localforage.setItem(`${APP_PREFIX}sessionList`, sessionList); } catch (e) {}
+    }
+
+    if (hash && sessionList.some(function (s) { return s.id === hash; })) {
         SESSION_ID = hash;
     } else if (sessionList.length > 0) {
         const lastId = await localforage.getItem(`${APP_PREFIX}lastSessionId`);
-        SESSION_ID = lastId && sessionList.some(s => s.id === lastId) ? lastId : sessionList[0].id;
+        SESSION_ID = (lastId && sessionList.some(function (s) { return s.id === lastId; })) ? lastId : sessionList[0].id;
     } else {
+        console.log('[boot][session] 确认为首次使用，创建新会话');
         SESSION_ID = await createNewSession(false);
     }
 
