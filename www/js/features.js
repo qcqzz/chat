@@ -1969,6 +1969,32 @@ window.closeDailyGreeting = function() {
     } catch(e) {}
 };
 
+// ── 原创声明弹窗：每次启动显示，关闭后执行回调（衔接后续启动流程）──
+window._originalDeclarationDone = null;
+window.showOriginalDeclaration = function(done) {
+    try {
+        window._originalDeclarationDone = (typeof done === 'function') ? done : null;
+        var modal = document.getElementById('original-declaration-modal');
+        if (!modal) { var cb0 = window._originalDeclarationDone; window._originalDeclarationDone = null; if (typeof cb0 === 'function') cb0(); return; }
+        if (typeof showModal === 'function') { showModal(modal); }
+        else { modal.style.display = 'flex'; modal.style.opacity = ''; }
+    } catch (e) {
+        var cb1 = window._originalDeclarationDone; window._originalDeclarationDone = null; if (typeof cb1 === 'function') cb1();
+    }
+};
+window.closeOriginalDeclaration = function() {
+    var cb = window._originalDeclarationDone;
+    window._originalDeclarationDone = null;
+    try {
+        var modal = document.getElementById('original-declaration-modal');
+        if (modal) {
+            if (typeof hideModal === 'function') hideModal(modal);
+            else modal.style.display = 'none';
+        }
+    } catch (e) {}
+    if (typeof cb === 'function') cb();
+};
+
 window.reopenDailyGreeting = function() {
     try {
         if (typeof _buildDailyGreeting === 'function') _buildDailyGreeting();

@@ -210,6 +210,17 @@ html[data-theme="dark"] #chat-transition-overlay{
                     </div>
 
                     <div class="splash-slide" data-index="5">
+                        <div class="splash-slide-tag">关于原创</div>
+                        <div class="splash-slide-title">请尊重每个人的原创</div>
+                        <div class="splash-slide-body">
+                            本软件基于 <strong>Milk老师</strong> 以及 <strong>滚筒洗衣机老师</strong> 的开源代码进行部署二改，部分功能由 <strong>煮包</strong> 原创。<br><br>
+                            软件支持二改二传，但煮包应有知情权，并且<em>禁止通过分享软件牟利</em>。<br><br>
+                            煮波本人仅通过小红书（账号：<strong>63090251079</strong>，CCC的S）分享传讯软件，也请宝宝们注意分辨。<br><br>
+                            <div class="splash-highlight-box">请尊重每个人的原创 (◍•ᴗ•◍）。</div>
+                        </div>
+                    </div>
+
+                    <div class="splash-slide" data-index="6">
                         <div class="splash-slide-tag">入场承诺</div>
                         <div class="splash-slide-title">请留下你的承诺</div>
                         <div class="splash-pledge-desc">在下方输入框中，<em style="color:rgba(var(--accent-color-rgb,197,164,126),0.8);font-style:normal;">逐字抄写</em>以下承诺，即可进入网站。</div>
@@ -225,7 +236,7 @@ html[data-theme="dark"] #chat-transition-overlay{
                     <button class="splash-btn splash-btn-ghost" id="splash-prev-btn" disabled>
                         <i class="fas fa-arrow-left"></i> 上一页
                     </button>
-                    <span class="splash-page-num" id="splash-page-num">1 / 6</span>
+                    <span class="splash-page-num" id="splash-page-num">1 / 7</span>
                     <button class="splash-btn splash-btn-next" id="splash-next-btn">
                         下一页 <i class="fas fa-arrow-right"></i>
                     </button>
@@ -3716,6 +3727,24 @@ html[data-theme="dark"] #chat-transition-overlay{
         </div>
     </div>
 
+    <!-- 原创声明弹窗：每次启动显示 -->
+    <div class="modal" id="original-declaration-modal" onclick="if(event.target===this&&typeof window.closeOriginalDeclaration==='function')window.closeOriginalDeclaration()">
+        <div class="modal-content">
+            <div class="modal-title">
+                <i class="fas fa-feather-alt"></i><span>原创声明</span>
+            </div>
+            <div id="original-declaration-content" style="font-size: 14px; line-height: 1.9; color: var(--text-secondary); max-height: 55vh; overflow-y: auto; padding-right: 8px;">
+                <p style="margin: 0 0 12px;">本软件基于 <strong style="color: var(--text-primary);">Milk老师</strong> 以及 <strong style="color: var(--text-primary);">滚筒洗衣机老师</strong> 的开源代码进行部署二改，部分功能由 <strong style="color: var(--text-primary);">煮包</strong> 原创。</p>
+                <p style="margin: 0 0 12px;">软件支持二改二传，但煮包应有知情权，并且<strong style="color: var(--accent-color);">禁止通过分享软件牟利</strong>。</p>
+                <p style="margin: 0 0 12px;">煮波本人仅通过小红书（账号：<strong style="color: var(--text-primary);">63090251079</strong>，CCC的S）分享传讯软件，也请宝宝们注意分辨。</p>
+                <div style="margin-top: 14px; padding: 12px 14px; border-left: 3px solid var(--accent-color); border-radius: 0 8px 8px 0; background: rgba(var(--accent-color-rgb,197,164,126), 0.08); color: var(--text-primary); font-weight: 600;">请尊重每个人的原创 (◍•ᴗ•◍）。</div>
+            </div>
+            <div class="modal-buttons" style="margin-top: 20px;">
+                <button class="modal-btn modal-btn-primary" id="close-original-declaration" onclick="if(typeof window.closeOriginalDeclaration==='function')window.closeOriginalDeclaration()" style="width: 100%;">我知道了</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 问问你弹窗：收录于「更多」面板 -->
     <div class="modal" id="ask-modal" onclick="if(event.target===this && typeof hideModal==='function')hideModal(this)">
         <div class="modal-content" style="width:380px;max-width:92vw;padding:20px 20px 24px;">
@@ -4292,12 +4321,12 @@ html[data-theme="dark"] #chat-transition-overlay{
 
     <!-- == 合并模块 == -->
     <script src="js/games.js?v=225"></script> 
-    <script src="js/features.js?v=228"></script> 
+    <script src="js/features.js?v=229"></script> 
     <script src="js/push-notification-bridge.js"></script>
     <script src="js/foreground-bridge.js"></script>
     <script src="js/media-notification-bridge.js"></script>
     <script src="js/data.js?v=218"></script>
-    <script src="js/onboarding.js?v=1"></script> 
+    <script src="js/onboarding.js?v=2"></script> 
     <script src="js/features/anniversary.js?v=218"></script>
     <script src="js/listeners.js?v=8"></script>
     <script src="js/listeners-step2.js"></script>
@@ -4314,7 +4343,7 @@ html[data-theme="dark"] #chat-transition-overlay{
     <script src="js/cloud-media-migration.js?v=218"></script>
     <script src="js/cloud-sync-ui.js?v=3"></script>
     <script src="js/partner-manager.js?v=217"></script>
-    <script src="js/app.js?v=225"></script>
+    <script src="js/app.js?v=226"></script>
     <script src="js/desktop.js?v=219"></script>
     <script src="js/features/notes.js?v=1"></script>
     <script src="js/features/period.js?v=2"></script>

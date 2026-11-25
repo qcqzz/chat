@@ -138,14 +138,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         function revealDesktopAndProceed() {
             document.body.classList.add('dt-view');
             try { if (window.DesktopTopbar && typeof window.DesktopTopbar.showDesktop === 'function') window.DesktopTopbar.showDesktop(); } catch (e) {}
-            // 未完成引导 → 免责声明 → 新手指引（结束后由 endTour 弹今日公告）
-            if (!tourSeen) {
-                enterDisclaimer();
+            function afterDeclaration() {
+                // 未完成引导 → 免责声明 → 新手指引（结束后由 endTour 弹今日公告）
+                if (!tourSeen) {
+                    enterDisclaimer();
+                } else {
+                    // 已完成引导 → 直接弹今日公告
+                    setTimeout(function () {
+                        try { if (typeof window.tryShowDailyGreeting === 'function') window.tryShowDailyGreeting(); } catch (e) {}
+                    }, 600);
+                }
+            }
+            // 首次进入由「使用前声明」里的原创页覆盖；再次进入则每次重启弹原创声明弹窗
+            if (signed) {
+                try {
+                    if (typeof window.showOriginalDeclaration === 'function') {
+                        window.showOriginalDeclaration(afterDeclaration);
+                    } else {
+                        afterDeclaration();
+                    }
+                } catch (e) { afterDeclaration(); }
             } else {
-                // 已完成引导 → 直接弹今日公告
-                setTimeout(function () {
-                    try { if (typeof window.tryShowDailyGreeting === 'function') window.tryShowDailyGreeting(); } catch (e) {}
-                }, 600);
+                afterDeclaration();
             }
             window.__bootGateDone = true;
         }

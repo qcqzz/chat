@@ -132,7 +132,7 @@
 
 (function() {
     var PLEDGE_KEY = 'splashPledgeSigned_v3';
-    var TOTAL = 6;
+    var TOTAL = 7;
     var PLEDGE_TEXT = '我绝不盈利、造谣、污蔑或嘲讽，并对自己的使用行为负完全责任';
     var cur = 0;
 
